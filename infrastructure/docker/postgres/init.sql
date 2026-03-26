@@ -1,0 +1,2 @@
+CREATE DATABASE keycloak;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
