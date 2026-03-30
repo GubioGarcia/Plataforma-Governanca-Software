@@ -23,10 +23,7 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
 
-    /**
-     * Ponto de entrada principal: recebe o JWT validado pelo Spring Security,
-     * extrai os claims do Keycloak e sincroniza com o banco de dados.
-     */
+    //Recebe o JWT validado pelo Spring Security,
     @Transactional
     public UsuarioResponseDTO resolverUsuario(Jwt jwt) {
         KeycloakUserInfo keycloakInfo = extrairInfoKeycloak(jwt);
@@ -34,10 +31,7 @@ public class UsuarioService {
         return mapToResponseDTO(usuario, keycloakInfo.roles());
     }
 
-    /**
-     * Extrai os dados relevantes do JWT emitido pelo Keycloak.
-     * O campo "sub" é o ID único do usuário no Keycloak.
-     */
+    //Extrai os dados relevantes do JWT emitido pelo Keycloak.
     private KeycloakUserInfo extrairInfoKeycloak(Jwt jwt) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
         String email = jwt.getClaimAsString("email");
@@ -68,11 +62,7 @@ public class UsuarioService {
         return Collections.emptyList();
     }
 
-    /**
-     * Busca o usuário pelo ID do Keycloak (external_identity_id).
-     * Se não encontrar, tenta pelo e-mail (migração).
-     * Se não existir, cria um novo registro.
-     */
+    //Busca o usuário pelo ID do Keycloak (external_identity_id). Se não encontrar, tenta pelo e-mail (migração). Se não existir, cria um novo registro.
     private Usuario sincronizarUsuario(KeycloakUserInfo info) {
         return usuarioRepository
                 .findByExternalIdentityId(info.keycloakId())
