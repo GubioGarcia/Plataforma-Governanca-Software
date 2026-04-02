@@ -18,17 +18,18 @@ public class Usuario {
     @GeneratedValue
     private UUID id;
 
-    @Column(name = "external_identity_id")
+    @Column(name = "external_identity_id", unique = true)
     private UUID externalIdentityId;
 
+    @Column(nullable = false)
     private String nome;
 
-    @Column(unique = true)
+    @Column(unique = true, nullable = false)
     private String email;
 
     private Boolean ativo;
 
-    @Column(name = "data_criacao")
+    @Column(name = "data_criacao", nullable = false, updatable = false)
     private Instant dataCriacao;
 
     @Column(name = "data_atualizacao")
