@@ -49,16 +49,12 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       TZ: America/Sao_Paulo
-
       # URI interna para buscar as chaves (sem discovery, sem issuer mismatch)
       KEYCLOAK_JWK_SET_URI: ${KEYCLOAK_JWK_SET_URI}
-
       # Issuer público que vem no campo "iss" do token
       KEYCLOAK_TOKEN_ISSUER: ${KEYCLOAK_TOKEN_ISSUER}
-
-      KEYCLOAK_CLIENT_ID: ${KEYCLOAK_CLIENT_ID}
-      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
-
+      KEYCLOAK_ADMIN_CLIENT_ID: ${KEYCLOAK_ADMIN_CLIENT_ID}
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
     depends_on:
       - postgres
       - keycloak
