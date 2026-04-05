@@ -1,6 +1,5 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra;
 
-//Lançada quando o Keycloak Admin retorna um erro durante operações administrativas.
 public class KeycloakAdminException extends RuntimeException {
 
     private final int statusCode;

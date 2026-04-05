@@ -43,12 +43,15 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // Endpoints públicos
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        // Cadastro é público — o usuário ainda não tem token
-                        .requestMatchers(HttpMethod.POST, "/api/auth/cadastro").permitAll()
-                        // Todo o resto exige autenticação
+                        // SWAGGER
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
+                        // Rotas públicas do módulo de identidade
+                        .requestMatchers(HttpMethod.POST,  "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.POST,  "/api/usuario/cadastrar").permitAll()
+                        .requestMatchers(HttpMethod.PATCH, "/api/usuario/alterarSenha").permitAll()
+                        // Qualquer outra rota exige autenticação
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
