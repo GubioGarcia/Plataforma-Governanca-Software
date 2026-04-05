@@ -13,20 +13,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Implementação do KeycloakAdminClient usando o RestClient do Spring 6.
- *
- * Fluxo:
- *  1. Obtém um token de serviço (client_credentials) do Keycloak.
- *  2. Usa esse token para chamar o Admin REST API e criar o usuário.
- *  3. Extrai o UUID do usuário criado a partir do header "Location" da resposta 201.
- *
- * Propriedades necessárias no application.properties:
- *   keycloak.admin.server-url       = http://keycloak:8080
- *   keycloak.admin.realm            = plataforma_discovery
- *   keycloak.admin.client-id        = plataforma-backend           (client com role "manage-users")
- *   keycloak.admin.client-secret    = <secret do client>
- */
 @Slf4j
 @Component
 public class KeycloakAdminClientImpl implements KeycloakAdminClient {
@@ -51,23 +37,24 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
         this.restClient   = RestClient.create();
     }
 
-    // -------------------------------------------------------------------------
-    // Implementação pública
-    // -------------------------------------------------------------------------
-
     @Override
     public UUID criarUsuario(String email, String nome, String senha) {
         String adminToken = obterTokenAdmin();
         return criarUsuarioNoKeycloak(adminToken, email, nome, senha);
     }
 
-    // -------------------------------------------------------------------------
-    // Passos internos
-    // -------------------------------------------------------------------------
+    @Override
+    public void atualizarUsuario(UUID keycloakId, String novoNome, String novoEmail) {
+        String adminToken = obterTokenAdmin();
+        atualizarUsuarioNoKeycloak(adminToken, keycloakId, novoNome, novoEmail);
+    }
 
-    /**
-     * Passo 1 — obtém o access_token via client_credentials.
-     */
+    @Override
+    public void redefinirSenha(UUID keycloakId, String novaSenha) {
+        String adminToken = obterTokenAdmin();
+        redefinirSenhaNoKeycloak(adminToken, keycloakId, novaSenha);
+    }
+
     private String obterTokenAdmin() {
         String tokenUrl = serverUrl + "/realms/" + realm + "/protocol/openid-connect/token";
 
@@ -97,16 +84,11 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
         return (String) response.get("access_token");
     }
 
-    /**
-     * Passo 2 — cria o usuário via Admin REST API.
-     * Retorna o UUID extraído do header Location da resposta 201.
-     */
     private UUID criarUsuarioNoKeycloak(String adminToken, String email,
                                         String nome, String senha) {
 
         String usersUrl = serverUrl + "/admin/realms/" + realm + "/users";
 
-        // Monta o payload conforme a representação do Keycloak
         Map<String, Object> credential = Map.of(
                 "type",      "password",
                 "value",     senha,
@@ -117,14 +99,13 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
                 "username",        email,
                 "email",           email,
                 "firstName",       nome,
-                "lastName",       nome,
+                "lastName",        nome,
                 "enabled",         true,
                 "emailVerified",   true,
                 "requiredActions", List.of(),
                 "credentials",     List.of(credential)
         );
 
-        // O Keycloak retorna 201 com o Location header apontando para o novo usuário
         var responseSpec = restClient.post()
                 .uri(usersUrl)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
@@ -144,8 +125,6 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
                 })
                 .toBodilessEntity();
 
-        // Extrai o UUID do header Location
-        // Ex: http://keycloak:8080/admin/realms/plataforma_discovery/users/550e8400-e29b-41d4-a716-446655440000
         var location = responseSpec.getHeaders().getLocation();
         if (location == null) {
             throw new KeycloakAdminException("Keycloak não retornou o header Location após criar o usuário", 500);
@@ -156,5 +135,75 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
         log.info("Usuário criado no Keycloak com ID: {}", keycloakId);
 
         return UUID.fromString(keycloakId);
+    }
+
+    private void atualizarUsuarioNoKeycloak(String adminToken, UUID keycloakId,String novoNome, String novoEmail) {
+
+        String userUrl = serverUrl + "/admin/realms/" + realm + "/users/" + keycloakId;
+
+        Map<String, Object> payload = Map.of(
+                "firstName", novoNome,
+                "lastName",  novoNome,
+                "email",     novoEmail,
+                "username",  novoEmail
+        );
+
+        restClient.put()
+                .uri(userUrl)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Usuário não encontrado no Keycloak: " + keycloakId, 404
+                    );
+                })
+                .onStatus(status -> status.value() == 409, (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Já existe um usuário com este e-mail no Keycloak: " + novoEmail, 409
+                    );
+                })
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao atualizar usuário no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value()
+                    );
+                })
+                .toBodilessEntity();
+
+        log.info("Usuário {} atualizado no Keycloak (nome={}, email={})", keycloakId, novoNome, novoEmail);
+    }
+
+    private void redefinirSenhaNoKeycloak(String adminToken, UUID keycloakId, String novaSenha) {
+
+        String resetUrl = serverUrl + "/admin/realms/" + realm + "/users/" + keycloakId + "/reset-password";
+
+        Map<String, Object> credential = Map.of(
+                "type",      "password",
+                "value",     novaSenha,
+                "temporary", false
+        );
+
+        restClient.put()
+                .uri(resetUrl)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(credential)
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Usuário não encontrado no Keycloak ao redefinir senha: " + keycloakId, 404
+                    );
+                })
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao redefinir senha no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value()
+                    );
+                })
+                .toBodilessEntity();
+
+        log.info("Senha redefinida no Keycloak para o usuário {}", keycloakId);
     }
 }
