@@ -206,4 +206,35 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
 
         log.info("Senha redefinida no Keycloak para o usuário {}", keycloakId);
     }
+
+    @Override
+    public void desabilitarUsuario(UUID keycloakId) {
+        String adminToken = obterTokenAdmin();
+        desabilitarUsuarioNoKeycloak(adminToken, keycloakId);
+    }
+
+    private void desabilitarUsuarioNoKeycloak(String adminToken, UUID keycloakId) {
+        String userUrl = serverUrl + "/admin/realms/" + realm + "/users/" + keycloakId;
+
+        Map<String, Object> payload = Map.of("enabled", false);
+
+        restClient.put()
+                .uri(userUrl)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(payload)
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Usuário não encontrado no Keycloak: " + keycloakId, 404);
+                })
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao desabilitar usuário no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .toBodilessEntity();
+
+        log.info("Usuário {} desabilitado no Keycloak.", keycloakId);
+    }
 }

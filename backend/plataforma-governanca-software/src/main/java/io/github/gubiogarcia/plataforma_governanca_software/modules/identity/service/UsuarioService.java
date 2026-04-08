@@ -144,6 +144,70 @@ public class UsuarioService {
         log.info("Senha alterada com sucesso para o usuário {}.", usuario.getId());
     }
 
+    @Transactional(readOnly = true)
+    public List<UsuarioResponseDTO> listarTodos(Boolean ativo) {
+        List<Usuario> usuarios = (ativo == null)
+                ? usuarioRepository.findAll()
+                : usuarioRepository.findAllByAtivo(ativo);
+
+        return usuarios.stream()
+                .map(u -> mapToResponseDTO(u, Collections.emptyList()))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public UsuarioResponseDTO buscarPorId(UUID id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new UsuarioNaoEncontradoException(
+                        "Nenhum usuário encontrado com o id: " + id));
+        return mapToResponseDTO(usuario, Collections.emptyList());
+    }
+
+    @Transactional(readOnly = true)
+    public UsuarioResponseDTO buscarPorEmail(String email) {
+        Usuario usuario = usuarioRepository.findByEmail(email)
+                .orElseThrow(() -> new UsuarioNaoEncontradoException(
+                        "Nenhum usuário encontrado com o e-mail: " + email));
+        return mapToResponseDTO(usuario, Collections.emptyList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<UsuarioResponseDTO> buscarPorNome(String nome) {
+        List<Usuario> usuarios = usuarioRepository.findByNomeContainingIgnoreCase(nome);
+        if (usuarios.isEmpty()) {
+            throw new UsuarioNaoEncontradoException(
+                    "Nenhum usuário encontrado com o nome: " + nome);
+        }
+        return usuarios.stream()
+                .map(u -> mapToResponseDTO(u, Collections.emptyList()))
+                .toList();
+    }
+
+    @Transactional
+    public void inativar(UUID id) {
+        Usuario usuario = usuarioRepository.findById(id)
+                .orElseThrow(() -> new UsuarioNaoEncontradoException(
+                        "Nenhum usuário encontrado com o id: " + id));
+
+        if (Boolean.FALSE.equals(usuario.getAtivo())) {
+            throw new UsuarioJaInativoException(id);
+        }
+
+        try {
+            keycloakAdminClient.desabilitarUsuario(usuario.getExternalIdentityId());
+        } catch (KeycloakAdminException ex) {
+            log.error("Falha ao desabilitar usuário {} no Keycloak: {}", id, ex.getMessage());
+            throw new AtualizacaoKeycloakException(
+                    "Falha ao inativar o usuário no servidor de autenticação. Tente novamente.", ex);
+        }
+
+        usuario.setAtivo(false);
+        usuario.setDataAtualizacao(Instant.now());
+        usuarioRepository.save(usuario);
+
+        log.info("Usuário {} inativado com sucesso.", id);
+    }
+
     // Helpers privados
 
     private KeycloakUserInfo extrairInfoKeycloak(Jwt jwt) {
@@ -179,6 +243,12 @@ public class UsuarioService {
                 usuario.getUrlMidiaPerfil(),
                 roles
         );
+    }
+
+    public static class UsuarioJaInativoException extends RuntimeException {
+        public UsuarioJaInativoException(UUID id) {
+            super("O usuário com id " + id + " já está inativo.");
+        }
     }
 
     // Exceções de domínio
