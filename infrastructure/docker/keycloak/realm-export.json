@@ -1,19 +1,38 @@
 {
   "realm": "plataforma_discovery",
   "enabled": true,
-
   "clients": [
     {
-      "clientId": "backend",
+      "clientId": "plataforma-api-client",
+      "name": "Plataforma API Client",
+      "description": "Client confidencial usado pelo back-end para validar tokens JWT emitidos pelo Keycloak (resource server). Nao possui service account — nao realiza operacoes administrativas.",
       "enabled": true,
       "publicClient": false,
-      "secret": "backend-secret",
+      "secret": "plataforma-api-secret",
       "protocol": "openid-connect",
+      "standardFlowEnabled": true,
       "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": true
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "attributes": {}
+    },
+    {
+      "clientId": "plataforma-admin-client",
+      "name": "Plataforma Admin Client",
+      "description": "Client confidencial com service account usado exclusivamente pelo back-end para operacoes administrativas no Keycloak via Admin REST API. Nunca exposto ao front-end.",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "plataforma-admin-secret",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "attributes": {}
     }
   ],
-
+  "scopeMappings": [],
+  "clientScopeMappings": {},
   "roles": {
     "realm": [
 
