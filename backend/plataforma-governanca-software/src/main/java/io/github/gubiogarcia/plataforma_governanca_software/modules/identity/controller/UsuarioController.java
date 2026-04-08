@@ -12,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import java.util.List;
+import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/usuario")
@@ -19,6 +21,29 @@ import org.springframework.web.bind.annotation.*;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+
+    @GetMapping
+    public ResponseEntity<List<UsuarioResponseDTO>> listarTodos(
+            @RequestParam(required = false) Boolean ativo) {
+        return ResponseEntity.ok(usuarioService.listarTodos(ativo));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<UsuarioResponseDTO> buscarPorId(@PathVariable UUID id) {
+        return ResponseEntity.ok(usuarioService.buscarPorId(id));
+    }
+
+    @GetMapping("/email")
+    public ResponseEntity<UsuarioResponseDTO> buscarPorEmail(
+            @RequestParam String email) {
+        return ResponseEntity.ok(usuarioService.buscarPorEmail(email));
+    }
+
+    @GetMapping("/nome")
+    public ResponseEntity<List<UsuarioResponseDTO>> buscarPorNome(
+            @RequestParam String nome) {
+        return ResponseEntity.ok(usuarioService.buscarPorNome(nome));
+    }
 
     @PostMapping("/cadastrar")
     public ResponseEntity<UsuarioResponseDTO> cadastrar(@Valid @RequestBody CadastroUsuarioRequestDTO request) {
@@ -35,6 +60,12 @@ public class UsuarioController {
     @PatchMapping("/alterarSenha")
     public ResponseEntity<Void> alterarSenha(@Valid @RequestBody AlterarSenhaRequestDTO request) {
         usuarioService.alterarSenha(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> inativar(@PathVariable UUID id) {
+        usuarioService.inativar(id);
         return ResponseEntity.noContent().build();
     }
 }

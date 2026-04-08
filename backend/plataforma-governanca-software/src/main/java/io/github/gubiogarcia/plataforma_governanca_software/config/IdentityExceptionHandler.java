@@ -90,4 +90,13 @@ public class IdentityExceptionHandler {
         problem.setType(URI.create("/errors/dados-invalidos"));
         return problem;
     }
+
+    @ExceptionHandler(UsuarioService.UsuarioJaInativoException.class)
+    public ProblemDetail handleUsuarioJaInativo(UsuarioService.UsuarioJaInativoException ex) {
+        ProblemDetail problem = ProblemDetail.forStatus(HttpStatus.CONFLICT);
+        problem.setTitle("Usuário já inativo");
+        problem.setDetail(ex.getMessage());
+        problem.setType(URI.create("/errors/usuario-ja-inativo"));
+        return problem;
+    }
 }

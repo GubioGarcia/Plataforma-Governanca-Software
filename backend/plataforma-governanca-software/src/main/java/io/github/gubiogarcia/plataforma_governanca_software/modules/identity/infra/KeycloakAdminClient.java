@@ -7,4 +7,5 @@ public interface KeycloakAdminClient {
     UUID criarUsuario(String email, String nome, String senha);
     void atualizarUsuario(UUID keycloakId, String novoNome, String novoEmail);
     void redefinirSenha(UUID keycloakId, String novaSenha);
+    void desabilitarUsuario(UUID keycloakId);
 }
