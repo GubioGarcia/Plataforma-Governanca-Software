@@ -26,7 +26,7 @@ import HubIcon from '@mui/icons-material/Hub';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
-import { useAuth } from '../../context/UseAuth';
+import { useAuth } from '../../context/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useThemeMode } from '../../context/ThemeContext';
 import { mockAudit } from '../../mocks/audit';

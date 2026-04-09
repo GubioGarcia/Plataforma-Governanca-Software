@@ -2,7 +2,7 @@
 
 export interface Comentario extends DadosAuditoria {
   texto: string;
-  userId: number;
+  userId: string | number;
   userName: string;
   userAvatar?: string;
   requisitoId: number;
