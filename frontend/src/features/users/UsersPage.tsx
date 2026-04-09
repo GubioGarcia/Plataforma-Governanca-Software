@@ -235,7 +235,6 @@ export default function UsersPage() {
 
   // Perfis
   const [perfis, setPerfis] = useState<PerfilSistema[]>(INIT_PERFIS);
-  const [selectedPerfil, setSelectedPerfil] = useState<PerfilSistema | null>(null);
   const [editedPerfil, setEditedPerfil] = useState<PerfilSistema | null>(null);
   const [activePerfilPermTab, setActivePerfilPermTab] = useState(0);
   const [perfilDialogOpen, setPerfilDialogOpen] = useState(false);
@@ -376,7 +375,6 @@ export default function UsersPage() {
   // ── Funções de Perfil ──────────────────────────────────────────────────────
 
   function openPerfilDetail(p: PerfilSistema) {
-    setSelectedPerfil(p);
     setEditedPerfil({ ...p, permissoes: [...p.permissoes] });
     setActivePerfilPermTab(0);
     setView('profile');
@@ -395,7 +393,6 @@ export default function UsersPage() {
     setPerfis((prev) => prev.map((p) => (p.id === editedPerfil.id ? { ...editedPerfil } : p)));
     notify('Perfil salvo com sucesso');
     setView('profiles');
-    setSelectedPerfil(null);
     setEditedPerfil(null);
   }
 
@@ -441,7 +438,7 @@ export default function UsersPage() {
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Tooltip title="Voltar aos perfis">
-              <IconButton size="small" onClick={() => { setView('profiles'); setSelectedPerfil(null); setEditedPerfil(null); }}>
+              <IconButton size="small" onClick={() => { setView('profiles'); setEditedPerfil(null); }}>
                 <ArrowBackIcon fontSize="small" />
               </IconButton>
             </Tooltip>
