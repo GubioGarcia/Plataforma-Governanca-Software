@@ -19,7 +19,7 @@ import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import BusinessIcon from '@mui/icons-material/Business';
 import HistoryIcon from '@mui/icons-material/History';
-import { useAuth } from '../context/UseAuth';
+import { useAuth } from '../context/useAuth';
 import { mockAudit } from '../mocks/audit';
 import { mockProjects } from '../mocks/projects';
 
@@ -96,7 +96,7 @@ export default function ProfilePage() {
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <AlternateEmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                    <Typography variant="body2">{user?.username}</Typography>
+                    <Typography variant="body2">{displayName}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <BadgeIcon sx={{ fontSize: 18, color: 'text.secondary' }} />

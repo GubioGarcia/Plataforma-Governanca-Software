@@ -11,7 +11,7 @@ export type StatusRequisito =
 export type TipoRequisito = 'FUNCIONAL' | 'NAO_FUNCIONAL';
 
 export interface RequisitoVoto {
-  userId: number;
+  userId: string | number;
   userName: string;
   voto: 'APROVADO' | 'REPROVADO' | null;
   votadoEm?: string;

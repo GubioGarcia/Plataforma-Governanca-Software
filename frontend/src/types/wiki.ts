@@ -8,7 +8,7 @@ export type StatusWikiSection =
   | 'VALIDADO';
 
 export interface WikiVoto {
-  userId: number;
+  userId: string | number;
   userName: string;
   userAvatar?: string;
   voto: 'APROVADO' | 'REPROVADO' | null;

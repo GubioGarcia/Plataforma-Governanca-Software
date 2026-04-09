@@ -16,7 +16,7 @@ import HowToVoteIcon from '@mui/icons-material/HowToVote';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
 import { mockProjects } from '../mocks/projects';
 import { mockRequirements } from '../mocks/requirements';
@@ -42,7 +42,7 @@ function timeAgo(iso: string) {
 }
 
 function initials(name: string) {
-  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  return name.split(' ').map((n: string) => n[0]).slice(0, 2).join('').toUpperCase();
 }
 
 // ── Componente ────────────────────────────────────────────────────────────────
@@ -50,7 +50,7 @@ function initials(name: string) {
 export default function HomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { isGestor, isStakeholder, canVote } = usePermissions();
+  const { isGestor, canVote } = usePermissions();
 
   const activeProjects = mockProjects.filter(
     (p) => p.status === 'EM_DESENVOLVIMENTO' || p.status === 'PLANEJAMENTO',

@@ -7,7 +7,7 @@ import TextField from '@mui/material/TextField';
 import CircularProgress from '@mui/material/CircularProgress';
 import HubIcon from '@mui/icons-material/Hub';
 import { useTheme } from '@mui/material/styles';
-import { useAuth } from '../context/UseAuth';
+import { useAuth } from '../context/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cadastrarUsuario, isApiError } from '../services/userService';
 
@@ -63,7 +63,6 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
 
-    // Validação básica no cliente — não revela qual campo está errado
     if (!email.trim() || !senha) {
       setErro('Preencha o e-mail e a senha para continuar.');
       return;
@@ -73,9 +72,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login(email.trim(), senha);
-      // Redirecionamento tratado pelo useEffect acima
     } catch (err: unknown) {
-      // Sempre mensagem genérica — não revela se e-mail existe ou senha está errada
       const msg =
         err instanceof Error
           ? err.message
@@ -111,7 +108,6 @@ export default function LoginPage() {
       if (isApiError(err)) {
         const status = err.response?.status;
         if (status === 409) {
-          // E-mail já cadastrado — aceitável revelar porque o usuário acabou de digitar
           setCadErros({ email: 'Já existe uma conta com este e-mail' });
         } else if (status === 422) {
           setCadErros({ senha: 'A senha não atende aos requisitos mínimos' });
