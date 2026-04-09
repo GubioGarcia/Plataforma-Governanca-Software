@@ -1,4 +1,4 @@
-import { useAuth } from '../context/UseAuth';
+import { useAuth } from '../context/useAuth';
 import type { PapelProjeto } from '../types/stakeholder';
 
 export function usePermissions() {

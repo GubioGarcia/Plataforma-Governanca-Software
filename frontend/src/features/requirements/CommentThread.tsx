@@ -10,7 +10,7 @@ import Typography from '@mui/material/Typography';
 import DeleteIcon from '@mui/icons-material/Delete';
 import SendIcon from '@mui/icons-material/Send';
 import type { Comentario } from '../../types/comment';
-import { useAuth } from '../../context/UseAuth';
+import { useAuth } from '../../context/useAuth';
 
 interface CommentThreadProps {
   comments: Comentario[];
