@@ -1,0 +1,69 @@
+{
+  "realm": "plataforma_discovery",
+  "enabled": true,
+  "clients": [
+    {
+      "clientId": "plataforma-api-client",
+      "name": "Plataforma API Client",
+      "description": "Client confidencial usado pelo back-end para validar tokens JWT emitidos pelo Keycloak (resource server). Nao possui service account — nao realiza operacoes administrativas.",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "plataforma-api-secret",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": false,
+      "authorizationServicesEnabled": false,
+      "attributes": {}
+    },
+    {
+      "clientId": "plataforma-admin-client",
+      "name": "Plataforma Admin Client",
+      "description": "Client confidencial com service account usado exclusivamente pelo back-end para operacoes administrativas no Keycloak via Admin REST API. Nunca exposto ao front-end.",
+      "enabled": true,
+      "publicClient": false,
+      "secret": "plataforma-admin-secret",
+      "protocol": "openid-connect",
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "authorizationServicesEnabled": false,
+      "attributes": {}
+    }
+  ],
+  "scopeMappings": [],
+  "clientScopeMappings": {},
+  "roles": {
+    "realm": [
+
+      { "name": "ORG_OWNER" },
+      { "name": "ORG_ADMIN" },
+      { "name": "ORG_MEMBER" },
+
+      { "name": "PROJECT_MANAGER" },
+      { "name": "STAKEHOLDER_CLIENT" },
+      { "name": "STAKEHOLDER_TECHNICAL" },
+
+      { "name": "ORG_CREATE_PROJECT" },
+      { "name": "ORG_EDIT" },
+      { "name": "ORG_DELETE" },
+      { "name": "ORG_INVITE_USER" },
+      { "name": "ORG_VIEW_USERS" },
+
+      { "name": "WIKI_VIEW" },
+      { "name": "WIKI_EDIT" },
+      { "name": "WIKI_COMMENT" },
+
+      { "name": "REQ_CREATE" },
+      { "name": "REQ_EDIT" },
+      { "name": "REQ_DELETE" },
+      { "name": "REQ_APPROVE" },
+      { "name": "REQ_REQUEST_APPROVAL" },
+      { "name": "REQ_REQUEST_REJECTION" },
+      { "name": "REQ_VIEW" },
+      { "name": "REQ_COMMENT" },
+
+      { "name": "AUDIT_VIEW" }
+    ]
+  }
+}
