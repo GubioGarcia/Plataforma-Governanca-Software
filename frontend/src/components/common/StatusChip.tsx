@@ -1,20 +1,5 @@
 import Chip from '@mui/material/Chip';
-import type { StatusRequisito } from '../../types/requirement';
-import type { StatusWikiSection } from '../../types/wiki';
-import type { StatusProjeto } from '../../types/project';
-import type { PlanoOrganizacao } from '../../types/organization';
-import type { PapelProjeto } from '../../types/stakeholder';
-import type { TipoEventoProjeto } from '../../types/event';
-import type { TipoEntidadeAuditoria } from '../../types/audit';
-
-type AnyStatus =
-  | StatusRequisito
-  | StatusWikiSection
-  | StatusProjeto
-  | PlanoOrganizacao
-  | PapelProjeto
-  | TipoEventoProjeto
-  | TipoEntidadeAuditoria;
+// Aceita qualquer texto de status (string) para simplificar compatibilidade
 
 const CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   // Requisito / Wiki
@@ -46,7 +31,7 @@ const CONFIG: Record<string, { label: string; bg: string; color: string }> = {
 };
 
 interface StatusChipProps {
-  status: AnyStatus;
+  status: string;
   size?: 'small' | 'medium';
 }
 
