@@ -4,6 +4,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.doma
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.AtualizarStatusProjetoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.CriarStatusProjetoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.StatusProjetoResponseDTO;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -19,6 +20,7 @@ import java.util.UUID;
 public class StatusProjetoService {
 
     private final StatusProjetoRepository statusProjetoRepository;
+    private final ProjetoRepository projetoRepository;
 
     @Transactional
     public StatusProjetoResponseDTO criar(CriarStatusProjetoRequestDTO request) {
@@ -84,11 +86,16 @@ public class StatusProjetoService {
         if (!statusProjetoRepository.existsById(id)) {
             throw new StatusProjetoNaoEncontradoException("Nenhum status encontrado com o id: " + id);
         }
+        // Impede remoção de status que está vinculado a projetos existentes.
+        // Deletar um status em uso quebraria a integridade referencial e
+        // tornaria projetos existentes sem estado definido.
+        if (projetoRepository.existsByStatusId(id)) {
+            throw new StatusProjetoEmUsoException(id);
+        }
+
         statusProjetoRepository.deleteById(id);
         log.info("StatusProjeto {} removido com sucesso.", id);
     }
-
-    // Helper
 
     public StatusProjetoResponseDTO mapToResponseDTO(StatusProjeto s) {
         return new StatusProjetoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem());

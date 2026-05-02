@@ -27,4 +27,6 @@ public interface ProjetoRepository extends JpaRepository<Projeto, UUID> {
     List<Object[]> countProjetosAtivosByOrganizacaoIds(@Param("orgIds") List<UUID> orgIds);
 
     long countByOrganizacaoIdAndAtivo(UUID organizacaoId, Boolean ativo);
+
+    boolean existsByStatusId(UUID statusId);
 }
