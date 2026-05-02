@@ -24,7 +24,6 @@ public class Prioridade {
 
     private String descricao;
 
+    @Column(unique = true)
     private Integer ordem;
-
-    private Boolean ativo;
 }
