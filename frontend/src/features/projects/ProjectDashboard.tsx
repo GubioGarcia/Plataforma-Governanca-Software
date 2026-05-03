@@ -35,12 +35,22 @@ export default function ProjectDashboard() {
 
   const project = mockProjects.find((p) => p.id === Number(projectId));
   const requirements = mockRequirements.filter((r) => r.projetoId === Number(projectId));
-  const events = mockEvents.filter((e) => e.projetoId === Number(projectId));
+  const events = mockEvents.filter((e) => String(e.projetoId) === String(projectId));
   const wiki = mockWiki[Number(projectId)];
   const stakeholders = mockStakeholders.filter((s) => s.projetoId === Number(projectId));
+
+  const parseOptionalDate = (value?: string | number | Date) => {
+    if (!value) return null;
+    return new Date(value);
+  };
+
   const recentActivity = [...mockAudit]
     .filter((a) => (a.projetoId ?? 1) === Number(projectId))
-    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
+    .sort((a, b) => {
+      const dateA = parseOptionalDate(a.data);
+      const dateB = parseOptionalDate(b.data);
+      return (dateB?.getTime() ?? 0) - (dateA?.getTime() ?? 0);
+    })
     .slice(0, 5);
 
   if (!project) return null;
@@ -55,8 +65,15 @@ export default function ProjectDashboard() {
   const total = requirements.length || 1;
 
   const nextEvents = [...events]
-    .filter((e) => new Date(e.data) >= new Date())
-    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    .filter((e) => {
+      const eventDate = parseOptionalDate(e.dataHoraInicio);
+      return eventDate !== null && eventDate >= new Date();
+    })
+    .sort((a, b) => {
+      const dateA = parseOptionalDate(a.dataHoraInicio);
+      const dateB = parseOptionalDate(b.dataHoraInicio);
+      return (dateA?.getTime() ?? 0) - (dateB?.getTime() ?? 0);
+    })
     .slice(0, 3);
 
   const topStakeholders = [...stakeholders]
@@ -204,16 +221,16 @@ export default function ProjectDashboard() {
                             }}
                           >
                             <Typography sx={{ fontSize: '11px', fontWeight: 700, color: 'primary.main', lineHeight: 1 }}>
-                              {new Date(event.data).toLocaleDateString('pt-BR', { day: '2-digit' })}
+                              {event.dataHoraInicio ? new Date(event.dataHoraInicio).toLocaleDateString('pt-BR', { day: '2-digit' }) : '--'}
                             </Typography>
                             <Typography sx={{ fontSize: '10px', color: 'primary.main', lineHeight: 1 }}>
-                              {new Date(event.data).toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase()}
+                              {event.dataHoraInicio ? new Date(event.dataHoraInicio).toLocaleDateString('pt-BR', { month: 'short' }).toUpperCase() : '---'}
                             </Typography>
                           </Box>
                         </Box>
                         <ListItemText
                           primary={event.nome}
-                          secondary={event.tipo.charAt(0) + event.tipo.slice(1).toLowerCase()}
+                          secondary={(event.tipo ?? 'REUNIAO').charAt(0) + (event.tipo ?? 'REUNIAO').slice(1).toLowerCase()}
                           primaryTypographyProps={{ fontSize: '13px', fontWeight: 500 }}
                           secondaryTypographyProps={{ fontSize: '12px' }}
                         />
@@ -368,7 +385,7 @@ export default function ProjectDashboard() {
                               {entry.descricao}
                             </Typography>
                             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '11px' }}>
-                              {entry.userName} · {new Date(entry.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                              {entry.userName} · {entry.data ? new Date(entry.data).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Data indisponível'}
                             </Typography>
                           </Box>
                           <Chip

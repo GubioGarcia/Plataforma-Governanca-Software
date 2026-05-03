@@ -22,6 +22,7 @@ public class Evento {
 
     private String nome;
 
+    @Column(columnDefinition = "TEXT")
     private String descricao;
 
     @ManyToOne

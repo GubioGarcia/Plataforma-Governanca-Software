@@ -1,34 +1,50 @@
-﻿import type { DadosAuditoria } from './common';
+﻿export interface WikiProjetoApi {
+  id: string;
+  projetoId: string;
+  projetoNome?: string;
+  projetoDescricao?: string;
+  projetoCriadoPorId?: string;
+  projetoCriadoPorNome?: string;
+  projetoStatus?: string;
+  descricaoProblema?: string;
+  publicoAlvo?: string;
+  objetivoGeral?: string;
+  objetivosEspecificos?: string;
+  kpis?: string;
+  restricoesPrazo?: string;
+  restricoesOrcamento?: string;
+  tecnologiasObrigatorias?: string;
+  regulamentacoes?: string;
+  dataAtualizacao?: string;
+}
 
-export type StatusWikiSection =
-  | 'RASCUNHO'
-  | 'EM_VALIDACAO'
-  | 'APROVADO'
-  | 'REPROVADO'
-  | 'VALIDADO';
+export interface WikiProjetoUpdateRequest {
+  descricaoProblema?: string;
+  publicoAlvo?: string;
+  objetivoGeral?: string;
+  objetivosEspecificos?: string;
+  kpis?: string;
+  restricoesPrazo?: string;
+  restricoesOrcamento?: string;
+  tecnologiasObrigatorias?: string;
+  regulamentacoes?: string;
+}
+
+export type StatusWikiSection = 'RASCUNHO' | 'EM_VALIDACAO' | 'APROVADO' | 'REPROVADO' | 'VALIDADO';
 
 export interface WikiVoto {
-  userId: string | number;
+  userId: string;
   userName: string;
-  userAvatar?: string;
   voto: 'APROVADO' | 'REPROVADO' | null;
   votadoEm?: string;
 }
 
 export interface WikiSection {
-  status: StatusWikiSection;
+  id: string;
   conteudo: string;
+  status: StatusWikiSection;
+  votos: WikiVoto[];
   totalStakeholders: number;
   aprovacoes: number;
   reprovacoes: number;
-  votos: WikiVoto[];
-}
-
-export interface WikiProjeto extends DadosAuditoria {
-  projetoId: number;
-  objetivo: WikiSection;
-  objetivosEspecificos: WikiSection;
-  kpis: WikiSection;
-  restricoes: WikiSection;
-  stakeholderParticipacao: number;
 }
