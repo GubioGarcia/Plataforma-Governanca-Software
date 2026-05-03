@@ -37,11 +37,11 @@ export default function WikiSection({ title, icon, section, onUpdate }: WikiSect
   const [editOpen, setEditOpen] = useState(false);
   const [editContent, setEditContent] = useState(section.conteudo);
 
-  const responderam = section.votos.filter((v) => v.voto !== null).length;
+  const responderam = section.votos.filter((v: typeof section.votos[0]) => v.voto !== null).length;
   const participacao =
     section.totalStakeholders > 0 ? Math.round((responderam / section.totalStakeholders) * 100) : 0;
 
-  const userVoto = section.votos.find((v) => v.userId === user?.id);
+  const userVoto = section.votos.find((v: typeof section.votos[0]) => v.userId === user?.id);
   const jaVotou = Boolean(userVoto?.voto);
 
   const handleSendToValidation = () => {
@@ -50,11 +50,11 @@ export default function WikiSection({ title, icon, section, onUpdate }: WikiSect
   };
 
   const handleVote = (voto: 'APROVADO' | 'REPROVADO') => {
-    const newVotos = section.votos.map((v) =>
+    const newVotos = section.votos.map((v: typeof section.votos[0]) =>
       v.userId === user?.id ? { ...v, voto, votadoEm: new Date().toISOString() } : v
     );
-    const novosAprovados = newVotos.filter((v) => v.voto === 'APROVADO').length;
-    const novosReprovados = newVotos.filter((v) => v.voto === 'REPROVADO').length;
+    const novosAprovados = newVotos.filter((v: typeof newVotos[0]) => v.voto === 'APROVADO').length;
+    const novosReprovados = newVotos.filter((v: typeof newVotos[0]) => v.voto === 'REPROVADO').length;
     onUpdate?.({ ...section, votos: newVotos, aprovacoes: novosAprovados, reprovacoes: novosReprovados });
     notify(voto === 'APROVADO' ? 'Voto registrado: Aprovado' : 'Voto registrado: Reprovado', voto === 'APROVADO' ? 'success' : 'warning');
   };

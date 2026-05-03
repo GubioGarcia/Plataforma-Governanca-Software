@@ -1,16 +1,22 @@
-﻿import type { DadosAuditoria } from './common';
-
-export type TipoEventoProjeto =
+﻿export type TipoEventoProjeto =
   | 'REUNIAO'
   | 'WORKSHOP'
   | 'ENTREGA'
   | 'REVISAO'
   | 'DEMO';
 
-export interface EventoProjeto extends DadosAuditoria {
+export interface EventoProjeto {
+  id: string;
   nome: string;
   descricao?: string;
-  tipo: TipoEventoProjeto;
-  data: string;
-  projetoId: number;
+  tipo?: TipoEventoProjeto;
+  projetoId: string;
+  projetoNome?: string;
+  organizacaoId: string;
+  organizacaoNome?: string;
+  criadoPorId?: string;
+  criadoPorNome?: string;
+  dataHoraInicio?: string;
+  dataHoraFim?: string;
+  dataCriacao?: string;
 }

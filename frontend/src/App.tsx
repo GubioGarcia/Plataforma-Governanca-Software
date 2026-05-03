@@ -8,6 +8,11 @@ import OrgDashboard from './features/organizations/OrgDashboard';
 import ProjectList from './features/projects/ProjectList';
 import ProjectDashboard from './features/projects/ProjectDashboard';
 import WikiPage from './features/wiki/WikiPage';
+import WikiEditDescricao from './features/wiki/WikiEditDescricao';
+import WikiEditProblema from './features/wiki/WikiEditProblema';
+import WikiEditPublico from './features/wiki/WikiEditPublico';
+import WikiEditObjetivos from './features/wiki/WikiEditObjetivos';
+import WikiEditRestricoes from './features/wiki/WikiEditRestricoes';
 import RequirementList from './features/requirements/RequirementList';
 import EventTimeline from './features/events/EventTimeline';
 import FileRepository from './features/files/FileRepository';
@@ -39,6 +44,11 @@ export default function App() {
         <Route path="organizations/:orgId/projects/:projectId" element={<ProjectShell />}>
           <Route index element={<ProjectDashboard />} />
           <Route path="wiki" element={<WikiPage />} />
+          <Route path="wiki/descricao" element={<WikiEditDescricao />} />
+          <Route path="wiki/problema" element={<WikiEditProblema />} />
+          <Route path="wiki/publico" element={<WikiEditPublico />} />
+          <Route path="wiki/objetivos" element={<WikiEditObjetivos />} />
+          <Route path="wiki/restricoes" element={<WikiEditRestricoes />} />
           <Route path="requirements" element={<RequirementList />} />
           <Route path="events" element={<EventTimeline />} />
           <Route path="files" element={<FileRepository />} />

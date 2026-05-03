@@ -92,7 +92,7 @@ export default function RequirementList() {
     const newComment: Comentario = {
       id: Date.now(),
       texto: text,
-      userId: user.id,
+      userId: String(user.id),
       userName: user.nome,
       requisitoId: selectedId,
       createdAt: new Date().toISOString(),
@@ -652,7 +652,7 @@ export default function RequirementList() {
                     participacao={participacao}
                     totalStakeholders={totalStake}
                     responderam={responderam}
-                    votos={selected.votos?.map((v) => ({ userId: v.userId, userName: v.userName, voto: v.voto, votadoEm: v.votadoEm }))}
+                    votos={selected.votos?.map((v) => ({ userId: String(v.userId), userName: v.userName, voto: v.voto, votadoEm: v.votadoEm }))}
                   />
                 </Box>
               )}

@@ -1,13 +1,25 @@
-import type { WikiProjeto } from '../types/wiki';
+import type { WikiSection } from '../types/wiki';
 
-export const mockWiki: Record<number, WikiProjeto> = {
+export interface WikiProjetoMock {
+  id: string;
+  projetoId: string;
+  stakeholderParticipacao?: number;
+  objetivo?: WikiSection;
+  objetivosEspecificos?: WikiSection;
+  restricoes?: WikiSection;
+  kpis?: WikiSection;
+}
+
+export const mockWiki: Record<number, WikiProjetoMock> = {
+/*
   1: {
-    id: 1,
-    projetoId: 1,
+    id: '1',
+    projetoId: '1',
     stakeholderParticipacao: 60,
     createdAt: '2026-01-10T09:00:00Z',
     updatedAt: '2026-03-08T14:30:00Z',
-    objetivo: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
+      id: 'objetivo-1',
       status: 'EM_VALIDACAO',
       conteudo:
         'Desenvolver uma plataforma colaborativa que centralize a documentação do projeto e favoreça a interação contínua entre gestores, equipe técnica e stakeholders durante as fases iniciais de projetos de software, especialmente nas etapas de discovery e levantamento de requisitos.',
@@ -15,14 +27,14 @@ export const mockWiki: Record<number, WikiProjeto> = {
       aprovacoes: 2,
       reprovacoes: 1,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-03-09T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'REPROVADO', votadoEm: '2026-03-09T11:30:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2026-03-10T08:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: null },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: null },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-03-09T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'REPROVADO', votadoEm: '2026-03-09T11:30:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2026-03-10T08:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: null },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: null },
       ],
     },
-    objetivosEspecificos: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'APROVADO',
       conteudo:
         '• Centralizar a documentação de projetos em um único ambiente estruturado\n• Formalizar a participação dos stakeholders com aprovação ou reprovação obrigatória\n• Mensurar o nível de engajamento dos stakeholders por meio de métricas de interação\n• Reduzir a dispersão de informações e retrabalho nas fases iniciais\n• Prover rastreabilidade completa das decisões tomadas',
@@ -30,14 +42,14 @@ export const mockWiki: Record<number, WikiProjeto> = {
       aprovacoes: 4,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-03-07T14:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2026-03-07T15:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2026-03-08T09:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2026-03-08T10:00:00Z' },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: null },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-03-07T14:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2026-03-07T15:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2026-03-08T09:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2026-03-08T10:00:00Z' },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: null },
       ],
     },
-    kpis: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'VALIDADO',
       conteudo:
         '• 80% ou mais de participação dos stakeholders nas validações\n• Redução de 30% no retrabalho de requisitos após fase de discovery\n• 100% dos requisitos com aprovação formal antes do início do desenvolvimento\n• Tempo médio de resposta dos stakeholders inferior a 48 horas',
@@ -45,14 +57,14 @@ export const mockWiki: Record<number, WikiProjeto> = {
       aprovacoes: 5,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-03-06T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2026-03-06T11:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2026-03-06T13:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2026-03-06T14:00:00Z' },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2026-03-06T15:00:00Z' },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-03-06T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2026-03-06T11:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2026-03-06T13:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2026-03-06T14:00:00Z' },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2026-03-06T15:00:00Z' },
       ],
     },
-    restricoes: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo:
         '• Prazo máximo de 6 meses para entrega do MVP\n• Orçamento limitado a R$ 150.000\n• Tecnologias obrigatórias: Java 21, Spring Framework, React, TypeScript, PostgreSQL e Keycloak\n• Deve suportar no mínimo 100 usuários simultâneos',
@@ -60,21 +72,21 @@ export const mockWiki: Record<number, WikiProjeto> = {
       aprovacoes: 0,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: null },
-        { userId: 3, userName: 'Pedro Costa', voto: null },
-        { userId: 4, userName: 'Maria Souza', voto: null },
-        { userId: 5, userName: 'Carlos Mendes', voto: null },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: null },
+        { userId: "2", userName: 'Ana Lima', voto: null },
+        { userId: "3", userName: 'Pedro Costa', voto: null },
+        { userId: "4", userName: 'Maria Souza', voto: null },
+        { userId: "5", userName: 'Carlos Mendes', voto: null },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: null },
       ],
     },
   },
   2: {
-    id: 2,
-    projetoId: 2,
+    id: '2',
+    projetoId: '2',
     stakeholderParticipacao: 0,
     createdAt: '2026-02-20T10:00:00Z',
     updatedAt: '2026-02-20T10:00:00Z',
-    objetivo: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: 'Desenvolver um portal interno de RH para centralizar as operações de recursos humanos da empresa.',
       totalStakeholders: 3,
@@ -82,7 +94,7 @@ export const mockWiki: Record<number, WikiProjeto> = {
       reprovacoes: 0,
       votos: [],
     },
-    objetivosEspecificos: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: '',
       totalStakeholders: 3,
@@ -90,7 +102,7 @@ export const mockWiki: Record<number, WikiProjeto> = {
       reprovacoes: 0,
       votos: [],
     },
-    kpis: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: '',
       totalStakeholders: 3,
@@ -98,7 +110,7 @@ export const mockWiki: Record<number, WikiProjeto> = {
       reprovacoes: 0,
       votos: [],
     },
-    restricoes: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: '',
       totalStakeholders: 3,
@@ -108,109 +120,109 @@ export const mockWiki: Record<number, WikiProjeto> = {
     },
   },
   3: {
-    id: 3,
-    projetoId: 3,
+    id: '3',
+    projetoId: '3',
     stakeholderParticipacao: 100,
     createdAt: '2025-08-05T10:00:00Z',
     updatedAt: '2026-01-14T12:00:00Z',
-    objetivo: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'VALIDADO',
       conteudo: 'Desenvolver um aplicativo mobile para relacionamento com clientes, centralizando suporte, notificações push e histórico completo de serviços contratados.',
       totalStakeholders: 7,
       aprovacoes: 7,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-09-10T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-09-10T11:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-09-11T09:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-09-11T10:00:00Z' },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-09-12T08:00:00Z' },
-        { userId: 7, userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-09-12T14:00:00Z' },
-        { userId: 8, userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-09-13T09:00:00Z' },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-09-10T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-09-10T11:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-09-11T09:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-09-11T10:00:00Z' },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-09-12T08:00:00Z' },
+        { userId: "7", userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-09-12T14:00:00Z' },
+        { userId: "8", userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-09-13T09:00:00Z' },
       ],
     },
-    objetivosEspecificos: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'VALIDADO',
       conteudo: '• Implementar chat de suporte em tempo real\n• Exibir histórico de serviços por cliente\n• Enviar notificações push personalizadas\n• Permitir agendamento de serviços pelo app\n• Integrar com sistema legado de CRM',
       totalStakeholders: 7,
       aprovacoes: 7,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-10-01T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-10-01T11:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-10-02T09:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-10-02T10:00:00Z' },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-10-03T08:00:00Z' },
-        { userId: 7, userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-10-03T14:00:00Z' },
-        { userId: 8, userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-10-04T09:00:00Z' },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-10-01T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-10-01T11:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-10-02T09:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-10-02T10:00:00Z' },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-10-03T08:00:00Z' },
+        { userId: "7", userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-10-03T14:00:00Z' },
+        { userId: "8", userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-10-04T09:00:00Z' },
       ],
     },
-    kpis: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'VALIDADO',
       conteudo: '• 4,5+ de avaliação média na App Store / Google Play\n• Tempo de resposta do suporte inferior a 2 horas\n• 70% dos clientes ativos usando o app em 3 meses\n• Zero downtime crítico no primeiro mês de produção',
       totalStakeholders: 7,
       aprovacoes: 7,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-10-15T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-10-15T11:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-10-16T09:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-10-16T10:00:00Z' },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-10-17T08:00:00Z' },
-        { userId: 7, userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-10-17T14:00:00Z' },
-        { userId: 8, userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-10-18T09:00:00Z' },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-10-15T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-10-15T11:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-10-16T09:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-10-16T10:00:00Z' },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-10-17T08:00:00Z' },
+        { userId: "7", userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-10-17T14:00:00Z' },
+        { userId: "8", userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-10-18T09:00:00Z' },
       ],
     },
-    restricoes: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'VALIDADO',
       conteudo: '• Suporte obrigatório a Android 10+ e iOS 15+\n• Prazo de entrega: 4 meses\n• Orçamento máximo: R$ 200.000\n• Conformidade com LGPD para dados dos clientes\n• Backend deve ser o sistema de CRM legado existente',
       totalStakeholders: 7,
       aprovacoes: 7,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-11-01T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-11-01T11:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-11-02T09:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-11-02T10:00:00Z' },
-        { userId: 6, userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-11-03T08:00:00Z' },
-        { userId: 7, userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-11-03T14:00:00Z' },
-        { userId: 8, userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-11-04T09:00:00Z' },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-11-01T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-11-01T11:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-11-02T09:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-11-02T10:00:00Z' },
+        { userId: "6", userName: 'Lúcia Ferreira', voto: 'APROVADO', votadoEm: '2025-11-03T08:00:00Z' },
+        { userId: "7", userName: 'Roberto Alves', voto: 'APROVADO', votadoEm: '2025-11-03T14:00:00Z' },
+        { userId: "8", userName: 'Sandra Melo', voto: 'APROVADO', votadoEm: '2025-11-04T09:00:00Z' },
       ],
     },
   },
   4: {
-    id: 4,
-    projetoId: 4,
+    id: '4',
+    projetoId: '4',
     stakeholderParticipacao: 40,
     createdAt: '2025-11-05T09:00:00Z',
     updatedAt: '2026-03-05T10:00:00Z',
-    objetivo: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'APROVADO',
       conteudo: 'Desenvolver uma plataforma de aprendizagem online (LMS) com trilhas de conhecimento personalizadas, videoaulas interativas e avaliações adaptativas baseadas no desempenho do aluno.',
       totalStakeholders: 4,
       aprovacoes: 4,
       reprovacoes: 0,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-12-10T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-12-10T11:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-12-11T09:00:00Z' },
-        { userId: 5, userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-12-11T14:00:00Z' },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2025-12-10T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'APROVADO', votadoEm: '2025-12-10T11:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: 'APROVADO', votadoEm: '2025-12-11T09:00:00Z' },
+        { userId: "5", userName: 'Carlos Mendes', voto: 'APROVADO', votadoEm: '2025-12-11T14:00:00Z' },
       ],
     },
-    objetivosEspecificos: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'EM_VALIDACAO',
       conteudo: '• Criar trilhas de aprendizagem adaptativas por perfil de aluno\n• Disponibilizar videoaulas com controle de progresso\n• Emitir certificados digitais ao concluir cursos\n• Fornecer dashboard de desempenho para instrutores\n• Integrar fórum de discussão por módulo',
       totalStakeholders: 4,
       aprovacoes: 1,
       reprovacoes: 1,
       votos: [
-        { userId: 2, userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-01-15T10:00:00Z' },
-        { userId: 3, userName: 'Pedro Costa', voto: 'REPROVADO', votadoEm: '2026-01-15T12:00:00Z' },
-        { userId: 4, userName: 'Maria Souza', voto: null },
-        { userId: 5, userName: 'Carlos Mendes', voto: null },
+        { userId: "2", userName: 'Ana Lima', voto: 'APROVADO', votadoEm: '2026-01-15T10:00:00Z' },
+        { userId: "3", userName: 'Pedro Costa', voto: 'REPROVADO', votadoEm: '2026-01-15T12:00:00Z' },
+        { userId: "4", userName: 'Maria Souza', voto: null },
+        { userId: "5", userName: 'Carlos Mendes', voto: null },
       ],
     },
-    kpis: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: '',
       totalStakeholders: 4,
@@ -218,7 +230,7 @@ export const mockWiki: Record<number, WikiProjeto> = {
       reprovacoes: 0,
       votos: [],
     },
-    restricoes: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: '',
       totalStakeholders: 4,
@@ -228,36 +240,36 @@ export const mockWiki: Record<number, WikiProjeto> = {
     },
   },
   5: {
-    id: 5,
-    projetoId: 5,
+    id: '5',
+    projetoId: '5',
     stakeholderParticipacao: 33,
     createdAt: '2026-02-01T10:00:00Z',
     updatedAt: '2026-03-08T09:00:00Z',
-    objetivo: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'APROVADO',
       conteudo: 'Desenvolver um aplicativo web para criação, divulgação e gerenciamento de eventos corporativos, oferecendo controle completo de inscrições, check-in digital via QR code e emissão automatizada de certificados de participação.',
       totalStakeholders: 3,
       aprovacoes: 3,
       reprovacoes: 0,
       votos: [
-        { userId: 10, userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-03-03T10:00:00Z' },
-        { userId: 11, userName: 'Diego Martins', voto: 'APROVADO', votadoEm: '2026-03-03T11:00:00Z' },
-        { userId: 14, userName: 'Priscila Tavares', voto: 'APROVADO', votadoEm: '2026-03-04T09:00:00Z' },
+        { userId: "10", userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-03-03T10:00:00Z' },
+        { userId: "11", userName: 'Diego Martins', voto: 'APROVADO', votadoEm: '2026-03-03T11:00:00Z' },
+        { userId: "14", userName: 'Priscila Tavares', voto: 'APROVADO', votadoEm: '2026-03-04T09:00:00Z' },
       ],
     },
-    objetivosEspecificos: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'EM_VALIDACAO',
       conteudo: '• Permitir criação e publicação de eventos com controle de vagas\n• Gerenciar inscrições com confirmação automática por e-mail\n• Implementar check-in digital por QR code\n• Emitir certificados de participação em PDF\n• Fornecer dashboard de métricas por evento',
       totalStakeholders: 3,
       aprovacoes: 1,
       reprovacoes: 0,
       votos: [
-        { userId: 10, userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-03-07T10:00:00Z' },
-        { userId: 11, userName: 'Diego Martins', voto: null },
-        { userId: 14, userName: 'Priscila Tavares', voto: null },
+        { userId: "10", userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-03-07T10:00:00Z' },
+        { userId: "11", userName: 'Diego Martins', voto: null },
+        { userId: "14", userName: 'Priscila Tavares', voto: null },
       ],
     },
-    kpis: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: '',
       totalStakeholders: 3,
@@ -265,7 +277,7 @@ export const mockWiki: Record<number, WikiProjeto> = {
       reprovacoes: 0,
       votos: [],
     },
-    restricoes: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'RASCUNHO',
       conteudo: '',
       totalStakeholders: 3,
@@ -275,66 +287,68 @@ export const mockWiki: Record<number, WikiProjeto> = {
     },
   },
   6: {
-    id: 6,
-    projetoId: 6,
+    id: '6',
+    projetoId: '6',
     stakeholderParticipacao: 80,
     createdAt: '2025-12-15T08:00:00Z',
     updatedAt: '2026-03-08T11:00:00Z',
-    objetivo: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'VALIDADO',
       conteudo: 'Desenvolver um portal público de transparência para publicação de dados financeiros, contratos e licitações, em conformidade com a Lei de Acesso à Informação (LAI), promovendo a transparência ativa e passiva da organização.',
       totalStakeholders: 5,
       aprovacoes: 5,
       reprovacoes: 0,
       votos: [
-        { userId: 10, userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-01-10T10:00:00Z' },
-        { userId: 12, userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-01-10T11:00:00Z' },
-        { userId: 15, userName: 'Márcio Figueiredo', voto: 'APROVADO', votadoEm: '2026-01-11T09:00:00Z' },
-        { userId: 16, userName: 'Isabela Torres', voto: 'APROVADO', votadoEm: '2026-01-11T10:00:00Z' },
-        { userId: 17, userName: 'Gustavo Moura', voto: 'APROVADO', votadoEm: '2026-01-12T09:00:00Z' },
+        { userId: "10", userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-01-10T10:00:00Z' },
+        { userId: "12", userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-01-10T11:00:00Z' },
+        { userId: "15", userName: 'Márcio Figueiredo', voto: 'APROVADO', votadoEm: '2026-01-11T09:00:00Z' },
+        { userId: "16", userName: 'Isabela Torres', voto: 'APROVADO', votadoEm: '2026-01-11T10:00:00Z' },
+        { userId: "17", userName: 'Gustavo Moura', voto: 'APROVADO', votadoEm: '2026-01-12T09:00:00Z' },
       ],
     },
-    objetivosEspecificos: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'VALIDADO',
       conteudo: '• Publicar contratos e licitações com download em PDF\n• Disponibilizar consulta de despesas com filtros e exportação CSV\n• Integrar com API do Diário Oficial para importação automática\n• Implementar módulo de solicitações LAI (e-SIC)\n• Garantir acessibilidade WCAG 2.1 nível AA',
       totalStakeholders: 5,
       aprovacoes: 5,
       reprovacoes: 0,
       votos: [
-        { userId: 10, userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-01-20T10:00:00Z' },
-        { userId: 12, userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-01-20T11:00:00Z' },
-        { userId: 15, userName: 'Márcio Figueiredo', voto: 'APROVADO', votadoEm: '2026-01-21T09:00:00Z' },
-        { userId: 16, userName: 'Isabela Torres', voto: 'APROVADO', votadoEm: '2026-01-21T10:00:00Z' },
-        { userId: 17, userName: 'Gustavo Moura', voto: 'APROVADO', votadoEm: '2026-01-22T09:00:00Z' },
+        { userId: "10", userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-01-20T10:00:00Z' },
+        { userId: "12", userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-01-20T11:00:00Z' },
+        { userId: "15", userName: 'Márcio Figueiredo', voto: 'APROVADO', votadoEm: '2026-01-21T09:00:00Z' },
+        { userId: "16", userName: 'Isabela Torres', voto: 'APROVADO', votadoEm: '2026-01-21T10:00:00Z' },
+        { userId: "17", userName: 'Gustavo Moura', voto: 'APROVADO', votadoEm: '2026-01-22T09:00:00Z' },
       ],
     },
-    kpis: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'APROVADO',
       conteudo: '• 100% dos contratos publicados em até 5 dias úteis após assinatura\n• Taxa de resposta às solicitações LAI dentro do prazo legal (20 dias)\n• Zero autuações por descumprimento da LAI no primeiro ano\n• Score de acessibilidade acima de 90 no Lighthouse',
       totalStakeholders: 5,
       aprovacoes: 4,
       reprovacoes: 0,
       votos: [
-        { userId: 10, userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-02-05T10:00:00Z' },
-        { userId: 12, userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-02-05T11:00:00Z' },
-        { userId: 15, userName: 'Márcio Figueiredo', voto: 'APROVADO', votadoEm: '2026-02-06T09:00:00Z' },
-        { userId: 16, userName: 'Isabela Torres', voto: 'APROVADO', votadoEm: '2026-02-06T10:00:00Z' },
-        { userId: 17, userName: 'Gustavo Moura', voto: null },
+        { userId: "10", userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-02-05T10:00:00Z' },
+        { userId: "12", userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-02-05T11:00:00Z' },
+        { userId: "15", userName: 'Márcio Figueiredo', voto: 'APROVADO', votadoEm: '2026-02-06T09:00:00Z' },
+        { userId: "16", userName: 'Isabela Torres', voto: 'APROVADO', votadoEm: '2026-02-06T10:00:00Z' },
+        { userId: "17", userName: 'Gustavo Moura', voto: null },
       ],
     },
-    restricoes: {
+ param($m); $field = $m.Groups[2].Value; $count[$field]++; "$($m.Groups[1].Value)$field`_`$($count[$field]): `"$field`-$($count[$field])`",`n$($m.Groups[1].Value)$field`: {" 
       status: 'EM_VALIDACAO',
       conteudo: '• Conformidade obrigatória com a Lei nº 12.527/2011 (LAI)\n• Dados devem ser disponibilizados em formato aberto (JSON e CSV)\n• Hospedagem obrigatória em infraestrutura governamental certificada\n• Prazo de entrega: 3 meses\n• Orçamento máximo: R$ 80.000',
       totalStakeholders: 5,
       aprovacoes: 2,
       reprovacoes: 0,
       votos: [
-        { userId: 10, userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-03-01T10:00:00Z' },
-        { userId: 12, userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-03-01T11:00:00Z' },
-        { userId: 15, userName: 'Márcio Figueiredo', voto: null },
-        { userId: 16, userName: 'Isabela Torres', voto: null },
-        { userId: 17, userName: 'Gustavo Moura', voto: null },
+        { userId: "10", userName: 'Tatiane Borges', voto: 'APROVADO', votadoEm: '2026-03-01T10:00:00Z' },
+        { userId: "12", userName: 'Camila Pires', voto: 'APROVADO', votadoEm: '2026-03-01T11:00:00Z' },
+        { userId: "15", userName: 'Márcio Figueiredo', voto: null },
+        { userId: "16", userName: 'Isabela Torres', voto: null },
+        { userId: "17", userName: 'Gustavo Moura', voto: null },
       ],
     },
   },
+*/
 };
+

@@ -53,7 +53,7 @@ export default function ValidationBar({ participacao, totalStakeholders, respond
       {/* Avatar list */}
       {votos && votos.length > 0 && (
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-          {votos.map((v) => (
+          {votos.map((v: typeof votos[0]) => (
             <Tooltip
               key={v.userId}
               title={`${v.userName}: ${v.voto ?? 'Pendente'}`}
@@ -75,7 +75,7 @@ export default function ValidationBar({ participacao, totalStakeholders, respond
                     color: v.voto ? '#fff' : '#9CA3AF',
                   }}
                 >
-                  {v.userName.split(' ').map((n) => n[0]).slice(0, 2).join('')}
+                  {v.userName.split(' ').map((n: string) => n[0]).slice(0, 2).join('')}
                 </Avatar>
                 <Box
                   sx={{

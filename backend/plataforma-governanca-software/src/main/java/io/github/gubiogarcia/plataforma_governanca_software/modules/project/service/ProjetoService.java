@@ -4,6 +4,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dom
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.product.service.VisaoProdutoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.StatusProjeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.AtualizarProjetoRequestDTO;
@@ -31,8 +32,8 @@ public class ProjetoService {
     private final OrganizacaoRepository organizacaoRepository;
     private final StatusProjetoRepository statusProjetoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final VisaoProdutoService visaoProdutoService;
 
-    // Status inicial padrão ao criar um projeto
     private static final String STATUS_INICIAL_NOME = "RASCUNHO";
 
     @Transactional
@@ -52,7 +53,7 @@ public class ProjetoService {
 
         StatusProjeto statusInicial = statusProjetoRepository.findByNomeIgnoreCase(STATUS_INICIAL_NOME)
                 .orElseThrow(() -> new StatusProjetoService.StatusProjetoNaoEncontradoException(
-                        "Status inicial '" + STATUS_INICIAL_NOME + "' não encontrado. Verifique a configuração do sistema."));
+                        "Status inicial '" + STATUS_INICIAL_NOME + "' nao encontrado."));
 
         Projeto projeto = Projeto.builder()
                 .organizacao(organizacao)
@@ -66,8 +67,10 @@ public class ProjetoService {
                 .build();
 
         projeto = projetoRepository.save(projeto);
-        log.info("Projeto '{}' criado na organização '{}'. ID: {}, criado por: {}",
-                projeto.getNome(), organizacao.getNome(), projeto.getId(), usuario.getId());
+        log.info("Projeto '{}' criado na organizacao '{}'. ID: {}", projeto.getNome(), organizacao.getNome(), projeto.getId());
+
+        // Inicializa automaticamente a VisaoProduto (Wiki) para este projeto
+        visaoProdutoService.inicializarParaProjeto(projeto);
 
         return mapToResponseDTO(projeto);
     }
@@ -77,11 +80,9 @@ public class ProjetoService {
         if (!organizacaoRepository.existsById(organizacaoId)) {
             throw new OrganizacaoNaoEncontradaException(organizacaoId);
         }
-
         List<Projeto> projetos = (ativo == null)
                 ? projetoRepository.findAllByOrganizacaoId(organizacaoId)
                 : projetoRepository.findAllByOrganizacaoIdAndAtivo(organizacaoId, ativo);
-
         return projetos.stream().map(this::mapToResponseDTO).toList();
     }
 
@@ -102,8 +103,8 @@ public class ProjetoService {
         }
 
         String novoNome = request.nome();
-        boolean nomeAlterado = !projeto.getNome().equalsIgnoreCase(novoNome);
-        if (nomeAlterado && projetoRepository.existsByNomeAndOrganizacaoId(novoNome, projeto.getOrganizacao().getId())) {
+        if (!projeto.getNome().equalsIgnoreCase(novoNome)
+                && projetoRepository.existsByNomeAndOrganizacaoId(novoNome, projeto.getOrganizacao().getId())) {
             throw new ProjetoNomeJaExisteNaOrganizacaoException(novoNome, projeto.getOrganizacao().getNome());
         }
 
@@ -136,12 +137,10 @@ public class ProjetoService {
         log.info("Projeto {} inativado com sucesso.", id);
     }
 
-    // Helpers privados
-
     private Usuario resolverUsuario(Jwt jwt) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
         return usuarioRepository.findByExternalIdentityId(keycloakId)
-                .orElseThrow(() -> new UsuarioNaoAutorizadoException("Usuário autenticado não encontrado na plataforma."));
+                .orElseThrow(() -> new UsuarioNaoAutorizadoException("Usuario autenticado nao encontrado na plataforma."));
     }
 
     private ProjetoResponseDTO mapToResponseDTO(Projeto p) {
@@ -149,8 +148,7 @@ public class ProjetoService {
                 p.getStatus().getId(),
                 p.getStatus().getNome(),
                 p.getStatus().getDescricao(),
-                p.getStatus().getOrdem()
-        );
+                p.getStatus().getOrdem());
         return new ProjetoResponseDTO(
                 p.getId(),
                 p.getOrganizacao().getId(),
@@ -162,43 +160,41 @@ public class ProjetoService {
                 p.getCriadoPor().getId(),
                 p.getCriadoPor().getNome(),
                 p.getDataCriacao(),
-                p.getDataAtualizacao()
-        );
+                p.getDataAtualizacao());
     }
 
-    // Exceções de domínio
-
+    // Excecoes de dominio
     public static class ProjetoNaoEncontradoException extends RuntimeException {
         public ProjetoNaoEncontradoException(String message) { super(message); }
     }
 
     public static class ProjetoNomeJaExisteNaOrganizacaoException extends RuntimeException {
         public ProjetoNomeJaExisteNaOrganizacaoException(String nome, String orgNome) {
-            super("Já existe um projeto com o nome '" + nome + "' na organização '" + orgNome + "'.");
+            super("Ja existe um projeto com o nome '" + nome + "' na organizacao '" + orgNome + "'.");
         }
     }
 
     public static class ProjetoJaInativoException extends RuntimeException {
         public ProjetoJaInativoException(UUID id) {
-            super("O projeto com id " + id + " já está inativo.");
+            super("O projeto com id " + id + " ja esta inativo.");
         }
     }
 
     public static class ProjetoInativoException extends RuntimeException {
         public ProjetoInativoException(UUID id) {
-            super("Não é possível editar o projeto com id " + id + " pois ele está inativo.");
+            super("Nao e possivel editar o projeto com id " + id + " pois ele esta inativo.");
         }
     }
 
     public static class OrganizacaoNaoEncontradaException extends RuntimeException {
         public OrganizacaoNaoEncontradaException(UUID id) {
-            super("Nenhuma organização encontrada com o id: " + id);
+            super("Nenhuma organizacao encontrada com o id: " + id);
         }
     }
 
     public static class OrganizacaoInativaException extends RuntimeException {
         public OrganizacaoInativaException(UUID id) {
-            super("A organização com id " + id + " está inativa e não permite novos projetos.");
+            super("A organizacao com id " + id + " esta inativa e nao permite novos projetos.");
         }
     }
 
