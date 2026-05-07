@@ -7,7 +7,10 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.product.serv
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.EventoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.ProjetoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.StatusProjetoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.PrioridadeService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.StatusRequisitoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.RequisitoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.CriterioAceiteService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -222,6 +225,47 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(StatusRequisitoService.StatusRequisitoEmUsoException.class)
     public ProblemDetail handleStatusRequisitoEmUso(StatusRequisitoService.StatusRequisitoEmUsoException ex) {
         return problem(HttpStatus.CONFLICT, "Status em uso", ex.getMessage(), "/errors/status-requisito-em-uso");
+    }
+
+    @ExceptionHandler(RequisitoService.RequisitoNaoEncontradoException.class)
+    public ProblemDetail handleRequisitoNaoEncontrado(RequisitoService.RequisitoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Requisito não encontrado", ex.getMessage(), "/errors/requisito-nao-encontrado");
+    }
+
+    @ExceptionHandler(RequisitoService.ProjetoNaoEncontradoException.class)
+    public ProblemDetail handleProjetoNaoEncontradoRequisito(RequisitoService.ProjetoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
+    }
+
+    @ExceptionHandler(RequisitoService.UsuarioNaoAutorizadoException.class)
+    public ProblemDetail handleUsuarioNaoAutorizado(RequisitoService.UsuarioNaoAutorizadoException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Usuário não autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
+    }
+
+    @ExceptionHandler(CriterioAceiteService.CriterioAceiteNaoEncontradoException.class)
+    public ProblemDetail handleCriterioAceiteNaoEncontrado(CriterioAceiteService.CriterioAceiteNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Critério de aceite não encontrado", ex.getMessage(), "/errors/criterio-aceite-nao-encontrado");
+    }
+
+    // Prioridade
+    @ExceptionHandler(PrioridadeService.PrioridadeNaoEncontradaException.class)
+    public ProblemDetail handlePrioridadeNaoEncontrada(PrioridadeService.PrioridadeNaoEncontradaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Prioridade não encontrada", ex.getMessage(), "/errors/prioridade-nao-encontrada");
+    }
+
+    @ExceptionHandler(PrioridadeService.PrioridadeCodigoJaExisteException.class)
+    public ProblemDetail handlePrioridadeCodigoJaExiste(PrioridadeService.PrioridadeCodigoJaExisteException ex) {
+        return problem(HttpStatus.CONFLICT, "Código de prioridade já existe", ex.getMessage(), "/errors/prioridade-codigo-ja-existe");
+    }
+
+    @ExceptionHandler(PrioridadeService.PrioridadeOrdemJaExisteException.class)
+    public ProblemDetail handlePrioridadeOrdemJaExiste(PrioridadeService.PrioridadeOrdemJaExisteException ex) {
+        return problem(HttpStatus.CONFLICT, "Ordem de prioridade já existe", ex.getMessage(), "/errors/prioridade-ordem-ja-existe");
+    }
+
+    @ExceptionHandler(PrioridadeService.PrioridadeEmUsoException.class)
+    public ProblemDetail handlePrioridadeEmUso(PrioridadeService.PrioridadeEmUsoException ex) {
+        return problem(HttpStatus.CONFLICT, "Prioridade em uso", ex.getMessage(), "/errors/prioridade-em-uso");
     }
 
     // Fallback

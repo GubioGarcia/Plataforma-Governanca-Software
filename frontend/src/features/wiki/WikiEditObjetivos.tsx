@@ -40,12 +40,7 @@ export default function WikiEditObjetivos() {
     if (!projectId || !wiki) return;
     setSaving(true);
     try {
-      const payload: WikiProjetoUpdateRequest = {
-        ...wiki,
-        objetivoGeral,
-        objetivosEspecificos,
-        kpis,
-      };
+      const payload: WikiProjetoUpdateRequest = { ...wiki, objetivoGeral, objetivosEspecificos, kpis };
       await saveProjectWiki(projectId, payload);
       notify('Objetivos salvos com sucesso', 'success');
       navigate(backUrl);
@@ -63,53 +58,42 @@ export default function WikiEditObjetivos() {
       title="Objetivos do Projeto"
       subtitle="Objetivo geral, Objetivos específicos e Indicadores de sucesso (KPIs)"
       onBack={() => navigate(backUrl)}
+      infoRows={[
+        { label: 'Criado em', value: wiki?.dataCriacao },
+        { label: 'Última atualização', value: wiki?.dataAtualizacao },
+      ]}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
-            Objetivo geral
-          </Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Objetivo geral</Typography>
           <TextField
-            multiline
-            rows={4}
-            fullWidth
+            multiline rows={4} fullWidth
             value={objetivoGeral}
             onChange={(e) => setObjetivoGeral(e.target.value)}
             placeholder="Defina o objetivo principal do projeto..."
             InputLabelProps={{ shrink: true }}
           />
         </Box>
-
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
-            Objetivos específicos
-          </Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Objetivos específicos</Typography>
           <TextField
-            multiline
-            rows={5}
-            fullWidth
+            multiline rows={5} fullWidth
             value={objetivosEspecificos}
             onChange={(e) => setObjetivosEspecificos(e.target.value)}
             placeholder="Liste os objetivos específicos, um por linha ou separados por ponto e vírgula..."
             InputLabelProps={{ shrink: true }}
           />
         </Box>
-
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
-            Indicadores de Sucesso (KPIs)
-          </Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Indicadores de Sucesso (KPIs)</Typography>
           <TextField
-            multiline
-            rows={4}
-            fullWidth
+            multiline rows={4} fullWidth
             value={kpis}
             onChange={(e) => setKpis(e.target.value)}
             placeholder="Descreva os indicadores que demonstram o sucesso do projeto..."
             InputLabelProps={{ shrink: true }}
           />
         </Box>
-
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}

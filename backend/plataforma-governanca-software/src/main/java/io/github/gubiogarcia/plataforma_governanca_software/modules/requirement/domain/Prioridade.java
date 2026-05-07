@@ -26,4 +26,7 @@ public class Prioridade {
 
     @Column(unique = true)
     private Integer ordem;
+
+    @Builder.Default
+    private Boolean ativo = true;
 }

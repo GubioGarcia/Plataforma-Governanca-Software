@@ -14,6 +14,7 @@ import WikiEditPublico from './features/wiki/WikiEditPublico';
 import WikiEditObjetivos from './features/wiki/WikiEditObjetivos';
 import WikiEditRestricoes from './features/wiki/WikiEditRestricoes';
 import RequirementList from './features/requirements/RequirementList';
+import RequirementDetail from './features/requirements/RequirementDetail';
 import EventTimeline from './features/events/EventTimeline';
 import FileRepository from './features/files/FileRepository';
 import StakeholderList from './features/stakeholders/StakeholderList';
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="wiki/objetivos" element={<WikiEditObjetivos />} />
           <Route path="wiki/restricoes" element={<WikiEditRestricoes />} />
           <Route path="requirements" element={<RequirementList />} />
+          <Route path="requirements/:requirementId" element={<RequirementDetail />} />
           <Route path="events" element={<EventTimeline />} />
           <Route path="files" element={<FileRepository />} />
           <Route path="stakeholders" element={<StakeholderList />} />

@@ -66,6 +66,10 @@ export default function WikiEditRestricoes() {
       title="Restrições do Projeto"
       subtitle="Quais limitações externas ou condições obrigatórias influenciam o desenvolvimento do produto"
       onBack={() => navigate(backUrl)}
+      infoRows={[
+        { label: 'Criado em', value: wiki?.dataCriacao },
+        { label: 'Última atualização', value: wiki?.dataAtualizacao },
+      ]}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Box>
@@ -78,7 +82,6 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
           />
         </Box>
-
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Orçamento</Typography>
           <TextField
@@ -89,7 +92,6 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
           />
         </Box>
-
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Tecnologias obrigatórias</Typography>
           <TextField
@@ -100,7 +102,6 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
           />
         </Box>
-
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Regulamentações</Typography>
           <TextField
@@ -111,7 +112,6 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
           />
         </Box>
-
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}

@@ -11,12 +11,11 @@ import CompassCalibrationIcon from '@mui/icons-material/CompassCalibration';
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt';
 import EmojiObjectsIcon from '@mui/icons-material/EmojiObjects';
 import ReportProblemIcon from '@mui/icons-material/ReportProblem';
-import SettingsIcon from '@mui/icons-material/Settings';
+import EditIcon from '@mui/icons-material/Edit';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { fetchProjectWiki } from '../../services/wikiService';
 import type { WikiProjetoApi } from '../../types/wiki';
 
-// ── Card header com label centralizada tipo protótipo ──────────────────────
 interface WikiCardProps {
   label: string;
   icon: React.ReactNode;
@@ -36,7 +35,6 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
         overflow: 'hidden',
       }}
     >
-      {/* Tag label centrada */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, pt: 2 }}>
         <Box
           sx={{
@@ -51,12 +49,11 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
         </Box>
         <Tooltip title="Editar">
           <IconButton size="small" onClick={onEdit} sx={{ color: '#3F51B5' }}>
-            <SettingsIcon fontSize="small" />
+            <EditIcon fontSize="small" />
           </IconButton>
         </Tooltip>
       </Box>
 
-      {/* Icon + title + subtitle */}
       <Box sx={{ px: 3, pt: 1.5, pb: 1, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
         <Box sx={{ color: '#3F51B5', mt: 0.25, flexShrink: 0 }}>{icon}</Box>
         <Box>
@@ -70,14 +67,11 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
       </Box>
 
       <Divider sx={{ mx: 3 }} />
-
-      {/* Conteúdo */}
       <Box sx={{ px: 3, py: 2.5 }}>{children}</Box>
     </Box>
   );
 }
 
-// ── Linha de informação (label: valor) ─────────────────────────────────────
 function InfoRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
@@ -92,7 +86,6 @@ function InfoRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
-// ── Bloco de texto livre ───────────────────────────────────────────────────
 function ContentBlock({ value }: { value?: string }) {
   if (!value) {
     return (
@@ -108,7 +101,6 @@ function ContentBlock({ value }: { value?: string }) {
   );
 }
 
-// ── Tela principal ─────────────────────────────────────────────────────────
 export default function WikiPage() {
   const { orgId, projectId } = useParams();
   const navigate = useNavigate();
@@ -155,16 +147,19 @@ export default function WikiPage() {
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 
-        {/* 1 — Descrição Geral do Produto */}
+        {/* 1 — Descrição Geral do Produto: apenas nome e descrição do projeto */}
         <WikiCard
           label="Descrição Geral do Produto"
           icon={<AutoStoriesIcon sx={{ fontSize: 30 }} />}
           title={wiki.projetoNome ?? '—'}
-          subtitle={wiki.projetoDescricao ?? ''}
+          subtitle={wiki.projetoDescricao ?? 'Sem descrição cadastrada'}
           onEdit={() => navigate(`${base}/descricao`)}
         >
-          <InfoRow label="Objetivo principal" value={wiki.objetivoGeral} />
-          <InfoRow label="Problema a ser resolvido" value={wiki.descricaoProblema} />
+          {!wiki.projetoDescricao && (
+            <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#9CA3AF' }}>
+              Nenhuma descrição cadastrada. Clique em editar para adicionar.
+            </Typography>
+          )}
         </WikiCard>
 
         {/* 2 — Problema de Negócio */}

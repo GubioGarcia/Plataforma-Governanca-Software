@@ -5,7 +5,7 @@ import java.util.UUID;
 
 /**
  * DTO de resposta da Wiki / Visao do Produto.
- * Inclui campos do Projeto (nome, descricao, criado_por) conforme exibido no prototipo.
+ * Inclui campos do Projeto (nome, descricao, criado_por, datas) conforme exibido no protótipo.
  */
 public record VisaoProdutoResponseDTO(
         UUID id,
@@ -15,6 +15,8 @@ public record VisaoProdutoResponseDTO(
         UUID projetoCriadoPorId,
         String projetoCriadoPorNome,
         String projetoStatus,
+        Instant projetoDataCriacao,
+        Instant projetoDataAtualizacao,
         String descricaoProblema,
         String publicoAlvo,
         String objetivoGeral,
@@ -24,5 +26,6 @@ public record VisaoProdutoResponseDTO(
         String restricoesOrcamento,
         String tecnologiasObrigatorias,
         String regulamentacoes,
+        Instant dataCriacao,
         Instant dataAtualizacao
 ) {}

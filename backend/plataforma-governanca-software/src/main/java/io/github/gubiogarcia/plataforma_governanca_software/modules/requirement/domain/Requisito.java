@@ -25,6 +25,13 @@ public class Requisito {
     @JoinColumn(name = "projeto_id")
     private Projeto projeto;
 
+    /**
+     * Código único e imutável do requisito dentro do projeto (ex: REQ-001).
+     * Gerado automaticamente na criação e nunca alterado.
+     */
+    @Column(unique = true, nullable = false, updatable = false)
+    private String codigo;
+
     private String titulo;
 
     private String descricao;
