@@ -32,10 +32,7 @@ export default function WikiEditProblema() {
     if (!projectId || !wiki) return;
     setSaving(true);
     try {
-      const payload: WikiProjetoUpdateRequest = {
-        ...wiki,
-        descricaoProblema,
-      };
+      const payload: WikiProjetoUpdateRequest = { ...wiki, descricaoProblema };
       await saveProjectWiki(projectId, payload);
       notify('Problema de negócio salvo com sucesso', 'success');
       navigate(backUrl);
@@ -53,6 +50,10 @@ export default function WikiEditProblema() {
       title="Problema de Negócio"
       subtitle="Contexto atual, Dor do cliente, Impacto se não for atendido"
       onBack={() => navigate(backUrl)}
+      infoRows={[
+        { label: 'Criado em', value: wiki?.dataCriacao },
+        { label: 'Última atualização', value: wiki?.dataAtualizacao },
+      ]}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <TextField

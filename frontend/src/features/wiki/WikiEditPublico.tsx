@@ -50,6 +50,10 @@ export default function WikiEditPublico() {
       title="Usuários do Sistema"
       subtitle="Descritivo dos usuários finais do sistema"
       onBack={() => navigate(backUrl)}
+      infoRows={[
+        { label: 'Criado em', value: wiki?.dataCriacao },
+        { label: 'Última atualização', value: wiki?.dataAtualizacao },
+      ]}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <TextField

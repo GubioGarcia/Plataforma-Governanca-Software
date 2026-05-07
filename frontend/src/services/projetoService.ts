@@ -19,6 +19,11 @@ export async function listarProjetosPorOrg(orgId: string, ativo = true): Promise
   return res.data;
 }
 
+export async function buscarProjetoPorId(id: string): Promise<ProjetoAPI> {
+  const res = await api.get<ProjetoAPI>(`/projeto/${id}`);
+  return res.data;
+}
+
 export async function criarProjeto(data: CriarProjetoRequest): Promise<ProjetoAPI> {
   const res = await api.post<ProjetoAPI>('/projeto', data);
   return res.data;
@@ -35,6 +40,7 @@ export async function inativarProjeto(id: string): Promise<void> {
 
 export default {
   listarProjetosPorOrg,
+  buscarProjetoPorId,
   criarProjeto,
   atualizarProjeto,
   inativarProjeto,

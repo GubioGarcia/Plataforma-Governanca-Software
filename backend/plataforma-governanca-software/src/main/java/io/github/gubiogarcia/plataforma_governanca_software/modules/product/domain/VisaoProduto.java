@@ -48,6 +48,9 @@ public class VisaoProduto {
 
     private String regulamentacoes;
 
+    @Column(name = "data_criacao", updatable = false)
+    private Instant dataCriacao;
+
     @Column(name = "data_atualizacao")
     private Instant dataAtualizacao;
 }

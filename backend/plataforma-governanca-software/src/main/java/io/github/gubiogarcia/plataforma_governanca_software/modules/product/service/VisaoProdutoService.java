@@ -24,9 +24,11 @@ public class VisaoProdutoService {
 
     @Transactional
     public VisaoProduto inicializarParaProjeto(Projeto projeto) {
+        Instant agora = Instant.now();
         VisaoProduto visao = VisaoProduto.builder()
                 .projeto(projeto)
-                .dataAtualizacao(Instant.now())
+                .dataCriacao(agora)
+                .dataAtualizacao(agora)
                 .build();
         visao = visaoProdutoRepository.save(visao);
         log.info("VisaoProduto inicializada para o projeto '{}'. ID: {}", projeto.getNome(), visao.getId());
@@ -92,6 +94,8 @@ public class VisaoProdutoService {
                 p.getCriadoPor().getId(),
                 p.getCriadoPor().getNome(),
                 p.getStatus() != null ? p.getStatus().getNome() : null,
+                p.getDataCriacao(),
+                p.getDataAtualizacao(),
                 v.getDescricaoProblema(),
                 v.getPublicoAlvo(),
                 v.getObjetivoGeral(),
@@ -101,13 +105,14 @@ public class VisaoProdutoService {
                 v.getRestricoesOrcamento(),
                 v.getTecnologiasObrigatorias(),
                 v.getRegulamentacoes(),
+                v.getDataCriacao(),
                 v.getDataAtualizacao());
     }
 
-    // Excecoes de dominio
+    // Domain exceptions
     public static class VisaoProdutoNaoEncontradaException extends RuntimeException {
         public VisaoProdutoNaoEncontradaException(UUID id) {
-            super("Wiki nao encontrada para o id: " + id);
+            super("Wiki não encontrada para o id: " + id);
         }
     }
 
@@ -119,7 +124,7 @@ public class VisaoProdutoService {
 
     public static class ProjetoInativoException extends RuntimeException {
         public ProjetoInativoException(UUID projetoId) {
-            super("Nao e possivel editar a Wiki do projeto com id " + projetoId + " pois ele esta inativo.");
+            super("Não é possível editar a Wiki do projeto com id " + projetoId + " pois ele está inativo.");
         }
     }
 }

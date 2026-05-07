@@ -4,11 +4,11 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import CircularProgress from '@mui/material/CircularProgress';
 import TextField from '@mui/material/TextField';
-import Typography from '@mui/material/Typography';
 import WikiEditLayout from './WikiEditLayout';
-import { fetchProjectWiki, saveProjectWiki } from '../../services/wikiService';
+import { fetchProjectWiki } from '../../services/wikiService';
+import { buscarProjetoPorId, atualizarProjeto } from '../../services/projetoService';
 import { useSnackbar } from '../../context/SnackbarContext';
-import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
+import type { WikiProjetoApi } from '../../types/wiki';
 
 export default function WikiEditDescricao() {
   const { orgId, projectId } = useParams();
@@ -17,40 +17,43 @@ export default function WikiEditDescricao() {
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const [wiki, setWiki] = useState<WikiProjetoApi | null>(null);
+  const [projetoStatusId, setProjetoStatusId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [objetivoGeral, setObjetivoGeral] = useState('');
-  const [descricaoProblema, setDescricaoProblema] = useState('');
+  const [nome, setNome] = useState('');
+  const [descricao, setDescricao] = useState('');
 
   useEffect(() => {
     if (!projectId) return;
-    fetchProjectWiki(projectId)
-      .then((data) => {
-        setWiki(data);
-        setObjetivoGeral(data.objetivoGeral ?? '');
-        setDescricaoProblema(data.descricaoProblema ?? '');
+    Promise.all([
+      fetchProjectWiki(projectId),
+      buscarProjetoPorId(projectId),
+    ])
+      .then(([wikiData, projetoData]) => {
+        setWiki(wikiData);
+        setNome(wikiData.projetoNome ?? '');
+        setDescricao(wikiData.projetoDescricao ?? '');
+        // Preserva o statusId atual para não perder o status ao salvar
+        setProjetoStatusId(projetoData.status?.id);
       })
-      .catch(() => notify('Falha ao carregar Wiki', 'error'))
+      .catch(() => notify('Falha ao carregar dados do projeto', 'error'))
       .finally(() => setLoading(false));
   }, [projectId, notify]);
 
   const handleSave = async () => {
     if (!projectId || !wiki) return;
+    if (!nome.trim()) {
+      notify('O nome do projeto é obrigatório', 'error');
+      return;
+    }
     setSaving(true);
     try {
-      const payload: WikiProjetoUpdateRequest = {
-        descricaoProblema,
-        publicoAlvo: wiki.publicoAlvo,
-        objetivoGeral,
-        objetivosEspecificos: wiki.objetivosEspecificos,
-        kpis: wiki.kpis,
-        restricoesPrazo: wiki.restricoesPrazo,
-        restricoesOrcamento: wiki.restricoesOrcamento,
-        tecnologiasObrigatorias: wiki.tecnologiasObrigatorias,
-        regulamentacoes: wiki.regulamentacoes,
-      };
-      await saveProjectWiki(projectId, payload);
-      notify('Informações salvas com sucesso', 'success');
+      await atualizarProjeto(projectId, {
+        nome: nome.trim(),
+        descricao: descricao.trim() || undefined,
+        statusId: projetoStatusId,
+      });
+      notify('Descrição do projeto salva com sucesso', 'success');
       navigate(backUrl);
     } catch {
       notify('Falha ao salvar. Tente novamente.', 'error');
@@ -64,48 +67,31 @@ export default function WikiEditDescricao() {
   return (
     <WikiEditLayout
       title="Descrição Geral do Produto"
-      subtitle="Nome e descrição geral do projeto"
+      subtitle="Nome e descrição do projeto"
       onBack={() => navigate(backUrl)}
+      infoRows={[
+        { label: 'Criado em', value: wiki?.projetoDataCriacao },
+        { label: 'Última atualização', value: wiki?.projetoDataAtualizacao },
+      ]}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-        <Box>
-          <Typography variant="subtitle2" sx={{ mb: 0.5, fontWeight: 600, color: '#374151' }}>
-            Nome do projeto
-          </Typography>
-          <Typography
-            sx={{
-              px: 2,
-              py: 1.5,
-              bgcolor: '#F9FAFB',
-              border: '1px solid #E5E7EB',
-              borderRadius: 1,
-              fontSize: '14px',
-              color: '#6B7280',
-            }}
-          >
-            {wiki?.projetoNome ?? '—'} <em style={{ fontSize: 12 }}>(gerenciado via configurações do projeto)</em>
-          </Typography>
-        </Box>
-
         <TextField
-          label="Objetivo principal"
-          multiline
-          rows={4}
+          label="Nome do projeto"
           fullWidth
-          value={objetivoGeral}
-          onChange={(e) => setObjetivoGeral(e.target.value)}
-          placeholder="Descreva o objetivo principal do projeto..."
+          value={nome}
+          onChange={(e) => setNome(e.target.value)}
+          placeholder="Nome do projeto..."
           InputLabelProps={{ shrink: true }}
         />
 
         <TextField
-          label="Problema a ser resolvido"
+          label="Descrição"
           multiline
-          rows={4}
+          rows={5}
           fullWidth
-          value={descricaoProblema}
-          onChange={(e) => setDescricaoProblema(e.target.value)}
-          placeholder="Descreva o problema que o projeto resolve..."
+          value={descricao}
+          onChange={(e) => setDescricao(e.target.value)}
+          placeholder="Descreva o projeto de forma geral..."
           InputLabelProps={{ shrink: true }}
         />
 
