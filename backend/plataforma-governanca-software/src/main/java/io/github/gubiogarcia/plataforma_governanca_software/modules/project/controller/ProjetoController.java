@@ -48,6 +48,11 @@ public class ProjetoController {
         return ResponseEntity.ok(projetoService.atualizar(id, request));
     }
 
+    @PatchMapping("/{id}/ativar")
+    public ResponseEntity<ProjetoResponseDTO> ativar(@PathVariable UUID id) {
+        return ResponseEntity.ok(projetoService.ativar(id));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(@PathVariable UUID id) {
         projetoService.inativar(id);

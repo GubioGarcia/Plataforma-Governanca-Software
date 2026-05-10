@@ -33,6 +33,11 @@ export async function inativarOrganizacao(id: string): Promise<void> {
   await api.delete(`/organizacao/${id}`);
 }
 
+export async function ativarOrganizacao(id: string): Promise<OrganizacaoAPI> {
+  const res = await api.patch<OrganizacaoAPI>(`/organizacao/${id}/ativar`);
+  return res.data;
+}
+
 export default {
   listarOrganizacoes,
   criarOrganizacao,

@@ -21,6 +21,7 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import InputLabel from '@mui/material/InputLabel';
 import FormControl from '@mui/material/FormControl';
+import Chip from '@mui/material/Chip';
 import AddIcon from '@mui/icons-material/Add';
 import BusinessIcon from '@mui/icons-material/Business';
 import EditIcon from '@mui/icons-material/Edit';
@@ -29,6 +30,8 @@ import PeopleIcon from '@mui/icons-material/People';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import DeleteIcon from '@mui/icons-material/Delete';
+import HistoryIcon from '@mui/icons-material/History';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StatusChip from '../../components/common/StatusChip';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
@@ -38,6 +41,7 @@ import {
   criarOrganizacao,
   atualizarOrganizacao,
   inativarOrganizacao,
+  ativarOrganizacao,
 } from '../../services/organizacaoService';
 
 export default function OrganizationList() {
@@ -48,6 +52,12 @@ export default function OrganizationList() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState({ nome: '', descricao: '', plano: 'BASICO' as PlanoAPI });
 
+  // Inactive orgs panel
+  const [inactiveOpen, setInactiveOpen] = useState(false);
+  const [inactiveOrgs, setInactiveOrgs] = useState<OrganizacaoAPI[]>([]);
+  const [loadingInactive, setLoadingInactive] = useState(false);
+  const [reactivateTarget, setReactivateTarget] = useState<OrganizacaoAPI | null>(null);
+
   // Edit state
   const [editingOrg, setEditingOrg] = useState<OrganizacaoAPI | null>(null);
   const [editForm, setEditForm] = useState({ nome: '', descricao: '', plano: 'BASICO' as PlanoAPI });
@@ -56,11 +66,12 @@ export default function OrganizationList() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [fetchError, setFetchError] = useState(false);
 
+  // Fetch only ACTIVE orgs (ativo=true)
   const fetchOrgs = async () => {
     try {
       setLoading(true);
       setFetchError(false);
-      const data = await listarOrganizacoes();
+      const data = await listarOrganizacoes(true);
       setOrgs(data);
     } catch {
       setFetchError(true);
@@ -70,7 +81,40 @@ export default function OrganizationList() {
     }
   };
 
+  const fetchInactiveOrgs = async () => {
+    try {
+      setLoadingInactive(true);
+      const data = await listarOrganizacoes(false);
+      // API returns orgs with ativo=false when queried with ativo=false
+      setInactiveOrgs(data.filter((o) => o.ativo === false || o.ativo === undefined ? true : false).length > 0
+        ? data.filter((o) => o.ativo === false)
+        : data);
+    } catch {
+      notify('Erro ao carregar organizações inativas', 'error');
+    } finally {
+      setLoadingInactive(false);
+    }
+  };
+
   useEffect(() => { fetchOrgs(); }, []);
+
+  const handleOpenInactive = () => {
+    setInactiveOpen(true);
+    fetchInactiveOrgs();
+  };
+
+  const handleReactivate = async () => {
+    if (!reactivateTarget) return;
+    try {
+      await ativarOrganizacao(reactivateTarget.id);
+      notify('Organização reativada com sucesso');
+      setReactivateTarget(null);
+      fetchInactiveOrgs();
+      fetchOrgs();
+    } catch {
+      notify('Erro ao reativar organização', 'error');
+    }
+  };
 
   const handleMenuClose = () => { setMenuAnchor(null); setMenuOrgId(null); };
 
@@ -135,9 +179,20 @@ export default function OrganizationList() {
           <Typography variant="h2" sx={{ mb: 0.5 }}>Suas Organizações</Typography>
           <Typography variant="body2">Selecione uma organização para acessar seus projetos e configurações.</Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setDialogOpen(true)}>
-          Nova Organização
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
+          <Button
+            variant="outlined"
+            startIcon={<HistoryIcon />}
+            size="small"
+            onClick={handleOpenInactive}
+            color="inherit"
+          >
+            Organizações Inativas
+          </Button>
+          <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setDialogOpen(true)}>
+            Nova Organização
+          </Button>
+        </Box>
       </Box>
 
       {loading ? (
@@ -257,6 +312,83 @@ export default function OrganizationList() {
         onConfirm={handleDeleteOrg}
         onCancel={() => { setDeleteConfirmOpen(false); handleMenuClose(); }}
       />
+
+      {/* Reactivate confirm */}
+      <ConfirmDialog
+        open={Boolean(reactivateTarget)}
+        title="Reativar organização"
+        message={`Deseja reativar a organização "${reactivateTarget?.nome}"?`}
+        confirmLabel="Reativar"
+        confirmColor="primary"
+        onConfirm={handleReactivate}
+        onCancel={() => setReactivateTarget(null)}
+      />
+
+      {/* Inactive Organizations Dialog */}
+      <Dialog open={inactiveOpen} onClose={() => setInactiveOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <HistoryIcon fontSize="small" />
+          Organizações Inativas
+        </DialogTitle>
+        <DialogContent>
+          {loadingInactive ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : inactiveOrgs.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="text.secondary">Nenhuma organização inativa encontrada.</Typography>
+            </Box>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 1 }}>
+              {inactiveOrgs.map((org) => (
+                <Box
+                  key={org.id}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 2,
+                    p: 2,
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box sx={{ width: 40, height: 40, borderRadius: '10px', bgcolor: '#F3F4F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <BusinessIcon sx={{ color: '#9CA3AF', fontSize: 20 }} />
+                    </Box>
+                    <Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="body1" sx={{ fontWeight: 600 }}>{org.nome}</Typography>
+                        <Chip label="Inativo" size="small" sx={{ bgcolor: '#FEE2E2', color: '#DC2626', fontSize: 11, height: 20 }} />
+                        <StatusChip status={org.plano} />
+                      </Box>
+                      {org.descricao && (
+                        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{org.descricao}</Typography>
+                      )}
+                    </Box>
+                  </Box>
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<CheckCircleIcon />}
+                    color="success"
+                    onClick={() => setReactivateTarget(org)}
+                    sx={{ whiteSpace: 'nowrap', ml: 2 }}
+                  >
+                    Reativar
+                  </Button>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setInactiveOpen(false)} color="inherit">Fechar</Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Edit Organization Dialog */}
       <Dialog open={Boolean(editingOrg)} onClose={() => setEditingOrg(null)} maxWidth="sm" fullWidth>

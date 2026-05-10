@@ -79,7 +79,7 @@ const PRIORIDADE_COLORS: Record<string, { bg: string; color: string; border: str
   CRITICA: { bg: '#FEF2F2', color: '#DC2626', border: '#DC262644' },
 };
 
-const EMPTY_FORM = { titulo: '', descricao: '', tipoRequisito: 'FUNCIONAL' as TipoRequisito };
+const EMPTY_FORM = { titulo: '', descricao: '', tipoRequisito: 'FUNCIONAL' as TipoRequisito, prioridadeId: '' };
 type ReqForm = typeof EMPTY_FORM;
 
 export default function RequirementList() {
@@ -118,6 +118,12 @@ export default function RequirementList() {
       setRequirements(reqs);
       setStatusList(statuses);
       setPrioridades(prios);
+      // Set default prioridade to "Baixa" (lowest order)
+      if (prios.length > 0) {
+        const sorted = [...prios].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+        const baixa = sorted.find((p) => p.codigo?.toUpperCase() === 'BAIXA') ?? sorted[0];
+        setForm((prev) => ({ ...prev, prioridadeId: baixa.id }));
+      }
     } catch {
       notify('Erro ao carregar requisitos', 'error');
     } finally {
@@ -153,7 +159,9 @@ export default function RequirementList() {
 
   function openCreate() {
     setEditingId(null);
-    setForm(EMPTY_FORM);
+    const sorted = [...prioridades].sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0));
+    const baixa = sorted.find((p) => p.codigo?.toUpperCase() === 'BAIXA') ?? sorted[0];
+    setForm({ ...EMPTY_FORM, prioridadeId: baixa?.id ?? '' });
     setFormErrors({});
     setFormOpen(true);
   }
@@ -161,7 +169,7 @@ export default function RequirementList() {
   function openEdit(r: RequisitoAPI, e: React.MouseEvent) {
     e.stopPropagation();
     setEditingId(r.id);
-    setForm({ titulo: r.titulo, descricao: r.descricao, tipoRequisito: r.tipoRequisito });
+    setForm({ titulo: r.titulo, descricao: r.descricao, tipoRequisito: r.tipoRequisito, prioridadeId: r.prioridadeId ?? '' });
     setFormErrors({});
     setFormOpen(true);
   }
@@ -179,6 +187,7 @@ export default function RequirementList() {
           titulo: form.titulo.trim(),
           descricao: form.descricao.trim(),
           tipoRequisito: form.tipoRequisito,
+          prioridadeId: form.prioridadeId || undefined,
         });
         setRequirements((prev) => prev.map((r) => (r.id === editingId ? updated : r)));
         notify('Requisito atualizado', 'success');
@@ -187,6 +196,7 @@ export default function RequirementList() {
           titulo: form.titulo.trim(),
           descricao: form.descricao.trim(),
           tipoRequisito: form.tipoRequisito,
+          prioridadeId: form.prioridadeId || undefined,
         });
         setRequirements((prev) => [...prev, novo]);
         notify('Requisito criado com sucesso', 'success');
@@ -481,6 +491,29 @@ export default function RequirementList() {
               <MenuItem value="NAO_FUNCIONAL">Não Funcional</MenuItem>
               <MenuItem value="REGRA_NEGOCIO">Negócio</MenuItem>
               <MenuItem value="TECNICO">Técnico</MenuItem>
+            </Select>
+          </FormControl>
+          <FormControl fullWidth size="small">
+            <InputLabel>Prioridade</InputLabel>
+            <Select
+              label="Prioridade"
+              value={form.prioridadeId}
+              onChange={(e) => setForm((f) => ({ ...f, prioridadeId: e.target.value }))}
+            >
+              {prioridades
+                .slice()
+                .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+                .map((p) => {
+                  const colors = PRIORIDADE_COLORS[p.codigo] ?? { bg: '#F3F4F6', color: '#374151', border: '#37415144' };
+                  return (
+                    <MenuItem key={p.id} value={p.id}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <FlagIcon sx={{ fontSize: 14, color: colors.color }} />
+                        {p.nome}
+                      </Box>
+                    </MenuItem>
+                  );
+                })}
             </Select>
           </FormControl>
           <TextField

@@ -2,18 +2,19 @@ import Chip from '@mui/material/Chip';
 // Aceita qualquer texto de status (string) para simplificar compatibilidade
 
 const CONFIG: Record<string, { label: string; bg: string; color: string }> = {
-  // Requisito / Wiki
+  // Requisito / Wiki / Projeto
   RASCUNHO:       { label: 'Rascunho',      bg: '#F3F4F6', color: '#6B7280' },
   EM_ANALISE:     { label: 'Em Análise',    bg: '#EFF6FF', color: '#3B82F6' },
   EM_VALIDACAO:   { label: 'Em Validação',  bg: '#FFFBEB', color: '#D97706' },
   APROVADO:       { label: 'Aprovado',      bg: '#F0FDF4', color: '#16A34A' },
   REPROVADO:      { label: 'Reprovado',     bg: '#FEF2F2', color: '#DC2626' },
   VALIDADO:       { label: 'Validado',      bg: '#EDE9FE', color: '#7C3AED' },
-  // Projeto
-  PLANEJAMENTO:       { label: 'Planejamento',       bg: '#EFF6FF', color: '#3B82F6' },
-  EM_DESENVOLVIMENTO: { label: 'Em Desenvolvimento', bg: '#FFFBEB', color: '#D97706' },
-  CONCLUIDO:          { label: 'Concluído',           bg: '#F0FDF4', color: '#16A34A' },
-  CANCELADO:          { label: 'Cancelado',           bg: '#FEF2F2', color: '#DC2626' },
+  EM_REVISAO:     { label: 'Em Revisão',    bg: '#EFF6FF', color: '#3B82F6' },
+  EM_ANDAMENTO:   { label: 'Em Andamento',  bg: '#FEF3C7', color: '#D97706' },
+  EM_TESTE:       { label: 'Em Teste',      bg: '#E0E7FF', color: '#4338CA' },
+  CONCLUIDO:      { label: 'Concluído',     bg: '#ECFDF5', color: '#15803D' },
+  ARQUIVADO:      { label: 'Arquivado',     bg: '#F8FAFC', color: '#475569' },
+  CANCELADO:      { label: 'Cancelado',     bg: '#FEE2E2', color: '#991B1B' },
   // Plano
   FREE:       { label: 'Free',       bg: '#F3F4F6', color: '#6B7280' },
   PRO:        { label: 'Pro',        bg: '#EFF6FF', color: '#3B82F6' },

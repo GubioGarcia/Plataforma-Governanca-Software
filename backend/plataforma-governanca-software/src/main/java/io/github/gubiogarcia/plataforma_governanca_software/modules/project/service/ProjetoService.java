@@ -137,6 +137,22 @@ public class ProjetoService {
         log.info("Projeto {} inativado com sucesso.", id);
     }
 
+    @Transactional
+    public ProjetoResponseDTO ativar(UUID id) {
+        Projeto projeto = projetoRepository.findById(id)
+                .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
+
+        if (Boolean.TRUE.equals(projeto.getAtivo())) {
+            throw new ProjetoJaAtivoException(id);
+        }
+
+        projeto.setAtivo(true);
+        projeto.setDataAtualizacao(Instant.now());
+        projeto = projetoRepository.save(projeto);
+        log.info("Projeto {} reativado com sucesso.", id);
+        return mapToResponseDTO(projeto);
+    }
+
     private Usuario resolverUsuario(Jwt jwt) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
         return usuarioRepository.findByExternalIdentityId(keycloakId)
@@ -177,6 +193,12 @@ public class ProjetoService {
     public static class ProjetoJaInativoException extends RuntimeException {
         public ProjetoJaInativoException(UUID id) {
             super("O projeto com id " + id + " ja esta inativo.");
+        }
+    }
+
+    public static class ProjetoJaAtivoException extends RuntimeException {
+        public ProjetoJaAtivoException(UUID id) {
+            super("O projeto com id " + id + " ja esta ativo.");
         }
     }
 

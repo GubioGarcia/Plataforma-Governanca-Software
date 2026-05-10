@@ -48,6 +48,11 @@ public class OrganizacaoController {
         return ResponseEntity.ok(organizacaoService.atualizar(id, request));
     }
 
+    @PatchMapping("/{id}/ativar")
+    public ResponseEntity<OrganizacaoResponseDTO> ativar(@PathVariable UUID id) {
+        return ResponseEntity.ok(organizacaoService.ativar(id));
+    }
+
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> inativar(@PathVariable UUID id) {
         organizacaoService.inativar(id);
