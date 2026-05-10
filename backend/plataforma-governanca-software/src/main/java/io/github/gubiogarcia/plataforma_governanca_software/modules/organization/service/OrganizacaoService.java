@@ -125,6 +125,25 @@ public class OrganizacaoService {
 
         log.info("Organização {} inativada com sucesso.", id);
     }
+    
+    @Transactional
+    public OrganizacaoResponseDTO ativar(UUID id) {
+        Organizacao organizacao = organizacaoRepository.findById(id)
+                .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organizacao encontrada com o id: " + id));
+
+        if (Boolean.TRUE.equals(organizacao.getAtivo())) {
+            throw new OrganizacaoJaAtivaException(id);
+        }
+
+        organizacao.setAtivo(true);
+        organizacao.setDataAtualizacao(Instant.now());
+        organizacao = organizacaoRepository.save(organizacao);
+
+        log.info("Organizacao {} reativada com sucesso.", id);
+
+        long total = projetoRepository.countByOrganizacaoIdAndAtivo(id, true);
+        return mapToResponseDTO(organizacao, total);
+    }
 
     // Helpers privados
 
@@ -166,6 +185,12 @@ public class OrganizacaoService {
     public static class OrganizacaoJaInativaException extends RuntimeException {
         public OrganizacaoJaInativaException(UUID id) {
             super("A organização com id " + id + " já está inativa.");
+        }
+    }
+
+    public static class OrganizacaoJaAtivaException extends RuntimeException {
+        public OrganizacaoJaAtivaException(UUID id) {
+            super("A organizacao com id " + id + " ja esta ativa.");
         }
     }
 
