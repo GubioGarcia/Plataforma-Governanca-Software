@@ -30,6 +30,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import { CommentSection } from '../comments';
 import { useSnackbar } from '../../context/SnackbarContext';
 import {
   buscarRequisitoPorId,
@@ -496,6 +497,18 @@ export default function RequirementDetail() {
                   </Button>
                 </Box>
               )}
+            </CardContent>
+          </Card>
+
+          {/* ── Comentários ── */}
+          <Card variant="outlined" sx={{ borderRadius: 3, mt: 3 }}>
+            <CardContent sx={{ p: 3 }}>
+              <CommentSection
+                entidadeTipo="REQUISITO"
+                entidadeId={requirementId!}
+                projetoId={projectId!}
+                organizacaoId={orgId!}
+              />
             </CardContent>
           </Card>
         </Grid>

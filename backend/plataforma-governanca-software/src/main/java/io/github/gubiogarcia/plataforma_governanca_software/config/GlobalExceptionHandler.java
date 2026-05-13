@@ -11,6 +11,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.StatusRequisitoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.RequisitoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.CriterioAceiteService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.collaboration.service.ComentarioService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -266,6 +267,37 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PrioridadeService.PrioridadeEmUsoException.class)
     public ProblemDetail handlePrioridadeEmUso(PrioridadeService.PrioridadeEmUsoException ex) {
         return problem(HttpStatus.CONFLICT, "Prioridade em uso", ex.getMessage(), "/errors/prioridade-em-uso");
+    }
+
+    // Comentario
+    @ExceptionHandler(ComentarioService.ComentarioNaoEncontradoException.class)
+    public ProblemDetail handleComentarioNaoEncontrado(ComentarioService.ComentarioNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Comentário não encontrado", ex.getMessage(), "/errors/comentario-nao-encontrado");
+    }
+
+    @ExceptionHandler(ComentarioService.ComentarioNaoAutorizadoException.class)
+    public ProblemDetail handleComentarioNaoAutorizado(ComentarioService.ComentarioNaoAutorizadoException ex) {
+        return problem(HttpStatus.FORBIDDEN, "Sem permissão", ex.getMessage(), "/errors/comentario-sem-permissao");
+    }
+
+    @ExceptionHandler(ComentarioService.UsuarioNaoAutorizadoException.class)
+    public ProblemDetail handleComentarioUsuarioNaoAutorizado(ComentarioService.UsuarioNaoAutorizadoException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Usuário não autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
+    }
+
+    @ExceptionHandler(ComentarioService.OrganizacaoNaoEncontradaException.class)
+    public ProblemDetail handleComentarioOrgNaoEncontrada(ComentarioService.OrganizacaoNaoEncontradaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Organização não encontrada", ex.getMessage(), "/errors/organizacao-nao-encontrada");
+    }
+
+    @ExceptionHandler(ComentarioService.ProjetoNaoEncontradoException.class)
+    public ProblemDetail handleComentarioProjetoNaoEncontrado(ComentarioService.ProjetoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
+    }
+
+    @ExceptionHandler(ComentarioService.ComentarioComRespostasException.class)
+    public ProblemDetail handleComentarioComRespostas(ComentarioService.ComentarioComRespostasException ex) {
+        return problem(HttpStatus.CONFLICT, "Comentário com respostas posteriores", ex.getMessage(), "/errors/comentario-com-respostas");
     }
 
     // Fallback

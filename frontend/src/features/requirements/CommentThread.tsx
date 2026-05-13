@@ -41,7 +41,7 @@ export default function CommentThread({ comments, onAddComment, onDeleteComment 
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
           {comments.map((c, idx) => {
-            const initials = c.userName.split(' ').slice(0, 2).map((n) => n[0]).join('');
+            const initials = c.userName.split(' ').slice(0, 2).map((n: string) => n[0]).join('');
             const isOwn = user?.id !== undefined && c.userId === Number(user.id);
             return (
               <Box key={c.id}>

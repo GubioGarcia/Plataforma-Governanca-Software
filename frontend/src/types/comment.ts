@@ -1,9 +1,15 @@
-﻿import type { DadosAuditoria } from './common';
+/**
+ * @deprecated Importe de `../../features/comments` (ou `../features/comments`)
+ * Esta reexportação existe apenas para compatibilidade com código legado (mocks).
+ */
+export type { ComentarioAPI, CriarComentarioPayload, AtualizarComentarioPayload } from '../features/comments/types';
 
-export interface Comentario extends DadosAuditoria {
+export interface Comentario {
+  id: number;
   texto: string;
-  userId: string | number;
+  userId: number;
   userName: string;
-  userAvatar?: string;
   requisitoId: number;
+  createdAt: string;
+  updatedAt: string;
 }

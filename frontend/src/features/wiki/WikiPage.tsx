@@ -147,7 +147,6 @@ export default function WikiPage() {
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 
-        {/* 1 — Descrição Geral do Produto: apenas nome e descrição do projeto */}
         <WikiCard
           label="Descrição Geral do Produto"
           icon={<AutoStoriesIcon sx={{ fontSize: 30 }} />}
@@ -162,7 +161,6 @@ export default function WikiPage() {
           )}
         </WikiCard>
 
-        {/* 2 — Problema de Negócio */}
         <WikiCard
           label="Problema de Negócio"
           icon={<CompassCalibrationIcon sx={{ fontSize: 30 }} />}
@@ -173,7 +171,6 @@ export default function WikiPage() {
           <ContentBlock value={wiki.descricaoProblema} />
         </WikiCard>
 
-        {/* 3 — Público-Alvo */}
         <WikiCard
           label="Público-Alvo"
           icon={<PeopleAltIcon sx={{ fontSize: 30 }} />}
@@ -184,7 +181,6 @@ export default function WikiPage() {
           <ContentBlock value={wiki.publicoAlvo} />
         </WikiCard>
 
-        {/* 4 — Objetivos do Projeto */}
         <WikiCard
           label="Objetivos do Projeto"
           icon={<EmojiObjectsIcon sx={{ fontSize: 30 }} />}
@@ -197,7 +193,6 @@ export default function WikiPage() {
           <InfoRow label="Indicadores de Sucesso (KPIs)" value={wiki.kpis} />
         </WikiCard>
 
-        {/* 5 — Restrições */}
         <WikiCard
           label="Restrições"
           icon={<ReportProblemIcon sx={{ fontSize: 30 }} />}

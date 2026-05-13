@@ -10,7 +10,7 @@ import { useSnackbar } from '../../context/SnackbarContext';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
 
 export default function WikiEditProblema() {
-  const { orgId, projectId } = useParams();
+  const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
@@ -51,9 +51,15 @@ export default function WikiEditProblema() {
       subtitle="Contexto atual, Dor do cliente, Impacto se não for atendido"
       onBack={() => navigate(backUrl)}
       infoRows={[
-        { label: 'Criado em', value: wiki?.dataCriacao },
+        { label: 'Criado em',          value: wiki?.dataCriacao },
         { label: 'Última atualização', value: wiki?.dataAtualizacao },
       ]}
+      commentProps={wiki ? {
+        entidadeTipo:  'WIKI_PROBLEMA',
+        entidadeId:    wiki.id,
+        projetoId:     projectId!,
+        organizacaoId: orgId!,
+      } : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <TextField

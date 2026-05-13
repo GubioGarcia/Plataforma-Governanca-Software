@@ -39,10 +39,18 @@ public class Comentario {
     @Column(name = "entidade_id")
     private UUID entidadeId;
 
+    @Column(columnDefinition = "TEXT")
     private String conteudo;
 
     private Boolean ativo;
 
-    @Column(name = "data_criacao")
+    /** Sinaliza se o conteúdo já foi editado ao menos uma vez após a criação. */
+    @Builder.Default
+    private Boolean editado = false;
+
+    @Column(name = "data_criacao", updatable = false)
     private Instant dataCriacao;
+
+    @Column(name = "data_atualizacao")
+    private Instant dataAtualizacao;
 }
