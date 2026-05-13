@@ -11,7 +11,7 @@ import { useSnackbar } from '../../context/SnackbarContext';
 import type { WikiProjetoApi } from '../../types/wiki';
 
 export default function WikiEditDescricao() {
-  const { orgId, projectId } = useParams();
+  const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
@@ -33,7 +33,6 @@ export default function WikiEditDescricao() {
         setWiki(wikiData);
         setNome(wikiData.projetoNome ?? '');
         setDescricao(wikiData.projetoDescricao ?? '');
-        // Preserva o statusId atual para não perder o status ao salvar
         setProjetoStatusId(projetoData.status?.id);
       })
       .catch(() => notify('Falha ao carregar dados do projeto', 'error'))
@@ -42,10 +41,7 @@ export default function WikiEditDescricao() {
 
   const handleSave = async () => {
     if (!projectId || !wiki) return;
-    if (!nome.trim()) {
-      notify('O nome do projeto é obrigatório', 'error');
-      return;
-    }
+    if (!nome.trim()) { notify('O nome do projeto é obrigatório', 'error'); return; }
     setSaving(true);
     try {
       await atualizarProjeto(projectId, {
@@ -70,9 +66,15 @@ export default function WikiEditDescricao() {
       subtitle="Nome e descrição do projeto"
       onBack={() => navigate(backUrl)}
       infoRows={[
-        { label: 'Criado em', value: wiki?.projetoDataCriacao },
+        { label: 'Criado em',          value: wiki?.projetoDataCriacao },
         { label: 'Última atualização', value: wiki?.projetoDataAtualizacao },
       ]}
+      commentProps={wiki ? {
+        entidadeTipo:  'WIKI_DESCRICAO',
+        entidadeId:    wiki.id,
+        projetoId:     projectId!,
+        organizacaoId: orgId!,
+      } : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <TextField
@@ -83,7 +85,6 @@ export default function WikiEditDescricao() {
           placeholder="Nome do projeto..."
           InputLabelProps={{ shrink: true }}
         />
-
         <TextField
           label="Descrição"
           multiline
@@ -94,7 +95,6 @@ export default function WikiEditDescricao() {
           placeholder="Descreva o projeto de forma geral..."
           InputLabelProps={{ shrink: true }}
         />
-
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}

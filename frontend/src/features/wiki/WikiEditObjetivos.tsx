@@ -11,7 +11,7 @@ import { useSnackbar } from '../../context/SnackbarContext';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
 
 export default function WikiEditObjetivos() {
-  const { orgId, projectId } = useParams();
+  const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
@@ -59,13 +59,21 @@ export default function WikiEditObjetivos() {
       subtitle="Objetivo geral, Objetivos específicos e Indicadores de sucesso (KPIs)"
       onBack={() => navigate(backUrl)}
       infoRows={[
-        { label: 'Criado em', value: wiki?.dataCriacao },
+        { label: 'Criado em',          value: wiki?.dataCriacao },
         { label: 'Última atualização', value: wiki?.dataAtualizacao },
       ]}
+      commentProps={wiki ? {
+        entidadeTipo:  'WIKI_OBJETIVOS',
+        entidadeId:    wiki.id,
+        projetoId:     projectId!,
+        organizacaoId: orgId!,
+      } : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Objetivo geral</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
+            Objetivo geral
+          </Typography>
           <TextField
             multiline rows={4} fullWidth
             value={objetivoGeral}
@@ -75,7 +83,9 @@ export default function WikiEditObjetivos() {
           />
         </Box>
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Objetivos específicos</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
+            Objetivos específicos
+          </Typography>
           <TextField
             multiline rows={5} fullWidth
             value={objetivosEspecificos}
@@ -85,7 +95,9 @@ export default function WikiEditObjetivos() {
           />
         </Box>
         <Box>
-          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>Indicadores de Sucesso (KPIs)</Typography>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
+            Indicadores de Sucesso (KPIs)
+          </Typography>
           <TextField
             multiline rows={4} fullWidth
             value={kpis}

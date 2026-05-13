@@ -11,7 +11,7 @@ import { useSnackbar } from '../../context/SnackbarContext';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
 
 export default function WikiEditRestricoes() {
-  const { orgId, projectId } = useParams();
+  const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
@@ -67,9 +67,15 @@ export default function WikiEditRestricoes() {
       subtitle="Quais limitações externas ou condições obrigatórias influenciam o desenvolvimento do produto"
       onBack={() => navigate(backUrl)}
       infoRows={[
-        { label: 'Criado em', value: wiki?.dataCriacao },
+        { label: 'Criado em',          value: wiki?.dataCriacao },
         { label: 'Última atualização', value: wiki?.dataAtualizacao },
       ]}
+      commentProps={wiki ? {
+        entidadeTipo:  'WIKI_RESTRICOES',
+        entidadeId:    wiki.id,
+        projetoId:     projectId!,
+        organizacaoId: orgId!,
+      } : undefined}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <Box>

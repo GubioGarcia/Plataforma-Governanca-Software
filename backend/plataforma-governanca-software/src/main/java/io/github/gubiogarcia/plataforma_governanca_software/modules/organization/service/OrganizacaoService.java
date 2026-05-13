@@ -125,7 +125,7 @@ public class OrganizacaoService {
 
         log.info("Organização {} inativada com sucesso.", id);
     }
-    
+
     @Transactional
     public OrganizacaoResponseDTO ativar(UUID id) {
         Organizacao organizacao = organizacaoRepository.findById(id)
