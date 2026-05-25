@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -8,12 +8,15 @@ import WikiEditLayout from './WikiEditLayout';
 import { fetchProjectWiki, saveProjectWiki } from '../../services/wikiService';
 import { useSnackbar } from '../../context/SnackbarContext';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
+import type { AuditCardHandle } from '../audit/AuditCard';
 
 export default function WikiEditProblema() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
+
+  const auditCardRef = useRef<AuditCardHandle>(null);
 
   const [wiki, setWiki] = useState<WikiProjetoApi | null>(null);
   const [loading, setLoading] = useState(true);
@@ -35,7 +38,7 @@ export default function WikiEditProblema() {
       const payload: WikiProjetoUpdateRequest = { ...wiki, descricaoProblema };
       await saveProjectWiki(projectId, payload);
       notify('Problema de negócio salvo com sucesso', 'success');
-      navigate(backUrl);
+      auditCardRef.current?.reload();
     } catch {
       notify('Falha ao salvar. Tente novamente.', 'error');
     } finally {
@@ -60,6 +63,11 @@ export default function WikiEditProblema() {
         projetoId:     projectId!,
         organizacaoId: orgId!,
       } : undefined}
+      auditProps={wiki ? {
+        entidadeTipo: 'WIKI_PROBLEMA',
+        entidadeId:   wiki.id,
+      } : undefined}
+      auditCardRef={auditCardRef}
     >
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
         <TextField

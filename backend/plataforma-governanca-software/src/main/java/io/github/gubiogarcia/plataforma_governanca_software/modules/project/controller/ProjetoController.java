@@ -43,19 +43,24 @@ public class ProjetoController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ProjetoResponseDTO> atualizar(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
             @Valid @RequestBody AtualizarProjetoRequestDTO request) {
-        return ResponseEntity.ok(projetoService.atualizar(id, request));
+        return ResponseEntity.ok(projetoService.atualizar(jwt, id, request));
     }
 
     @PatchMapping("/{id}/ativar")
-    public ResponseEntity<ProjetoResponseDTO> ativar(@PathVariable UUID id) {
-        return ResponseEntity.ok(projetoService.ativar(id));
+    public ResponseEntity<ProjetoResponseDTO> ativar(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(projetoService.ativar(jwt, id));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> inativar(@PathVariable UUID id) {
-        projetoService.inativar(id);
+    public ResponseEntity<Void> inativar(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        projetoService.inativar(jwt, id);
         return ResponseEntity.noContent().build();
     }
 }

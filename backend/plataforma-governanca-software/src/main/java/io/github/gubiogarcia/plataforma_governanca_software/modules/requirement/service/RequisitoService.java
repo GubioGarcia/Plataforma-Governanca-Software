@@ -1,5 +1,10 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
@@ -33,6 +38,8 @@ public class RequisitoService {
     private final StatusRequisitoRepository statusRequisitoRepository;
     private final PrioridadeRepository prioridadeRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AuditoriaService auditoriaService;
+    private final InteracaoService interacaoService;
 
     @Transactional
     public RequisitoResponseDTO criar(Jwt jwt, UUID projetoId, CriarRequisitoRequestDTO request) {
@@ -77,6 +84,15 @@ public class RequisitoService {
 
         requisito = requisitoRepository.save(requisito);
         log.info("Requisito '{}' criado no projeto {} com código {}.", requisito.getTitulo(), projetoId, codigo);
+
+        // ── Auditoria: criação do requisito ──────────────────────────────
+        auditoriaService.registrar(
+                usuario, null, projeto,
+                "REQUISITO", requisito.getId(), AcaoAuditoria.CRIACAO,
+                "titulo", null, requisito.getTitulo()
+        );
+
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.REQUISITO, TipoInteracao.CRIACAO, requisito.getId(), "Requisito criado: " + requisito.getTitulo());
         return mapToResponseDTO(requisito);
     }
 
@@ -96,41 +112,95 @@ public class RequisitoService {
     }
 
     @Transactional
-    public RequisitoResponseDTO atualizar(UUID id, AtualizarRequisitoRequestDTO request) {
+    public RequisitoResponseDTO atualizar(Jwt jwt, UUID id, AtualizarRequisitoRequestDTO request) {
         Requisito requisito = requisitoRepository.findById(id)
                 .orElseThrow(() -> new RequisitoNaoEncontradoException(id));
 
-        if (request.titulo() != null) requisito.setTitulo(request.titulo());
-        if (request.descricao() != null) requisito.setDescricao(request.descricao());
-        if (request.tipoRequisito() != null) requisito.setTipoRequisito(request.tipoRequisito());
+        Usuario usuario = resolverUsuario(jwt);
+
+        // ── Registra auditoria campo a campo ──────────────────────────────
+        if (request.titulo() != null && !request.titulo().equals(requisito.getTitulo())) {
+            auditoriaService.registrar(
+                    usuario, null, requisito.getProjeto(),
+                    "REQUISITO", id, AcaoAuditoria.EDICAO, "titulo",
+                    requisito.getTitulo(), request.titulo()
+            );
+            requisito.setTitulo(request.titulo());
+        }
+
+        if (request.descricao() != null && !request.descricao().equals(requisito.getDescricao())) {
+            auditoriaService.registrar(
+                    usuario, null, requisito.getProjeto(),
+                    "REQUISITO", id, AcaoAuditoria.EDICAO, "descricao",
+                    requisito.getDescricao(), request.descricao()
+            );
+            requisito.setDescricao(request.descricao());
+        }
+
+        if (request.tipoRequisito() != null && !request.tipoRequisito().equals(requisito.getTipoRequisito())) {
+            auditoriaService.registrar(
+                    usuario, null, requisito.getProjeto(),
+                    "REQUISITO", id, AcaoAuditoria.EDICAO, "tipo",
+                    requisito.getTipoRequisito() != null ? requisito.getTipoRequisito().name() : null,
+                    request.tipoRequisito().name()
+            );
+            requisito.setTipoRequisito(request.tipoRequisito());
+        }
 
         if (request.statusId() != null) {
-            StatusRequisito status = statusRequisitoRepository.findById(request.statusId())
+            StatusRequisito novoStatus = statusRequisitoRepository.findById(request.statusId())
                     .orElseThrow(() -> new StatusRequisitoService.StatusRequisitoNaoEncontradoException(request.statusId()));
-            requisito.setStatus(status);
+            String statusAnteriorNome = requisito.getStatus() != null ? requisito.getStatus().getNome() : null;
+            if (!request.statusId().equals(requisito.getStatus() != null ? requisito.getStatus().getId() : null)) {
+                auditoriaService.registrar(
+                        usuario, null, requisito.getProjeto(),
+                        "REQUISITO", id, AcaoAuditoria.EDICAO, "status",
+                        statusAnteriorNome, novoStatus.getNome()
+                );
+                requisito.setStatus(novoStatus);
+            }
         }
 
         if (request.prioridadeId() != null) {
-            Prioridade prioridade = prioridadeRepository.findById(request.prioridadeId())
+            Prioridade novaPrioridade = prioridadeRepository.findById(request.prioridadeId())
                     .orElseThrow(() -> new PrioridadeNaoEncontradaException(request.prioridadeId()));
-            requisito.setPrioridade(prioridade);
+            String prioAnteriorNome = requisito.getPrioridade() != null ? requisito.getPrioridade().getNome() : null;
+            if (!request.prioridadeId().equals(requisito.getPrioridade() != null ? requisito.getPrioridade().getId() : null)) {
+                auditoriaService.registrar(
+                        usuario, null, requisito.getProjeto(),
+                        "REQUISITO", id, AcaoAuditoria.EDICAO, "prioridade",
+                        prioAnteriorNome, novaPrioridade.getNome()
+                );
+                requisito.setPrioridade(novaPrioridade);
+            }
         }
 
-        // Incrementa a versão individual do requisito — o código (REQ-XXX) nunca muda
         requisito.setVersao((requisito.getVersao() != null ? requisito.getVersao() : 1) + 1);
         requisito.setDataAtualizacao(Instant.now());
         requisito = requisitoRepository.save(requisito);
+        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO, TipoInteracao.EDICAO, id, "Requisito atualizado: " + requisito.getTitulo());
         log.info("Requisito {} ({}) atualizado. Nova versão: v{}.0", id, requisito.getCodigo(), requisito.getVersao());
         return mapToResponseDTO(requisito);
     }
 
     @Transactional
-    public void deletar(UUID id) {
+    public void deletar(Jwt jwt, UUID id) {
         Requisito requisito = requisitoRepository.findById(id)
                 .orElseThrow(() -> new RequisitoNaoEncontradoException(id));
+
+        Usuario usuario = resolverUsuario(jwt);
+
+        // ── Auditoria: inativação do requisito ───────────────────────────
+        auditoriaService.registrar(
+                usuario, null, requisito.getProjeto(),
+                "REQUISITO", id, AcaoAuditoria.EXCLUSAO,
+                "titulo", requisito.getTitulo(), null
+        );
+
         requisito.setAtivo(false);
         requisito.setDataAtualizacao(Instant.now());
         requisitoRepository.save(requisito);
+        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO, TipoInteracao.EXCLUSAO, id, "Requisito inativado: " + requisito.getTitulo());
         log.info("Requisito {} ({}) inativado.", id, requisito.getCodigo());
     }
 

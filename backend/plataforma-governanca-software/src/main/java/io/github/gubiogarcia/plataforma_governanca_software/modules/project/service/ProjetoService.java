@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.project.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
@@ -33,6 +35,7 @@ public class ProjetoService {
     private final StatusProjetoRepository statusProjetoRepository;
     private final UsuarioRepository usuarioRepository;
     private final VisaoProdutoService visaoProdutoService;
+    private final AuditoriaService auditoriaService;
 
     private static final String STATUS_INICIAL_NOME = "RASCUNHO";
 
@@ -72,6 +75,13 @@ public class ProjetoService {
         // Inicializa automaticamente a VisaoProduto (Wiki) para este projeto
         visaoProdutoService.inicializarParaProjeto(projeto);
 
+        // ── Auditoria: criação do projeto ───────────────────────────────
+        auditoriaService.registrar(
+                usuario, organizacao, projeto,
+                "PROJETO", projeto.getId(), AcaoAuditoria.CRIACAO,
+                "nome", null, projeto.getNome()
+        );
+
         return mapToResponseDTO(projeto);
     }
 
@@ -94,13 +104,15 @@ public class ProjetoService {
     }
 
     @Transactional
-    public ProjetoResponseDTO atualizar(UUID id, AtualizarProjetoRequestDTO request) {
+    public ProjetoResponseDTO atualizar(Jwt jwt, UUID id, AtualizarProjetoRequestDTO request) {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
 
         if (Boolean.FALSE.equals(projeto.getAtivo())) {
             throw new ProjetoInativoException(id);
         }
+
+        Usuario usuario = resolverUsuario(jwt);
 
         String novoNome = request.nome();
         if (!projeto.getNome().equalsIgnoreCase(novoNome)
@@ -111,6 +123,38 @@ public class ProjetoService {
         StatusProjeto novoStatus = statusProjetoRepository.findById(request.statusId())
                 .orElseThrow(() -> new StatusProjetoService.StatusProjetoNaoEncontradoException(
                         "Nenhum status encontrado com o id: " + request.statusId()));
+
+        // ── Auditoria: nome do projeto ────────────────────────────────────
+        if (request.nome() != null && !request.nome().equals(projeto.getNome())) {
+            auditoriaService.registrar(
+                    usuario, projeto.getOrganizacao(), projeto,
+                    "PROJETO", projeto.getId(), AcaoAuditoria.EDICAO, "nome",
+                    projeto.getNome(), request.nome()
+            );
+        }
+
+        // ── Auditoria: descricao do projeto ───────────────────────────────
+        String descAnterior = projeto.getDescricao();
+        String descNova     = request.descricao();
+        if (!java.util.Objects.equals(descAnterior, descNova)) {
+            auditoriaService.registrar(
+                    usuario, projeto.getOrganizacao(), projeto,
+                    "PROJETO", projeto.getId(), AcaoAuditoria.EDICAO, "descricao",
+                    descAnterior, descNova
+            );
+        }
+
+        // ── Auditoria: status do projeto ──────────────────────────────────
+        String statusAnteriorNome = projeto.getStatus() != null ? projeto.getStatus().getNome() : null;
+        boolean statusMudou = projeto.getStatus() == null
+                || !novoStatus.getId().equals(projeto.getStatus().getId());
+        if (statusMudou) {
+            auditoriaService.registrar(
+                    usuario, projeto.getOrganizacao(), projeto,
+                    "PROJETO", projeto.getId(), AcaoAuditoria.EDICAO, "status",
+                    statusAnteriorNome, novoStatus.getNome()
+            );
+        }
 
         projeto.setNome(novoNome);
         projeto.setDescricao(request.descricao());
@@ -123,13 +167,22 @@ public class ProjetoService {
     }
 
     @Transactional
-    public void inativar(UUID id) {
+    public void inativar(Jwt jwt, UUID id) {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
 
         if (Boolean.FALSE.equals(projeto.getAtivo())) {
             throw new ProjetoJaInativoException(id);
         }
+
+        Usuario usuario = resolverUsuario(jwt);
+
+        // ── Auditoria: inativação do projeto ─────────────────────────────
+        auditoriaService.registrar(
+                usuario, projeto.getOrganizacao(), projeto,
+                "PROJETO", projeto.getId(), AcaoAuditoria.EXCLUSAO, "ativo",
+                "true", "false"
+        );
 
         projeto.setAtivo(false);
         projeto.setDataAtualizacao(Instant.now());
@@ -138,13 +191,22 @@ public class ProjetoService {
     }
 
     @Transactional
-    public ProjetoResponseDTO ativar(UUID id) {
+    public ProjetoResponseDTO ativar(Jwt jwt, UUID id) {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
 
         if (Boolean.TRUE.equals(projeto.getAtivo())) {
             throw new ProjetoJaAtivoException(id);
         }
+
+        Usuario usuario = resolverUsuario(jwt);
+
+        // ── Auditoria: reativação do projeto ─────────────────────────────
+        auditoriaService.registrar(
+                usuario, projeto.getOrganizacao(), projeto,
+                "PROJETO", projeto.getId(), AcaoAuditoria.EDICAO, "ativo",
+                "false", "true"
+        );
 
         projeto.setAtivo(true);
         projeto.setDataAtualizacao(Instant.now());

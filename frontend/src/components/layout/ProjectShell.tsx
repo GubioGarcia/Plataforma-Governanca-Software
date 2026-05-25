@@ -18,33 +18,29 @@ import HistoryIcon from '@mui/icons-material/History';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import { mockProjects } from '../../mocks/projects';
-import { usePermissions } from '../../hooks/usePermissions';
 
 const SIDEBAR_WIDTH = 220;
 
 export default function ProjectShell() {
   const { orgId, projectId } = useParams();
   const navigate = useNavigate();
-  const { canViewAudit } = usePermissions();
   const project = mockProjects.find((p) => p.id === Number(projectId));
 
   const base = `/organizations/${orgId}/projects/${projectId}`;
 
   const navItems = [
-    { label: 'Visão Geral', icon: <DashboardIcon fontSize="small" />, to: base },
-    { label: 'WIKI', icon: <AutoStoriesIcon fontSize="small" />, to: `${base}/wiki` },
-    { label: 'Requisitos', icon: <ChecklistIcon fontSize="small" />, to: `${base}/requirements` },
-    { label: 'Eventos', icon: <EventNoteIcon fontSize="small" />, to: `${base}/events` },
-    { label: 'Arquivos', icon: <FolderOpenIcon fontSize="small" />, to: `${base}/files` },
-    { label: 'Stakeholders', icon: <GroupIcon fontSize="small" />, to: `${base}/stakeholders` },
-    { label: 'Analytics', icon: <BarChartIcon fontSize="small" />, to: `${base}/analytics` },
-    ...(canViewAudit
-      ? [{ label: 'Auditoria', icon: <HistoryIcon fontSize="small" />, to: `${base}/audit` }]
-      : []),
+    { label: 'Visão Geral',  icon: <DashboardIcon fontSize="small" />,   to: base },
+    { label: 'WIKI',         icon: <AutoStoriesIcon fontSize="small" />,  to: `${base}/wiki` },
+    { label: 'Requisitos',   icon: <ChecklistIcon fontSize="small" />,    to: `${base}/requirements` },
+    { label: 'Eventos',      icon: <EventNoteIcon fontSize="small" />,    to: `${base}/events` },
+    { label: 'Arquivos',     icon: <FolderOpenIcon fontSize="small" />,   to: `${base}/files` },
+    { label: 'Stakeholders', icon: <GroupIcon fontSize="small" />,        to: `${base}/stakeholders` },
+    { label: 'Analytics',    icon: <BarChartIcon fontSize="small" />,     to: `${base}/analytics` },
+    { label: 'Auditoria',    icon: <HistoryIcon fontSize="small" />,      to: `${base}/audit` },
   ];
 
   return (
-    <Box sx={{ display: 'flex', flexGrow: 1, overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 'calc(100vh - 56px)', overflow: 'hidden' }}>
       {/* Sidebar */}
       <Box
         sx={{
@@ -55,7 +51,7 @@ export default function ProjectShell() {
           borderColor: 'divider',
           display: 'flex',
           flexDirection: 'column',
-          overflow: 'hidden',
+          overflow: 'auto',
         }}
       >
         {/* Back + project name */}

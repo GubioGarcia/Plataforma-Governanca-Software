@@ -71,7 +71,7 @@ export default function ProjectList() {
 
   // Edit state
   const [editingProject, setEditingProject] = useState<ProjetoAPI | null>(null);
-  const [editForm, setEditForm] = useState({ nome: '', descricao: '' });
+  const [editForm, setEditForm] = useState({ nome: '', descricao: '', statusId: '' });
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuProjectId, setMenuProjectId] = useState<string | null>(null);
 
@@ -165,14 +165,14 @@ export default function ProjectList() {
     const proj = projects.find((p) => p.id === menuProjectId);
     if (!proj) return;
     setEditingProject(proj);
-    setEditForm({ nome: proj.nome, descricao: proj.descricao ?? '' });
+    setEditForm({ nome: proj.nome, descricao: proj.descricao ?? '', statusId: proj.status?.id ?? '' });
     handleMenuClose();
   };
 
   const handleSaveEdit = async () => {
     if (!editForm.nome.trim() || !editingProject) return;
     try {
-      await atualizarProjeto(editingProject.id, { nome: editForm.nome.trim(), descricao: editForm.descricao.trim() });
+      await atualizarProjeto(editingProject.id, { nome: editForm.nome.trim(), descricao: editForm.descricao.trim(), statusId: editForm.statusId || undefined });
       notify('Projeto atualizado com sucesso');
       setEditingProject(null);
       fetchProjects();
@@ -598,6 +598,20 @@ export default function ProjectList() {
             multiline
             rows={3}
           />
+          <FormControl fullWidth>
+            <InputLabel>Status do Projeto</InputLabel>
+            <Select
+              label="Status do Projeto"
+              value={editForm.statusId}
+              onChange={(e) => setEditForm((f) => ({ ...f, statusId: e.target.value }))}
+            >
+              {statusOptions.map((s) => (
+                <MenuItem key={s.id} value={s.id}>
+                  {s.nome.replace(/_/g, ' ')}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setEditingProject(null)} color="inherit">Cancelar</Button>

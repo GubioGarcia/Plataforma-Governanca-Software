@@ -46,14 +46,17 @@ public class EventoController {
 
     @PutMapping("/{id}")
     public ResponseEntity<EventoResponseDTO> atualizar(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
             @Valid @RequestBody AtualizarEventoRequestDTO request) {
-        return ResponseEntity.ok(eventoService.atualizar(id, request));
+        return ResponseEntity.ok(eventoService.atualizar(jwt, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable UUID id) {
-        eventoService.deletar(id);
+    public ResponseEntity<Void> deletar(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        eventoService.deletar(jwt, id);
         return ResponseEntity.noContent().build();
     }
 }

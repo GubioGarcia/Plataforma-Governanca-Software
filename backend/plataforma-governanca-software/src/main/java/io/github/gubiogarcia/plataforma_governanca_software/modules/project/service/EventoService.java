@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.project.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
@@ -30,6 +32,7 @@ public class EventoService {
     private final ProjetoRepository projetoRepository;
     private final OrganizacaoRepository organizacaoRepository;
     private final UsuarioRepository usuarioRepository;
+    private final AuditoriaService auditoriaService;
 
     @Transactional
     public EventoResponseDTO criar(Jwt jwt, CriarEventoRequestDTO request) {
@@ -58,6 +61,14 @@ public class EventoService {
 
         evento = eventoRepository.save(evento);
         log.info("Evento '{}' criado no projeto '{}'. ID: {}", evento.getNome(), projeto.getNome(), evento.getId());
+
+        // ── Auditoria: criação do evento ─────────────────────────────────
+        auditoriaService.registrar(
+                usuario, organizacao, projeto,
+                "EVENTO", evento.getId(), AcaoAuditoria.CRIACAO,
+                "nome", null, evento.getNome()
+        );
+
         return mapToResponseDTO(evento);
     }
 
@@ -88,13 +99,31 @@ public class EventoService {
     }
 
     @Transactional
-    public EventoResponseDTO atualizar(UUID id, AtualizarEventoRequestDTO request) {
+    public EventoResponseDTO atualizar(Jwt jwt, UUID id, AtualizarEventoRequestDTO request) {
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() -> new EventoNaoEncontradoException(id));
 
         if (request.dataHoraFim() != null && request.dataHoraFim().isBefore(request.dataHoraInicio())) {
             throw new EventoDataInvalidaException("A data/hora de fim nao pode ser anterior a data/hora de inicio.");
         }
+
+        Usuario usuario = resolverUsuario(jwt);
+        Projeto projeto  = evento.getProjeto();
+        Organizacao org  = evento.getOrganizacao();
+
+        // ── Auditoria campo a campo ──────────────────────────────────────
+        registrarSeAlterado(usuario, org, projeto, id, "nome",
+                evento.getNome(), request.nome());
+        registrarSeAlterado(usuario, org, projeto, id, "descricao",
+                evento.getDescricao(), request.descricao());
+
+        String inicioAnterior = evento.getDataHoraInicio() != null ? evento.getDataHoraInicio().toString() : null;
+        String inicioNovo     = request.dataHoraInicio() != null ? request.dataHoraInicio().toString() : null;
+        registrarSeAlterado(usuario, org, projeto, id, "dataHoraInicio", inicioAnterior, inicioNovo);
+
+        String fimAnterior = evento.getDataHoraFim() != null ? evento.getDataHoraFim().toString() : null;
+        String fimNovo     = request.dataHoraFim() != null ? request.dataHoraFim().toString() : null;
+        registrarSeAlterado(usuario, org, projeto, id, "dataHoraFim", fimAnterior, fimNovo);
 
         evento.setNome(request.nome());
         evento.setDescricao(request.descricao());
@@ -107,12 +136,33 @@ public class EventoService {
     }
 
     @Transactional
-    public void deletar(UUID id) {
-        if (!eventoRepository.existsById(id)) {
-            throw new EventoNaoEncontradoException(id);
-        }
+    public void deletar(Jwt jwt, UUID id) {
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(() -> new EventoNaoEncontradoException(id));
+
+        Usuario usuario = resolverUsuario(jwt);
+
+        // ── Auditoria: exclusão do evento ────────────────────────────────
+        auditoriaService.registrar(
+                usuario, evento.getOrganizacao(), evento.getProjeto(),
+                "EVENTO", id, AcaoAuditoria.EXCLUSAO,
+                "nome", evento.getNome(), null
+        );
+
         eventoRepository.deleteById(id);
         log.info("Evento {} removido com sucesso.", id);
+    }
+
+    private void registrarSeAlterado(
+            Usuario usuario, Organizacao org, Projeto projeto,
+            UUID eventoId, String campo, String anterior, String novo) {
+        if (!java.util.Objects.equals(anterior, novo)) {
+            auditoriaService.registrar(
+                    usuario, org, projeto,
+                    "EVENTO", eventoId, AcaoAuditoria.EDICAO,
+                    campo, anterior, novo
+            );
+        }
     }
 
     private Usuario resolverUsuario(Jwt jwt) {

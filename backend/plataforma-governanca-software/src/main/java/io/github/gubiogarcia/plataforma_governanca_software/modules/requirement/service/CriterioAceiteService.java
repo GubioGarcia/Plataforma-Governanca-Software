@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.domain.CriterioAceite;
@@ -25,12 +27,15 @@ import java.util.UUID;
 public class CriterioAceiteService {
 
     private final CriterioAceiteRepository criterioAceiteRepository;
-    private final RequisitoRepository requisitoRepository;
-    private final UsuarioRepository usuarioRepository;
+    private final RequisitoRepository       requisitoRepository;
+    private final UsuarioRepository         usuarioRepository;
+    private final AuditoriaService          auditoriaService;
+
+    // ── Criar ─────────────────────────────────────────────────────────────────
 
     @Transactional
     public CriterioAceiteResponseDTO criar(Jwt jwt, UUID requisitoId, CriarCriterioAceiteRequestDTO request) {
-        Usuario usuario = resolverUsuario(jwt);
+        Usuario  usuario  = resolverUsuario(jwt);
         Requisito requisito = requisitoRepository.findById(requisitoId)
                 .orElseThrow(() -> new RequisitoService.RequisitoNaoEncontradoException(requisitoId));
 
@@ -44,16 +49,34 @@ public class CriterioAceiteService {
                 .build();
 
         criterio = criterioAceiteRepository.save(criterio);
-        log.info("CriterioAceite '{}' criado para requisito {}. ID: {}", criterio.getNome(), requisitoId, criterio.getId());
+        log.info("CriterioAceite '{}' criado para requisito {}. ID: {}",
+                criterio.getNome(), requisitoId, criterio.getId());
+
+        // Auditoria: registra criação de critério no requisito pai
+        auditoriaService.registrar(
+                usuario,
+                null,
+                requisito.getProjeto(),
+                "REQUISITO",
+                requisitoId,
+                AcaoAuditoria.CRIACAO,
+                "criterio_aceite",
+                null,
+                request.nome()
+        );
+
         return mapToResponseDTO(criterio);
     }
+
+    // ── Listar ────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public List<CriterioAceiteResponseDTO> listarPorRequisito(UUID requisitoId) {
         if (!requisitoRepository.existsById(requisitoId)) {
             throw new RequisitoService.RequisitoNaoEncontradoException(requisitoId);
         }
-        return criterioAceiteRepository.findAllByRequisitoIdOrderByDataCriacaoAsc(requisitoId)
+        return criterioAceiteRepository
+                .findAllByRequisitoIdOrderByDataCriacaoAsc(requisitoId)
                 .stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -66,10 +89,37 @@ public class CriterioAceiteService {
         return mapToResponseDTO(criterio);
     }
 
+    // ── Atualizar ─────────────────────────────────────────────────────────────
+
     @Transactional
-    public CriterioAceiteResponseDTO atualizar(UUID id, AtualizarCriterioAceiteRequestDTO request) {
-        CriterioAceite criterio = criterioAceiteRepository.findById(id)
+    public CriterioAceiteResponseDTO atualizar(Jwt jwt, UUID id, AtualizarCriterioAceiteRequestDTO request) {
+        CriterioAceite criterio  = criterioAceiteRepository.findById(id)
                 .orElseThrow(() -> new CriterioAceiteNaoEncontradoException(id));
+        Usuario        usuario   = resolverUsuario(jwt);
+        Requisito      requisito = criterio.getRequisito();
+
+        // Auditoria por campo
+        if (request.nome() != null && !request.nome().equals(criterio.getNome())) {
+            auditoriaService.registrar(
+                    usuario, null, requisito.getProjeto(),
+                    "REQUISITO", requisito.getId(),
+                    AcaoAuditoria.EDICAO,
+                    "criterio_aceite",
+                    criterio.getNome(),
+                    request.nome()
+            );
+        }
+
+        if (request.descricao() != null && !request.descricao().equals(criterio.getDescricao())) {
+            auditoriaService.registrar(
+                    usuario, null, requisito.getProjeto(),
+                    "REQUISITO", requisito.getId(),
+                    AcaoAuditoria.EDICAO,
+                    "criterio_aceite_descricao",
+                    criterio.getDescricao(),
+                    request.descricao()
+            );
+        }
 
         criterio.setNome(request.nome());
         criterio.setDescricao(request.descricao());
@@ -80,19 +130,36 @@ public class CriterioAceiteService {
         return mapToResponseDTO(criterio);
     }
 
+    // ── Deletar ───────────────────────────────────────────────────────────────
+
     @Transactional
-    public void deletar(UUID id) {
-        if (!criterioAceiteRepository.existsById(id)) {
-            throw new CriterioAceiteNaoEncontradoException(id);
-        }
+    public void deletar(Jwt jwt, UUID id) {
+        CriterioAceite criterio  = criterioAceiteRepository.findById(id)
+                .orElseThrow(() -> new CriterioAceiteNaoEncontradoException(id));
+        Usuario        usuario   = resolverUsuario(jwt);
+        Requisito      requisito = criterio.getRequisito();
+
+        // Auditoria: remoção do critério
+        auditoriaService.registrar(
+                usuario, null, requisito.getProjeto(),
+                "REQUISITO", requisito.getId(),
+                AcaoAuditoria.EXCLUSAO,
+                "criterio_aceite",
+                criterio.getNome(),
+                null
+        );
+
         criterioAceiteRepository.deleteById(id);
         log.info("CriterioAceite {} removido.", id);
     }
 
+    // ── Helpers ───────────────────────────────────────────────────────────────
+
     private Usuario resolverUsuario(Jwt jwt) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
         return usuarioRepository.findByExternalIdentityId(keycloakId)
-                .orElseThrow(() -> new RequisitoService.UsuarioNaoAutorizadoException("Usuário autenticado não encontrado na plataforma."));
+                .orElseThrow(() -> new RequisitoService.UsuarioNaoAutorizadoException(
+                        "Usuário autenticado não encontrado na plataforma."));
     }
 
     private CriterioAceiteResponseDTO mapToResponseDTO(CriterioAceite c) {
@@ -102,11 +169,13 @@ public class CriterioAceiteService {
                 c.getDescricao(),
                 c.getRequisito().getId(),
                 c.getCriadoPor() != null ? c.getCriadoPor().getNome() : null,
-                c.getCriadoPor() != null ? c.getCriadoPor().getId() : null,
+                c.getCriadoPor() != null ? c.getCriadoPor().getId()   : null,
                 c.getDataCriacao(),
                 c.getDataAtualizacao()
         );
     }
+
+    // ── Domain Exceptions ─────────────────────────────────────────────────────
 
     public static class CriterioAceiteNaoEncontradoException extends RuntimeException {
         public CriterioAceiteNaoEncontradoException(UUID id) {
