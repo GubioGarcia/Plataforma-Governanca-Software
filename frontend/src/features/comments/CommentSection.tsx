@@ -472,7 +472,7 @@ export default function CommentSection({
             disabled={!novoTexto.trim() || submitting}
             sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
           >
-            + Adicionar comentário
+            Adicionar comentário
           </Button>
         </Box>
       </Box>

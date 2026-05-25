@@ -42,14 +42,17 @@ public class RequisitoController {
 
     @PutMapping("/{id}")
     public ResponseEntity<RequisitoResponseDTO> atualizar(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
             @RequestBody AtualizarRequisitoRequestDTO request) {
-        return ResponseEntity.ok(requisitoService.atualizar(id, request));
+        return ResponseEntity.ok(requisitoService.atualizar(jwt, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable UUID id) {
-        requisitoService.deletar(id);
+    public ResponseEntity<Void> deletar(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        requisitoService.deletar(jwt, id);
         return ResponseEntity.noContent().build();
     }
 }

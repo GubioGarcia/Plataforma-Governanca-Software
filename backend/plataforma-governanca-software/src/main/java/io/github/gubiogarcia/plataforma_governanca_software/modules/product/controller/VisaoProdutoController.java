@@ -6,6 +6,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.product.serv
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
@@ -40,8 +42,9 @@ public class VisaoProdutoController {
      */
     @PutMapping("/api/projeto/{projetoId}/wiki")
     public ResponseEntity<VisaoProdutoResponseDTO> atualizar(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID projetoId,
             @Valid @RequestBody AtualizarVisaoProdutoRequestDTO request) {
-        return ResponseEntity.ok(visaoProdutoService.atualizar(projetoId, request));
+        return ResponseEntity.ok(visaoProdutoService.atualizar(jwt, projetoId, request));
     }
 }

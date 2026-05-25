@@ -1,139 +1,216 @@
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import Box from '@mui/material/Box';
-import Button from '@mui/material/Button';
 import Typography from '@mui/material/Typography';
 import Avatar from '@mui/material/Avatar';
+import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
 import CardContent from '@mui/material/CardContent';
 import LinearProgress from '@mui/material/LinearProgress';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
-import IconButton from '@mui/material/IconButton';
+import CircularProgress from '@mui/material/CircularProgress';
+import InputAdornment from '@mui/material/InputAdornment';
+import TextField from '@mui/material/TextField';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
 import DialogActions from '@mui/material/DialogActions';
-import TextField from '@mui/material/TextField';
-import MenuItem from '@mui/material/MenuItem';
-import AddIcon from '@mui/icons-material/Add';
+import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
-import BusinessIcon from '@mui/icons-material/Business';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import StatusChip from '../../components/common/StatusChip';
+import EmailIcon from '@mui/icons-material/Email';
+import AddIcon from '@mui/icons-material/Add';
+import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EmptyState from '../../components/common/EmptyState';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
-import { mockStakeholders } from '../../mocks/stakeholders';
-import type { PapelProjeto, StakeholderProjeto } from '../../types/stakeholder';
-import { usePermissions } from '../../hooks/usePermissions';
+import { buscarResumoPorProjeto } from '../../services/interacaoService';
+import { cadastrarUsuario, isApiError } from '../../services/userService';
+import type { ResumoInteracaoUsuario } from '../../types/interacao';
 import { useSnackbar } from '../../context/SnackbarContext';
 
-const PAPEIS: PapelProjeto[] = ['GESTOR', 'ANALISTA', 'STAKEHOLDER'];
-
-const EMPTY_FORM = { userName: '', userEmail: '', empresa: '', papel: 'STAKEHOLDER' as PapelProjeto };
-type FormData = typeof EMPTY_FORM;
+// ─── helpers ─────────────────────────────────────────────────────────────────
 
 function initials(name: string) {
-  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
+  return name
+    .split(' ')
+    .filter(Boolean)
+    .map((n) => n[0])
+    .slice(0, 2)
+    .join('')
+    .toUpperCase();
 }
 
-const paperColors: Record<PapelProjeto, string> = {
-  GESTOR: '#3F51B5',
-  ANALISTA: '#059669',
-  STAKEHOLDER: '#7C3AED',
-};
+const AVATAR_COLORS = [
+  '#3F51B5', '#059669', '#7C3AED', '#D97706',
+  '#0891B2', '#DC2626', '#065F46', '#92400E',
+];
+
+function avatarColor(name: string) {
+  let h = 0;
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+  return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+// ─── Stat card ───────────────────────────────────────────────────────────────
+
+function StatCard({ value, label, color }: { value: number; label: string; color: string }) {
+  return (
+    <Card elevation={0} sx={{ border: '1px solid #E8EAED', height: '100%' }}>
+      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+        <Typography sx={{ fontSize: 32, fontWeight: 700, color, lineHeight: 1, mb: 0.5 }}>
+          {value.toLocaleString('pt-BR')}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">{label}</Typography>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ─── Engagement row ───────────────────────────────────────────────────────────
+
+function EngRow({ label, value, max, color }: { label: string; value: number; max: number; color: string }) {
+  return (
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
+        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{label}</Typography>
+        <Typography variant="caption" sx={{ fontWeight: 600 }}>{value}</Typography>
+      </Box>
+      <LinearProgress
+        variant="determinate"
+        value={max > 0 ? Math.round((value / max) * 100) : 0}
+        sx={{
+          height: 6, borderRadius: 3,
+          bgcolor: '#F0F0F0',
+          '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 3 },
+        }}
+      />
+    </Box>
+  );
+}
+
+// ─── Formulário de novo stakeholder ──────────────────────────────────────────
+
+interface NovoStakeholderForm {
+  nome: string;
+  email: string;
+  senha: string;
+  confirmarSenha: string;
+}
+
+const EMPTY_FORM: NovoStakeholderForm = { nome: '', email: '', senha: '', confirmarSenha: '' };
+
+// ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StakeholderList() {
-  const { projectId } = useParams();
-  const { canManageMembers } = usePermissions();
+  const { projectId } = useParams<{ projectId: string }>();
   const { notify } = useSnackbar();
 
-  const [members, setMembers] = useState<StakeholderProjeto[]>(
-    mockStakeholders.filter((s) => s.projetoId === Number(projectId))
-  );
+  const [membros, setMembros]           = useState<ResumoInteracaoUsuario[]>([]);
+  const [totalInteracoes, setTotal]     = useState(0);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState('');
 
-  const [search, setSearch] = useState('');
-  const filtered = members.filter((s) =>
-    s.userName.toLowerCase().includes(search.toLowerCase()) ||
-    s.userEmail.toLowerCase().includes(search.toLowerCase()) ||
-    (s.empresa ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  // Dialog state
+  const [dialogOpen, setDialogOpen]     = useState(false);
+  const [form, setForm]                 = useState<NovoStakeholderForm>(EMPTY_FORM);
+  const [formErrors, setFormErrors]     = useState<Partial<NovoStakeholderForm>>({});
+  const [saving, setSaving]             = useState(false);
+  const [apiError, setApiError]         = useState<string | null>(null);
 
-  const totalInteracoes = members.reduce((acc, s) => acc + (s.totalInteracoes ?? 0), 0);
+  const load = useCallback(async () => {
+    if (!projectId) return;
+    try {
+      setLoading(true);
+      const resumo = await buscarResumoPorProjeto(projectId);
+      setMembros(resumo.porUsuario);
+      setTotal(resumo.totalInteracoes);
+    } catch {
+      // mantém vazio
+    } finally {
+      setLoading(false);
+    }
+  }, [projectId]);
 
-  // ── Add / Edit dialog ─────────────────────────────────────────────────────
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<StakeholderProjeto | null>(null);
-  const [form, setForm] = useState<FormData>(EMPTY_FORM);
-  const [errors, setErrors] = useState<Partial<FormData>>({});
+  useEffect(() => { load(); }, [load]);
+
+  const filtered = membros.filter((m) => {
+    const q = search.toLowerCase();
+    return !q || m.usuarioNome.toLowerCase().includes(q) || m.usuarioEmail.toLowerCase().includes(q);
+  });
+
+  const totalMembros = membros.length;
+  const media = totalMembros > 0 ? Math.round(totalInteracoes / totalMembros) : 0;
+
+  const maxWiki = Math.max(...membros.map((m) => m.interacoesWiki), 1);
+  const maxReq  = Math.max(...membros.map((m) => m.interacoesRequisito), 1);
+  const maxCom  = Math.max(...membros.map((m) => m.interacoesComentario), 1);
+
+  // ── Dialog helpers ──────────────────────────────────────────────────────────
 
   function openAdd() {
-    setEditing(null);
     setForm(EMPTY_FORM);
-    setErrors({});
+    setFormErrors({});
+    setApiError(null);
     setDialogOpen(true);
   }
 
-  function openEdit(sh: StakeholderProjeto) {
-    setEditing(sh);
-    setForm({ userName: sh.userName, userEmail: sh.userEmail, empresa: sh.empresa ?? '', papel: sh.papel });
-    setErrors({});
-    setDialogOpen(true);
-  }
-
-  function validate() {
-    const e: Partial<FormData> = {};
-    if (!form.userName.trim()) e.userName = 'Nome obrigatório';
-    if (!form.userEmail.trim()) e.userEmail = 'E-mail obrigatório';
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.userEmail)) e.userEmail = 'E-mail inválido';
-    return e;
-  }
-
-  function handleSave() {
-    const e = validate();
-    if (Object.keys(e).length) { setErrors(e); return; }
-
-    if (editing) {
-      setMembers((prev) =>
-        prev.map((s) =>
-          s.id === editing.id
-            ? { ...s, userName: form.userName, userEmail: form.userEmail, empresa: form.empresa, papel: form.papel }
-            : s
-        )
-      );
-    } else {
-      const newId = Math.max(0, ...members.map((s) => s.id ?? 0)) + 1;
-      setMembers((prev) => [
-        ...prev,
-        {
-          id: newId,
-          projetoId: Number(projectId),
-          userId: newId + 100,
-          userName: form.userName,
-          userEmail: form.userEmail,
-          empresa: form.empresa,
-          papel: form.papel,
-          totalInteracoes: 0,
-          interacoesWiki: 0,
-          interacoesRequisitos: 0,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ]);
-    }
+  function closeAdd() {
     setDialogOpen(false);
-    notify(editing ? 'Membro atualizado' : 'Membro adicionado com sucesso');
   }
 
-  const [removeTarget, setRemoveTarget] = useState<StakeholderProjeto | null>(null);
+  function validate(): boolean {
+    const errs: Partial<NovoStakeholderForm> = {};
+    if (!form.nome.trim()) errs.nome = 'Nome obrigatório';
+    if (!form.email.trim()) {
+      errs.email = 'E-mail obrigatório';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
+      errs.email = 'E-mail inválido';
+    }
+    if (!form.senha) {
+      errs.senha = 'Senha obrigatória';
+    } else if (form.senha.length < 8) {
+      errs.senha = 'Mínimo de 8 caracteres';
+    }
+    if (!form.confirmarSenha) {
+      errs.confirmarSenha = 'Confirmação obrigatória';
+    } else if (form.senha !== form.confirmarSenha) {
+      errs.confirmarSenha = 'As senhas não coincidem';
+    }
+    setFormErrors(errs);
+    return Object.keys(errs).length === 0;
+  }
 
-  function handleRemove() {
-    if (!removeTarget) return;
-    setMembers((prev) => prev.filter((s) => s.id !== removeTarget.id));
-    setRemoveTarget(null);
-    notify('Membro removido', 'info');
+  async function handleSave() {
+    if (!validate()) return;
+    setSaving(true);
+    setApiError(null);
+    try {
+      await cadastrarUsuario({ nome: form.nome, email: form.email, senha: form.senha });
+      notify('Stakeholder cadastrado com sucesso!', 'success');
+      closeAdd();
+      load(); // recarrega a lista de interações (novo membro aparecerá após interagir)
+    } catch (err) {
+      if (isApiError(err)) {
+        setApiError(err.response?.data?.detail ?? 'Erro ao cadastrar usuário.');
+      } else {
+        setApiError('Erro inesperado. Tente novamente.');
+      }
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function field(key: keyof NovoStakeholderForm) {
+    return {
+      value: form[key],
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
+        setForm((f) => ({ ...f, [key]: e.target.value }));
+        setFormErrors((prev) => ({ ...prev, [key]: undefined }));
+        setApiError(null);
+      },
+      error: !!formErrors[key],
+      helperText: formErrors[key],
+    };
   }
 
   return (
@@ -142,202 +219,216 @@ export default function StakeholderList() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 4 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Stakeholders</Typography>
-          <Typography variant="body2">Membros e participantes do projeto</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Membros e participantes do projeto
+          </Typography>
         </Box>
-        {canManageMembers && (
-          <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openAdd}>Adicionar Membro</Button>
-        )}
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          size="small"
+          onClick={openAdd}
+        >
+          Adicionar Stakeholder
+        </Button>
       </Box>
 
-      {/* Summary row */}
+      {/* Summary cards */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
-        {[
-          { label: 'Total de membros', value: members.length, color: '#3F51B5' },
-          { label: 'Total de interações', value: totalInteracoes, color: '#059669' },
-          { label: 'Média por membro', value: members.length ? Math.round(totalInteracoes / members.length) : 0, color: '#D97706' },
-        ].map((stat) => (
-          <Grid size={{ xs: 12, sm: 4 }} key={stat.label}>
-            <Card elevation={0} sx={{ border: '1px solid #E8EAED' }}>
-              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                <Typography variant="h4" sx={{ color: stat.color, fontWeight: 700 }}>{stat.value}</Typography>
-                <Typography variant="caption" color="text.secondary">{stat.label}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StatCard value={totalMembros}    label="Total de membros"    color="#3F51B5" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StatCard value={totalInteracoes} label="Total de interações" color="#059669" />
+        </Grid>
+        <Grid size={{ xs: 12, sm: 4 }}>
+          <StatCard value={media}           label="Média por membro"    color="#D97706" />
+        </Grid>
       </Grid>
 
       {/* Search */}
-      <Box
-        component="input"
-        placeholder="Buscar por nome, e-mail ou empresa..."
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Buscar por nome ou e-mail..."
         value={search}
-        onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
-        sx={{
-          width: '100%',
-          mb: 3,
-          border: '1px solid #D1D5DB',
-          borderRadius: 1,
-          px: 2,
-          py: 1,
-          fontSize: 14,
-          fontFamily: 'Inter, sans-serif',
-          outline: 'none',
-          '&:focus': { borderColor: '#3F51B5' },
+        onChange={(e) => setSearch(e.target.value)}
+        sx={{ mb: 3 }}
+        slotProps={{
+          input: {
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          },
         }}
       />
 
-      {filtered.length === 0 ? (
-        <EmptyState icon={<PeopleIcon sx={{ fontSize: 64 }} />} title="Nenhum membro encontrado" description="Adicione membros ao projeto." />
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {filtered.map((sh) => {
-            const maxWiki = Math.max(...members.map((s) => s.interacoesWiki ?? 0), 1);
-            const maxReq = Math.max(...members.map((s) => s.interacoesRequisitos ?? 0), 1);
-            const avatarColor = paperColors[sh.papel] ?? '#9CA3AF';
-
-            return (
-              <Card key={sh.id} elevation={0} sx={{ border: '1px solid #E8EAED', '&:hover': { boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }, transition: 'box-shadow 0.2s' }}>
-                <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2 }}>
-                    {/* Avatar */}
-                    <Avatar sx={{ bgcolor: avatarColor, width: 44, height: 44, fontWeight: 700, fontSize: 16 }}>
-                      {initials(sh.userName)}
-                    </Avatar>
-
-                    {/* Info */}
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>{sh.userName}</Typography>
-                        <StatusChip status={sh.papel} />
-                      </Box>
-                      <Typography variant="caption" sx={{ color: '#6B7280' }}>{sh.userEmail}</Typography>
-                      {sh.empresa && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                          <BusinessIcon sx={{ fontSize: 13, color: '#9CA3AF' }} />
-                          <Typography variant="caption" sx={{ color: '#9CA3AF' }}>{sh.empresa}</Typography>
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Actions + interações */}
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Tooltip title="Total de interações">
-                        <Chip
-                          label={`${sh.totalInteracoes ?? 0} interações`}
-                          size="small"
-                          sx={{ bgcolor: '#F3F4F6', fontWeight: 600 }}
-                        />
-                      </Tooltip>
-                      {canManageMembers && (
-                        <Tooltip title="Editar membro">
-                          <IconButton size="small" onClick={() => openEdit(sh)}>
-                            <EditIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                      {canManageMembers && (
-                        <Tooltip title="Remover membro">
-                          <IconButton size="small" color="error" onClick={() => setRemoveTarget(sh)}>
-                            <DeleteIcon sx={{ fontSize: 16 }} />
-                          </IconButton>
-                        </Tooltip>
-                      )}
-                    </Box>
-                  </Box>
-
-                  {/* Engagement bars */}
-                  <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ color: '#6B7280' }}>Engajamento WIKI</Typography>
-                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{sh.interacoesWiki ?? 0}</Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={((sh.interacoesWiki ?? 0) / maxWiki) * 100}
-                        sx={{ height: 6, borderRadius: 3, bgcolor: '#E8EAED', '& .MuiLinearProgress-bar': { bgcolor: '#3F51B5', borderRadius: 3 } }}
-                      />
-                    </Box>
-                    <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ color: '#6B7280' }}>Engajamento Requisitos</Typography>
-                        <Typography variant="caption" sx={{ fontWeight: 600 }}>{sh.interacoesRequisitos ?? 0}</Typography>
-                      </Box>
-                      <LinearProgress
-                        variant="determinate"
-                        value={((sh.interacoesRequisitos ?? 0) / maxReq) * 100}
-                        sx={{ height: 6, borderRadius: 3, bgcolor: '#E8EAED', '& .MuiLinearProgress-bar': { bgcolor: '#7C3AED', borderRadius: 3 } }}
-                      />
-                    </Box>
-                  </Box>
-                </CardContent>
-              </Card>
-            );
-          })}
+      {/* Loading */}
+      {loading && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+          <CircularProgress />
         </Box>
       )}
 
-      {/* Add / Edit Dialog */}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editing ? 'Editar Membro' : 'Adicionar Membro'}</DialogTitle>
+      {/* Empty */}
+      {!loading && filtered.length === 0 && (
+        <EmptyState
+          icon={<PeopleIcon sx={{ fontSize: 64 }} />}
+          title="Nenhum membro encontrado"
+          description={
+            membros.length === 0
+              ? 'Ainda não há interações registradas neste projeto.'
+              : 'Nenhum membro corresponde à busca.'
+          }
+        />
+      )}
+
+      {/* Grid de cards dos membros */}
+      {!loading && filtered.length > 0 && (
+        <Grid container spacing={2}>
+          {filtered.map((m) => {
+            const color = avatarColor(m.usuarioNome);
+            return (
+              <Grid key={m.usuarioId} size={{ xs: 12, md: 6 }}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    border: '1px solid #E8EAED',
+                    height: '100%',
+                    transition: 'box-shadow 0.2s',
+                    '&:hover': { boxShadow: '0 2px 10px rgba(0,0,0,0.08)' },
+                  }}
+                >
+                  <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
+                    {/* Linha de topo: avatar + info + chip de total */}
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
+                      {m.usuarioUrlFoto ? (
+                        <Avatar src={m.usuarioUrlFoto} sx={{ width: 44, height: 44 }} />
+                      ) : (
+                        <Avatar sx={{ bgcolor: color, width: 44, height: 44, fontWeight: 700, fontSize: 15 }}>
+                          {initials(m.usuarioNome)}
+                        </Avatar>
+                      )}
+
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.2 }}>
+                          {m.usuarioNome}
+                        </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <EmailIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                          <Typography
+                            variant="caption"
+                            sx={{ color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {m.usuarioEmail}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Tooltip title="Total de interações no projeto">
+                        <Chip
+                          label={`${m.totalInteracoes} interações`}
+                          size="small"
+                          sx={{ fontWeight: 600, bgcolor: '#F3F4F6', flexShrink: 0 }}
+                        />
+                      </Tooltip>
+                    </Box>
+
+                    {/* Barras de engajamento */}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                      <EngRow label="Interações WIKI"        value={m.interacoesWiki}       max={maxWiki} color="#3F51B5" />
+                      <EngRow label="Interações Requisitos"  value={m.interacoesRequisito}  max={maxReq}  color="#7C3AED" />
+                      {m.interacoesComentario > 0 && (
+                        <EngRow label="Interações Comentários" value={m.interacoesComentario} max={maxCom} color="#059669" />
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            );
+          })}
+        </Grid>
+      )}
+
+      {/* ── Dialog: Adicionar Stakeholder ─────────────────────────────────── */}
+      <Dialog open={dialogOpen} onClose={closeAdd} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <PersonAddIcon sx={{ color: 'primary.main' }} />
+          Adicionar Stakeholder
+        </DialogTitle>
+
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+          <Typography variant="body2" color="text.secondary">
+            Preencha os dados para criar um novo usuário na plataforma. O stakeholder poderá acessar o sistema com as credenciais definidas abaixo.
+          </Typography>
+
           <TextField
             label="Nome completo"
-            value={form.userName}
-            onChange={(e) => setForm((f) => ({ ...f, userName: e.target.value }))}
-            error={!!errors.userName}
-            helperText={errors.userName}
             size="small"
             fullWidth
+            autoFocus
+            {...field('nome')}
           />
+
           <TextField
             label="E-mail"
-            value={form.userEmail}
-            onChange={(e) => setForm((f) => ({ ...f, userEmail: e.target.value }))}
-            error={!!errors.userEmail}
-            helperText={errors.userEmail}
+            type="email"
             size="small"
             fullWidth
+            {...field('email')}
           />
+
           <TextField
-            label="Empresa"
-            value={form.empresa}
-            onChange={(e) => setForm((f) => ({ ...f, empresa: e.target.value }))}
+            label="Senha"
+            type="password"
             size="small"
             fullWidth
+            {...field('senha')}
+            helperText={formErrors.senha ?? 'Mínimo de 8 caracteres'}
           />
+
           <TextField
-            select
-            label="Papel"
-            value={form.papel}
-            onChange={(e) => setForm((f) => ({ ...f, papel: e.target.value as PapelProjeto }))}
+            label="Confirmar senha"
+            type="password"
             size="small"
             fullWidth
-          >
-            {PAPEIS.map((p) => (
-              <MenuItem key={p} value={p}>{p}</MenuItem>
-            ))}
-          </TextField>
+            {...field('confirmarSenha')}
+          />
+
+          {apiError && (
+            <Box
+              sx={{
+                bgcolor: '#FEE2E2',
+                border: '1px solid #FCA5A5',
+                borderRadius: 1,
+                px: 2,
+                py: 1.5,
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#DC2626', fontWeight: 500 }}>
+                {apiError}
+              </Typography>
+            </Box>
+          )}
         </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogOpen(false)} color="inherit" size="small">Cancelar</Button>
-          <Button onClick={handleSave} variant="contained" size="small">
-            {editing ? 'Salvar' : 'Adicionar'}
+
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={closeAdd} color="inherit" size="small" disabled={saving}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            size="small"
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <PersonAddIcon />}
+          >
+            {saving ? 'Cadastrando...' : 'Cadastrar'}
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Remove Confirm */}
-      <ConfirmDialog
-        open={!!removeTarget}
-        title="Remover membro"
-        message={`Deseja remover ${removeTarget?.userName} do projeto?`}
-        confirmLabel="Remover"
-        confirmColor="error"
-        onConfirm={handleRemove}
-        onCancel={() => setRemoveTarget(null)}
-      />
     </Box>
   );
 }

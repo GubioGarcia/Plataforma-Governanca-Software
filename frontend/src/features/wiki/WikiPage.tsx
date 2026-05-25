@@ -14,7 +14,10 @@ import ReportProblemIcon from '@mui/icons-material/ReportProblem';
 import EditIcon from '@mui/icons-material/Edit';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { fetchProjectWiki } from '../../services/wikiService';
+import { buscarProjetoPorId } from '../../services/projetoService';
+import StatusChip from '../../components/common/StatusChip';
 import type { WikiProjetoApi } from '../../types/wiki';
+import type { ProjetoAPI } from '../../types/projeto';
 
 interface WikiCardProps {
   label: string;
@@ -72,16 +75,16 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
   );
 }
 
-function InfoRow({ label, value }: { label: string; value?: string }) {
+function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;
   return (
     <Box sx={{ display: 'flex', gap: 2, py: 1.25, borderBottom: '1px solid #F3F4F6', '&:last-child': { borderBottom: 'none' } }}>
       <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827', minWidth: 200, flexShrink: 0 }}>
         {label}
       </Typography>
-      <Typography sx={{ fontSize: '14px', color: '#374151', whiteSpace: 'pre-line', lineHeight: 1.7 }}>
+      <Box sx={{ fontSize: '14px', color: '#374151', whiteSpace: 'pre-line', lineHeight: 1.7, display: 'flex', alignItems: 'center' }}>
         {value}
-      </Typography>
+      </Box>
     </Box>
   );
 }
@@ -106,6 +109,7 @@ export default function WikiPage() {
   const navigate = useNavigate();
   const { notify } = useSnackbar();
   const [wiki, setWiki] = useState<WikiProjetoApi | null>(null);
+  const [projeto, setProjeto] = useState<ProjetoAPI | null>(null);
   const [loading, setLoading] = useState(true);
 
   const base = `/organizations/${orgId}/projects/${projectId}/wiki`;
@@ -113,8 +117,14 @@ export default function WikiPage() {
   useEffect(() => {
     if (!projectId) return;
     setLoading(true);
-    fetchProjectWiki(projectId)
-      .then((data) => setWiki(data))
+    Promise.all([
+      fetchProjectWiki(projectId),
+      buscarProjetoPorId(projectId),
+    ])
+      .then(([wikiData, projetoData]) => {
+        setWiki(wikiData);
+        setProjeto(projetoData);
+      })
       .catch((err) => {
         if (err?.response?.status !== 404) {
           notify('Falha ao carregar a Wiki do projeto', 'error');
@@ -151,16 +161,24 @@ export default function WikiPage() {
           label="Descrição Geral do Produto"
           icon={<AutoStoriesIcon sx={{ fontSize: 30 }} />}
           title={wiki.projetoNome ?? '—'}
-          subtitle={wiki.projetoDescricao ?? 'Sem descrição cadastrada'}
+          subtitle={''}
           onEdit={() => navigate(`${base}/descricao`)}
         >
-          {!wiki.projetoDescricao && (
-            <Typography variant="body2" sx={{ fontStyle: 'italic', color: '#9CA3AF' }}>
-              Nenhuma descrição cadastrada. Clique em editar para adicionar.
-            </Typography>
-          )}
+          <InfoRow label="Descrição" value={wiki.projetoDescricao ?? 'Nenhuma descrição cadastrada. Clique em editar para adicionar.'} />
+          <InfoRow
+            label="Status"
+            value={
+              projeto?.status ? (
+                <StatusChip status={projeto.status.nome} />
+              ) : (
+                <Typography sx={{ fontSize: '14px', fontStyle: 'italic', color: '#9CA3AF' }}>
+                  Sem status definido
+                </Typography>
+              )
+            }
+          />
         </WikiCard>
-
+        
         <WikiCard
           label="Problema de Negócio"
           icon={<CompassCalibrationIcon sx={{ fontSize: 30 }} />}

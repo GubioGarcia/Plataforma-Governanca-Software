@@ -27,11 +27,13 @@ public class CriterioAceiteController {
             @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID requisitoId,
             @Valid @RequestBody CriarCriterioAceiteRequestDTO request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(criterioAceiteService.criar(jwt, requisitoId, request));
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(criterioAceiteService.criar(jwt, requisitoId, request));
     }
 
     @GetMapping("/requisito/{requisitoId}")
-    public ResponseEntity<List<CriterioAceiteResponseDTO>> listarPorRequisito(@PathVariable UUID requisitoId) {
+    public ResponseEntity<List<CriterioAceiteResponseDTO>> listarPorRequisito(
+            @PathVariable UUID requisitoId) {
         return ResponseEntity.ok(criterioAceiteService.listarPorRequisito(requisitoId));
     }
 
@@ -42,14 +44,17 @@ public class CriterioAceiteController {
 
     @PutMapping("/{id}")
     public ResponseEntity<CriterioAceiteResponseDTO> atualizar(
+            @AuthenticationPrincipal Jwt jwt,
             @PathVariable UUID id,
             @Valid @RequestBody AtualizarCriterioAceiteRequestDTO request) {
-        return ResponseEntity.ok(criterioAceiteService.atualizar(id, request));
+        return ResponseEntity.ok(criterioAceiteService.atualizar(jwt, id, request));
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deletar(@PathVariable UUID id) {
-        criterioAceiteService.deletar(id);
+    public ResponseEntity<Void> deletar(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable UUID id) {
+        criterioAceiteService.deletar(jwt, id);
         return ResponseEntity.noContent().build();
     }
 }

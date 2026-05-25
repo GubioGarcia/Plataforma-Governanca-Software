@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -31,6 +31,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { CommentSection } from '../comments';
+import AuditCard, { type AuditCardHandle } from '../audit/AuditCard';
 import { useSnackbar } from '../../context/SnackbarContext';
 import {
   buscarRequisitoPorId,
@@ -90,6 +91,9 @@ export default function RequirementDetail() {
   }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
+
+  // Ref para forçar reload do card de auditoria após mutações
+  const auditCardRef = useRef<AuditCardHandle>(null);
 
   const [requisito, setRequisito] = useState<RequisitoAPI | null>(null);
   const [criterios, setCriterios] = useState<CriterioAceiteAPI[]>([]);
@@ -169,6 +173,7 @@ export default function RequirementDetail() {
       const updated = await atualizarRequisito(requirementId, payload);
       setRequisito(updated);
       setSettingsOpen(false);
+      auditCardRef.current?.reload();
       notify('Requisito atualizado com sucesso', 'success');
     } catch {
       notify('Erro ao atualizar requisito', 'error');
@@ -210,6 +215,7 @@ export default function RequirementDetail() {
         notify('Critério criado com sucesso', 'success');
       }
       setFormOpen(false);
+      auditCardRef.current?.reload();
     } catch {
       notify('Erro ao salvar critério de aceite', 'error');
     } finally {
@@ -222,6 +228,7 @@ export default function RequirementDetail() {
     try {
       await deletarCriterioAceite(deleteTarget.id);
       setCriterios((prev) => prev.filter((c) => c.id !== deleteTarget.id));
+      auditCardRef.current?.reload();
       notify('Critério excluído', 'info');
     } catch {
       notify('Erro ao excluir critério', 'error');
@@ -540,38 +547,8 @@ export default function RequirementDetail() {
             </CardContent>
           </Card>
 
-          {/* Alterações / Versão */}
-          <Card variant="outlined" sx={{ borderRadius: 3 }}>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, mb: 2 }}>
-                Alterações
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              <Box
-                sx={{
-                  bgcolor: 'background.default',
-                  border: '1px solid',
-                  borderColor: 'divider',
-                  borderRadius: 2,
-                  p: 2,
-                }}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary' }}>
-                    Nome
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-                  <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                    Versão atual:
-                  </Typography>
-                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                    v{requisito.versao ?? 1}.0
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
+          {/* Alterações */}
+          <AuditCard ref={auditCardRef} entidadeTipo="REQUISITO" entidadeId={requirementId!} />
         </Grid>
       </Grid>
 

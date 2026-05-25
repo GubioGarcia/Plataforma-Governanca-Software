@@ -1,3 +1,4 @@
+import { useRef } from 'react';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Card from '@mui/material/Card';
@@ -7,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import { CommentSection } from '../comments';
+import AuditCard, { type AuditCardHandle } from '../audit/AuditCard';
 
 function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return '—';
@@ -21,19 +23,29 @@ interface InfoCardRow {
   value?: string | null;
 }
 
+export interface AuditProps {
+  /** Tipo da entidade auditada, ex.: 'WIKI_PROBLEMA' */
+  entidadeTipo: string;
+  /** ID da entidade (wiki.id para VisaoProduto, projeto.id para Descricao) */
+  entidadeId: string;
+}
+
 interface WikiEditLayoutProps {
   title: string;
   subtitle: string;
   onBack: () => void;
   children: React.ReactNode;
   infoRows?: InfoCardRow[];
-  // Props do card de comentários — obrigatórias para renderizá-lo
   commentProps?: {
     entidadeTipo: string;
     entidadeId: string;
     projetoId: string;
     organizacaoId: string;
   };
+  /** Quando fornecido, exibe o card de Alterações na sidebar */
+  auditProps?: AuditProps;
+  /** Ref para forçar reload do AuditCard após salvar */
+  auditCardRef?: React.Ref<AuditCardHandle>;
 }
 
 export default function WikiEditLayout({
@@ -43,7 +55,12 @@ export default function WikiEditLayout({
   children,
   infoRows,
   commentProps,
+  auditProps,
+  auditCardRef,
 }: WikiEditLayoutProps) {
+  const internalAuditRef = useRef<AuditCardHandle>(null);
+  const resolvedAuditRef = auditCardRef ?? internalAuditRef;
+
   return (
     <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
       <Button
@@ -60,10 +77,7 @@ export default function WikiEditLayout({
         Voltar
       </Button>
 
-      <Typography
-        variant="h2"
-        sx={{ fontWeight: 700, fontSize: '28px', color: '#111827', mb: 0.5 }}
-      >
+      <Typography variant="h2" sx={{ fontWeight: 700, fontSize: '28px', color: '#111827', mb: 0.5 }}>
         {title}
       </Typography>
       <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
@@ -74,10 +88,8 @@ export default function WikiEditLayout({
       <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
         {/* ── Coluna principal ── */}
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Formulário da seção */}
           {children}
 
-          {/* Card de comentários — renderizado abaixo do formulário quando wiki.id já está disponível */}
           {commentProps && (
             <Card variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent sx={{ p: 3 }}>
@@ -92,41 +104,43 @@ export default function WikiEditLayout({
           )}
         </Box>
 
-        {/* ── Sidebar de informações ── */}
-        {infoRows && infoRows.length > 0 && (
-          <Box sx={{ width: 260, flexShrink: 0 }}>
-            <Card variant="outlined" sx={{ borderRadius: 2 }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Typography
-                  variant="subtitle2"
-                  sx={{ fontWeight: 700, mb: 1.5, color: '#111827' }}
-                >
-                  Informações
-                </Typography>
-                <Divider sx={{ mb: 1.5 }} />
-                {infoRows.map((row) => (
-                  <Box key={row.label} sx={{ mb: 2 }}>
-                    <Box
-                      sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.4 }}
-                    >
-                      <CalendarTodayIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-                      <Typography
-                        variant="caption"
-                        sx={{ color: 'text.secondary', fontWeight: 600, fontSize: 11 }}
-                      >
-                        {row.label}
+        {/* ── Sidebar ── */}
+        {(infoRows?.length || auditProps) && (
+          <Box sx={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+
+            {/* Informações */}
+            {infoRows && infoRows.length > 0 && (
+              <Card variant="outlined" sx={{ borderRadius: 2 }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#111827' }}>
+                    Informações
+                  </Typography>
+                  <Divider sx={{ mb: 1.5 }} />
+                  {infoRows.map((row) => (
+                    <Box key={row.label} sx={{ mb: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.4 }}>
+                        <CalendarTodayIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, fontSize: 11 }}>
+                          {row.label}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" sx={{ pl: 2.5, fontWeight: 500, fontSize: 13 }}>
+                        {formatDateTime(row.value)}
                       </Typography>
                     </Box>
-                    <Typography
-                      variant="body2"
-                      sx={{ pl: 2.5, fontWeight: 500, fontSize: 13 }}
-                    >
-                      {formatDateTime(row.value)}
-                    </Typography>
-                  </Box>
-                ))}
-              </CardContent>
-            </Card>
+                  ))}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Alterações */}
+            {auditProps && (
+              <AuditCard
+                ref={resolvedAuditRef}
+                entidadeTipo={auditProps.entidadeTipo}
+                entidadeId={auditProps.entidadeId}
+              />
+            )}
           </Box>
         )}
       </Box>

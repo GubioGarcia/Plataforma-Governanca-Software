@@ -82,7 +82,7 @@ export default function ProfilePage() {
             {!editing ? (
               <>
                 <Typography variant="h4" sx={{ mb: 0.5 }}>{displayName}</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>@{user?.email}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>{user?.email}</Typography>
                 <Chip
                   label={roleCfg.label}
                   size="small"

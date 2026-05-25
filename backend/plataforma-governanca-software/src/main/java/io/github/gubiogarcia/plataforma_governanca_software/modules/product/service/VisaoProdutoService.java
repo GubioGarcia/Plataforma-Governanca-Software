@@ -1,5 +1,12 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.product.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.domain.VisaoProduto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.dto.AtualizarVisaoProdutoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.dto.VisaoProdutoResponseDTO;
@@ -8,6 +15,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.doma
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,6 +29,9 @@ public class VisaoProdutoService {
 
     private final VisaoProdutoRepository visaoProdutoRepository;
     private final ProjetoRepository projetoRepository;
+    private final AuditoriaService auditoriaService;
+    private final UsuarioRepository usuarioRepository;
+    private final InteracaoService interacaoService;
 
     @Transactional
     public VisaoProduto inicializarParaProjeto(Projeto projeto) {
@@ -52,7 +63,7 @@ public class VisaoProdutoService {
     }
 
     @Transactional
-    public VisaoProdutoResponseDTO atualizar(UUID projetoId, AtualizarVisaoProdutoRequestDTO request) {
+    public VisaoProdutoResponseDTO atualizar(Jwt jwt, UUID projetoId, AtualizarVisaoProdutoRequestDTO request) {
         Projeto projeto = projetoRepository.findById(projetoId)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
 
@@ -62,6 +73,29 @@ public class VisaoProdutoService {
 
         VisaoProduto visao = visaoProdutoRepository.findByProjetoId(projetoId)
                 .orElseThrow(() -> new VisaoProdutoNaoEncontradaException(projetoId));
+
+        Usuario usuario = resolverUsuario(jwt);
+        UUID wikiId = visao.getId();
+
+        // ── Auditoria campo a campo ───────────────────────────────────────
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_PROBLEMA",
+                "descricao_problema", visao.getDescricaoProblema(), request.descricaoProblema());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_PUBLICO",
+                "publico_alvo", visao.getPublicoAlvo(), request.publicoAlvo());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_OBJETIVOS",
+                "objetivo_geral", visao.getObjetivoGeral(), request.objetivoGeral());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_OBJETIVOS",
+                "objetivos_especificos", visao.getObjetivosEspecificos(), request.objetivosEspecificos());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_OBJETIVOS",
+                "kpis", visao.getKpis(), request.kpis());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_RESTRICOES",
+                "restricoes_prazo", visao.getRestricoesPrazo(), request.restricoesPrazo());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_RESTRICOES",
+                "restricoes_orcamento", visao.getRestricoesOrcamento(), request.restricoesOrcamento());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_RESTRICOES",
+                "tecnologias_obrigatorias", visao.getTecnologiasObrigatorias(), request.tecnologiasObrigatorias());
+        registrarSeAlterado(usuario, projeto, wikiId, "WIKI_RESTRICOES",
+                "regulamentacoes", visao.getRegulamentacoes(), request.regulamentacoes());
 
         Instant agora = Instant.now();
 
@@ -81,8 +115,29 @@ public class VisaoProdutoService {
         projetoRepository.save(projeto);
 
         visao = visaoProdutoRepository.save(visao);
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.WIKI, TipoInteracao.EDICAO, visao.getId(), "Wiki editada");
         log.info("VisaoProduto do projeto {} atualizada com sucesso.", projetoId);
         return mapToResponseDTO(visao, projeto);
+    }
+
+    /** Registra auditoria apenas se o valor tiver mudado. */
+    private void registrarSeAlterado(
+            Usuario usuario, Projeto projeto, UUID entidadeId,
+            String entidadeTipo, String campo, String anterior, String novo) {
+        if (!java.util.Objects.equals(anterior, novo)) {
+            auditoriaService.registrar(
+                    usuario, projeto.getOrganizacao(), projeto,
+                    entidadeTipo, entidadeId, AcaoAuditoria.EDICAO,
+                    campo, anterior, novo
+            );
+        }
+    }
+
+    private Usuario resolverUsuario(Jwt jwt) {
+        UUID keycloakId = UUID.fromString(jwt.getSubject());
+        return usuarioRepository.findByExternalIdentityId(keycloakId)
+                .orElseThrow(() -> new UsuarioNaoAutorizadoException(
+                        "Usuário autenticado não encontrado na plataforma."));
     }
 
     private VisaoProdutoResponseDTO mapToResponseDTO(VisaoProduto v, Projeto p) {
@@ -126,5 +181,9 @@ public class VisaoProdutoService {
         public ProjetoInativoException(UUID projetoId) {
             super("Não é possível editar a Wiki do projeto com id " + projetoId + " pois ele está inativo.");
         }
+    }
+
+    public static class UsuarioNaoAutorizadoException extends RuntimeException {
+        public UsuarioNaoAutorizadoException(String msg) { super(msg); }
     }
 }
