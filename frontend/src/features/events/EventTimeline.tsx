@@ -31,6 +31,7 @@ import ViewListIcon from '@mui/icons-material/ViewList';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import EmptyState from '../../components/common/EmptyState';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   fetchEventsByProject,
   createEvent,
@@ -56,10 +57,11 @@ function toLocalDT(value?: string) {
 }
 
 // ── CalendarView ────────────────────────────────────────────────────────────
-function CalendarView({ events, onEdit, onDelete }: {
+function CalendarView({ events, onEdit, onDelete, isStakeholder }: {
   events: EventoProjeto[];
   onEdit: (e: EventoProjeto) => void;
   onDelete: (e: EventoProjeto) => void;
+  isStakeholder: boolean;
 }) {
   const today = new Date();
   const [current, setCurrent] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -180,8 +182,12 @@ function CalendarView({ events, onEdit, onDelete }: {
                           {ev.descricao && <Typography variant="body2" sx={{ color: '#4B5563', fontSize: 13 }}>{ev.descricao}</Typography>}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.25 }}>
-                          <Tooltip title="Editar"><IconButton size="small" onClick={() => onEdit(ev)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
-                          <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => onDelete(ev)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                          {!isStakeholder && (
+                            <>
+                              <Tooltip title="Editar"><IconButton size="small" onClick={() => onEdit(ev)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                              <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => onDelete(ev)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                            </>
+                          )}
                         </Box>
                       </Box>
                     </CardContent>
@@ -205,6 +211,7 @@ function CalendarView({ events, onEdit, onDelete }: {
 export default function EventTimeline() {
   const { orgId, projectId } = useParams();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
   const [allEvents, setAllEvents] = useState<EventoProjeto[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'timeline' | 'agenda'>('timeline');
@@ -301,7 +308,9 @@ export default function EventTimeline() {
             <Button onClick={() => setView('timeline')} variant={view === 'timeline' ? 'contained' : 'outlined'} startIcon={<ViewListIcon />}>Timeline</Button>
             <Button onClick={() => setView('agenda')} variant={view === 'agenda' ? 'contained' : 'outlined'} startIcon={<CalendarMonthIcon />}>Agenda</Button>
           </ButtonGroup>
+          {!isStakeholder && (
           <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate}>Novo Evento</Button>
+          )}
         </Box>
       </Box>
 
@@ -310,7 +319,7 @@ export default function EventTimeline() {
       ) : events.length === 0 ? (
         <EmptyState icon={<EventIcon sx={{ fontSize: 64 }} />} title="Nenhum evento cadastrado" description="Adicione reuniões, workshops e entregas." />
       ) : view === 'agenda' ? (
-        <CalendarView events={events} onEdit={openEdit} onDelete={(ev) => setDeleteTarget(ev)} />
+        <CalendarView events={events} onEdit={openEdit} onDelete={(ev) => setDeleteTarget(ev)} isStakeholder={isStakeholder} />
       ) : (
         Object.entries(grouped).map(([month, monthEvents]) => (
           <Box key={month} sx={{ mb: 3 }}>
@@ -341,8 +350,12 @@ export default function EventTimeline() {
                               {event.descricao && <Typography variant="body2" sx={{ color: '#4B5563', lineHeight: 1.6 }}>{event.descricao}</Typography>}
                             </Box>
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              <Tooltip title="Editar"><IconButton size="small" onClick={() => openEdit(event)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
-                              <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => setDeleteTarget(event)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                              {!isStakeholder && (
+                                <>
+                                  <Tooltip title="Editar"><IconButton size="small" onClick={() => openEdit(event)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                                  <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => setDeleteTarget(event)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                                </>
+                              )}
                             </Box>
                           </Box>
                         </CardContent>

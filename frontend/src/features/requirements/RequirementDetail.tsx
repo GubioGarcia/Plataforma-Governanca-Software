@@ -33,6 +33,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { CommentSection } from '../comments';
 import AuditCard, { type AuditCardHandle } from '../audit/AuditCard';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   buscarRequisitoPorId,
   listarCriteriosPorRequisito,
@@ -91,6 +92,7 @@ export default function RequirementDetail() {
   }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
 
   // Ref para forçar reload do card de auditoria após mutações
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -321,11 +323,13 @@ export default function RequirementDetail() {
                   </Box>
                 )}
                 <Box sx={{ ml: 'auto' }}>
+                  {!isStakeholder && (
                   <Tooltip title="Configurações — editar status, tipo, prioridade, título e descrição">
                     <IconButton size="small" onClick={openSettings}>
                       <EditIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                     </IconButton>
                   </Tooltip>
+                  )}
                 </Box>
               </Box>
 
@@ -402,11 +406,13 @@ export default function RequirementDetail() {
                     </Box>
                   )}
                 </Box>
+                {!isStakeholder && (
                 <Tooltip title="Adicionar critério">
                   <IconButton size="small" onClick={openCreate}>
                     <AddIcon fontSize="small" sx={{ color: 'text.secondary' }} />
                   </IconButton>
                 </Tooltip>
+                )}
               </Box>
 
               {criterios.length === 0 ? (
@@ -423,7 +429,7 @@ export default function RequirementDetail() {
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                     Nenhum critério de aceite cadastrado.
                   </Typography>
-                  <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={openCreate}>
+                  <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={openCreate} sx={{ display: isStakeholder ? 'none' : undefined }}>
                     Adicionar critério
                   </Button>
                 </Box>
@@ -456,16 +462,20 @@ export default function RequirementDetail() {
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.5, ml: 1, flexShrink: 0 }}>
-                          <Tooltip title="Editar">
-                            <IconButton size="small" onClick={() => openEdit(c)}>
-                              <EditIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Tooltip>
-                          <Tooltip title="Excluir">
-                            <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
-                              <DeleteIcon sx={{ fontSize: 14 }} />
-                            </IconButton>
-                          </Tooltip>
+                          {!isStakeholder && (
+                            <>
+                              <Tooltip title="Editar">
+                                <IconButton size="small" onClick={() => openEdit(c)}>
+                                  <EditIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                              </Tooltip>
+                              <Tooltip title="Excluir">
+                                <IconButton size="small" color="error" onClick={() => setDeleteTarget(c)}>
+                                  <DeleteIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                              </Tooltip>
+                            </>
+                          )}
                         </Box>
                       </Box>
                       <Typography
@@ -493,6 +503,7 @@ export default function RequirementDetail() {
                     </Box>
                   ))}
 
+                  {!isStakeholder && (
                   <Button
                     variant="outlined"
                     startIcon={<AddIcon />}
@@ -502,6 +513,7 @@ export default function RequirementDetail() {
                   >
                     Novo critério
                   </Button>
+                  )}
                 </Box>
               )}
             </CardContent>

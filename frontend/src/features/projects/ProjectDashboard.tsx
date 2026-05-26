@@ -25,15 +25,16 @@ import HistoryIcon from '@mui/icons-material/History';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import StatusChip from '../../components/common/StatusChip';
 import { buscarProjetoPorId } from '../../services/projetoService';
-import { listarRequisitosPorProjeto } from '../../services/requirementService';
+import { listarRequisitosPorProjeto, listarStatusRequisito } from '../../services/requirementService';
 import { fetchEventsByProject } from '../../services/eventService';
 import { listarAuditoriasPorProjeto } from '../../services/auditService';
 import { buscarResumoPorProjeto } from '../../services/interacaoService';
 import type { ProjetoAPI } from '../../types/projeto';
-import type { RequisitoAPI } from '../../types/requirementAPI';
+import type { RequisitoAPI, StatusRequisitoAPI } from '../../types/requirementAPI';
 import type { EventoProjeto } from '../../types/event';
 import type { AuditoriaAPI } from '../../types/auditoriaAPI';
 import type { ResumoInteracaoProjeto } from '../../types/interacao';
+import { usePermissions } from '../../hooks/usePermissions';
 
 const activityColor: Record<string, string> = {
   CRIACAO: '#16A34A',
@@ -45,30 +46,34 @@ export default function ProjectDashboard() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const base = `/organizations/${orgId}/projects/${projectId}`;
+  const { isStakeholder, user } = usePermissions();
 
-  const [project, setProject]     = useState<ProjetoAPI | null>(null);
-  const [reqs, setReqs]           = useState<RequisitoAPI[]>([]);
-  const [events, setEvents]       = useState<EventoProjeto[]>([]);
-  const [audit, setAudit]         = useState<AuditoriaAPI[]>([]);
-  const [resumo, setResumo]       = useState<ResumoInteracaoProjeto | null>(null);
-  const [loading, setLoading]     = useState(true);
+  const [project, setProject]             = useState<ProjetoAPI | null>(null);
+  const [reqs, setReqs]                   = useState<RequisitoAPI[]>([]);
+  const [statusRequisito, setStatusRequisito] = useState<StatusRequisitoAPI[]>([]);
+  const [events, setEvents]               = useState<EventoProjeto[]>([]);
+  const [audit, setAudit]                 = useState<AuditoriaAPI[]>([]);
+  const [resumo, setResumo]               = useState<ResumoInteracaoProjeto | null>(null);
+  const [loading, setLoading]             = useState(true);
 
   const load = useCallback(async () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const [proj, req, ev, aud, res] = await Promise.allSettled([
+      const [proj, req, ev, aud, res, statuses] = await Promise.allSettled([
         buscarProjetoPorId(projectId),
         listarRequisitosPorProjeto(projectId),
         fetchEventsByProject(projectId),
         listarAuditoriasPorProjeto(projectId),
         buscarResumoPorProjeto(projectId),
+        listarStatusRequisito(),
       ]);
-      if (proj.status === 'fulfilled') setProject(proj.value);
-      if (req.status  === 'fulfilled') setReqs(req.value);
-      if (ev.status   === 'fulfilled') setEvents(ev.value);
-      if (aud.status  === 'fulfilled') setAudit(aud.value);
-      if (res.status  === 'fulfilled') setResumo(res.value);
+      if (proj.status    === 'fulfilled') setProject(proj.value);
+      if (req.status     === 'fulfilled') setReqs(req.value);
+      if (ev.status      === 'fulfilled') setEvents(ev.value);
+      if (aud.status     === 'fulfilled') setAudit(aud.value);
+      if (res.status     === 'fulfilled') setResumo(res.value);
+      if (statuses.status === 'fulfilled') setStatusRequisito(statuses.value);
     } finally {
       setLoading(false);
     }
@@ -77,6 +82,7 @@ export default function ProjectDashboard() {
   useEffect(() => { load(); }, [load]);
 
   // ── Derived: requisitos ───────────────────────────────────────────────────
+  // Contagens por status (para os summary cards)
   const reqByStatus = {
     rascunho:    reqs.filter((r) => r.statusNome === 'RASCUNHO').length,
     emAnalise:   reqs.filter((r) => r.statusNome === 'EM_ANALISE').length,
@@ -84,6 +90,29 @@ export default function ProjectDashboard() {
     aprovado:    reqs.filter((r) => r.statusNome === 'APROVADO').length,
     validado:    reqs.filter((r) => r.statusNome === 'VALIDADO').length,
   };
+
+  // Cores por nome de status (fallback para cinza)
+  const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
+    RASCUNHO:      { color: '#94A3B8', bg: '#F1F5F9' },
+    EM_ANALISE:    { color: '#3B82F6', bg: '#EFF6FF' },
+    EM_VALIDACAO:  { color: '#D97706', bg: '#FFFBEB' },
+    APROVADO:      { color: '#16A34A', bg: '#F0FDF4' },
+    VALIDADO:      { color: '#7C3AED', bg: '#EDE9FE' },
+  };
+
+  // Funil dinâmico baseado na API de status de requisitos
+  const funnelSteps = [...statusRequisito]
+    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
+    .map((s) => {
+      const palette = STATUS_COLORS[s.nome] ?? { color: '#6B7280', bg: '#F9FAFB' };
+      const label = s.nome.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      return {
+        label,
+        count: reqs.filter((r) => r.statusNome === s.nome).length,
+        color: palette.color,
+        bg:    palette.bg,
+      };
+    });
   const totalReqs = reqs.length || 1;
 
   // ── Derived: eventos ──────────────────────────────────────────────────────
@@ -97,6 +126,7 @@ export default function ProjectDashboard() {
 
   // ── Derived: auditoria ────────────────────────────────────────────────────
   const recentActivity = [...audit]
+    .filter((a) => !isStakeholder || a.usuarioId === user?.id)
     .sort((a, b) => new Date(b.dataAlteracao).getTime() - new Date(a.dataAlteracao).getTime())
     .slice(0, 5);
 
@@ -320,13 +350,7 @@ export default function ProjectDashboard() {
                     Ver requisitos
                   </Button>
                 </Box>
-                {[
-                  { label: 'Rascunho',     count: reqByStatus.rascunho,    color: '#94A3B8', bg: '#F1F5F9' },
-                  { label: 'Em Análise',   count: reqByStatus.emAnalise,   color: '#3B82F6', bg: '#EFF6FF' },
-                  { label: 'Em Validação', count: reqByStatus.emValidacao, color: '#D97706', bg: '#FFFBEB' },
-                  { label: 'Aprovado',     count: reqByStatus.aprovado,    color: '#16A34A', bg: '#F0FDF4' },
-                  { label: 'Validado',     count: reqByStatus.validado,    color: '#7C3AED', bg: '#EDE9FE' },
-                ].map((step) => (
+                {funnelSteps.map((step) => (
                   <Box key={step.label} sx={{ mb: 1.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                       <Typography variant="caption" sx={{ fontWeight: 500, color: step.color }}>{step.label}</Typography>
@@ -424,6 +448,7 @@ export default function ProjectDashboard() {
                     <HistoryIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                     <Typography variant="h5">Atividade Recente</Typography>
                   </Box>
+                  {!isStakeholder && (
                   <Button
                     size="small"
                     endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
@@ -432,6 +457,7 @@ export default function ProjectDashboard() {
                   >
                     Log completo
                   </Button>
+                  )}
                 </Box>
                 {recentActivity.length === 0 ? (
                   <Typography variant="body2" sx={{ color: 'text.secondary', textAlign: 'center', py: 3 }}>

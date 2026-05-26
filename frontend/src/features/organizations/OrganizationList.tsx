@@ -35,6 +35,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StatusChip from '../../components/common/StatusChip';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { OrganizacaoAPI, PlanoAPI } from '../../types/organizacao';
 import {
   listarOrganizacoes,
@@ -47,6 +48,7 @@ import {
 export default function OrganizationList() {
   const navigate = useNavigate();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
   const [orgs, setOrgs] = useState<OrganizacaoAPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -180,18 +182,22 @@ export default function OrganizationList() {
           <Typography variant="body2">Selecione uma organização para acessar seus projetos e configurações.</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          <Button
-            variant="outlined"
-            startIcon={<HistoryIcon />}
-            size="small"
-            onClick={handleOpenInactive}
-            color="inherit"
-          >
-            Organizações Inativas
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setDialogOpen(true)}>
-            Nova Organização
-          </Button>
+          {!isStakeholder && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<HistoryIcon />}
+                size="small"
+                onClick={handleOpenInactive}
+                color="inherit"
+              >
+                Organizações Inativas
+              </Button>
+              <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setDialogOpen(true)}>
+                Nova Organização
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -257,7 +263,8 @@ export default function OrganizationList() {
             </Grid>
           ))}
 
-          {/* Create new org card */}
+          {/* Create new org card — gestor only */}
+          {!isStakeholder && (
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Card
               onClick={() => setDialogOpen(true)}
@@ -280,6 +287,7 @@ export default function OrganizationList() {
               </CardContent>
             </Card>
           </Grid>
+          )}
         </Grid>
       )}
 

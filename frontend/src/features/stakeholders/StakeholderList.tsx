@@ -24,9 +24,11 @@ import AddIcon from '@mui/icons-material/Add';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import EmptyState from '../../components/common/EmptyState';
 import { buscarResumoPorProjeto } from '../../services/interacaoService';
-import { cadastrarUsuario, isApiError } from '../../services/userService';
+import { cadastrarUsuario, listarUsuarios, isApiError } from '../../services/userService';
+import type { UsuarioBackend } from '../../services/userService';
 import type { ResumoInteracaoUsuario } from '../../types/interacao';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -104,6 +106,7 @@ const EMPTY_FORM: NovoStakeholderForm = { nome: '', email: '', senha: '', confir
 export default function StakeholderList() {
   const { projectId } = useParams<{ projectId: string }>();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
 
   const [membros, setMembros]           = useState<ResumoInteracaoUsuario[]>([]);
   const [totalInteracoes, setTotal]     = useState(0);
@@ -121,8 +124,31 @@ export default function StakeholderList() {
     if (!projectId) return;
     try {
       setLoading(true);
-      const resumo = await buscarResumoPorProjeto(projectId);
-      setMembros(resumo.porUsuario);
+      const [resumo, todosUsuarios] = await Promise.all([
+        buscarResumoPorProjeto(projectId),
+        listarUsuarios(),
+      ]);
+
+      // Usuários com interações já estão no resumo
+      const comInteracao = resumo.porUsuario;
+      const idsComInteracao = new Set(comInteracao.map((u) => u.usuarioId));
+
+      // Montar entradas zeradas para usuários sem nenhuma interação
+      const semInteracao: ResumoInteracaoUsuario[] = todosUsuarios
+        .filter((u: UsuarioBackend) => !idsComInteracao.has(u.id))
+        .map((u: UsuarioBackend) => ({
+          usuarioId: u.id,
+          usuarioNome: u.nome,
+          usuarioEmail: u.email,
+          usuarioUrlFoto: u.urlMidiaPerfil ?? null,
+          totalInteracoes: 0,
+          interacoesWiki: 0,
+          interacoesRequisito: 0,
+          interacoesComentario: 0,
+          interacoesEvento: 0,
+        }));
+
+      setMembros([...comInteracao, ...semInteracao]);
       setTotal(resumo.totalInteracoes);
     } catch {
       // mantém vazio
@@ -223,6 +249,7 @@ export default function StakeholderList() {
             Membros e participantes do projeto
           </Typography>
         </Box>
+        {!isStakeholder && (
         <Button
           variant="contained"
           startIcon={<AddIcon />}
@@ -231,6 +258,7 @@ export default function StakeholderList() {
         >
           Adicionar Stakeholder
         </Button>
+        )}
       </Box>
 
       {/* Summary cards */}

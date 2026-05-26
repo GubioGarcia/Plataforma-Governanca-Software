@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import WikiEditLayout from './WikiEditLayout';
 import { fetchProjectWiki, saveProjectWiki } from '../../services/wikiService';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
 import type { AuditCardHandle } from '../audit/AuditCard';
 
@@ -15,6 +16,7 @@ export default function WikiEditObjetivos() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -88,6 +90,8 @@ export default function WikiEditObjetivos() {
             onChange={(e) => setObjetivoGeral(e.target.value)}
             placeholder="Defina o objetivo principal do projeto..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
         <Box>
@@ -100,6 +104,8 @@ export default function WikiEditObjetivos() {
             onChange={(e) => setObjetivosEspecificos(e.target.value)}
             placeholder="Liste os objetivos específicos, um por linha ou separados por ponto e vírgula..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
         <Box>
@@ -112,14 +118,18 @@ export default function WikiEditObjetivos() {
             onChange={(e) => setKpis(e.target.value)}
             placeholder="Descreva os indicadores que demonstram o sucesso do projeto..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
+        {!isStakeholder && (
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
           <Button variant="outlined" onClick={() => navigate(backUrl)} disabled={saving}>Cancelar</Button>
         </Box>
+        )}
       </Box>
     </WikiEditLayout>
   );

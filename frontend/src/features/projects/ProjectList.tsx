@@ -35,6 +35,7 @@ import StatusChip from '../../components/common/StatusChip';
 import EmptyState from '../../components/common/EmptyState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { ProjetoAPI, StatusProjetoAPI } from '../../types/projeto';
 import {
   listarProjetosPorOrg,
@@ -52,6 +53,7 @@ export default function ProjectList() {
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
 
   const [projects, setProjects] = useState<ProjetoAPI[]>([]);
   const [statusOptions, setStatusOptions] = useState<StatusProjetoAPI[]>([]);
@@ -257,18 +259,22 @@ export default function ProjectList() {
           <Typography variant="body2">Gerencie os projetos da organização</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          <Button
-            variant="outlined"
-            startIcon={<HistoryIcon />}
-            size="small"
-            onClick={handleOpenInactive}
-            color="inherit"
-          >
-            Projetos Inativos
-          </Button>
-          <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setDialogOpen(true)}>
-            Novo Projeto
-          </Button>
+          {!isStakeholder && (
+            <>
+              <Button
+                variant="outlined"
+                startIcon={<HistoryIcon />}
+                size="small"
+                onClick={handleOpenInactive}
+                color="inherit"
+              >
+                Projetos Inativos
+              </Button>
+              <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={() => setDialogOpen(true)}>
+                Novo Projeto
+              </Button>
+            </>
+          )}
         </Box>
       </Box>
 
@@ -421,6 +427,7 @@ export default function ProjectList() {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
+                      {!isStakeholder && (
                       <Tooltip title="Mais opções">
                         <IconButton
                           size="small"
@@ -433,6 +440,7 @@ export default function ProjectList() {
                           <MoreVertIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
+                      )}
                       <Button
                         endIcon={<ArrowForwardIcon />}
                         size="small"
