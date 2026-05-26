@@ -31,6 +31,7 @@ import FlagIcon from '@mui/icons-material/Flag';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import EmptyState from '../../components/common/EmptyState';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import {
   listarStatusRequisito,
   listarPrioridades,
@@ -86,6 +87,7 @@ export default function RequirementList() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
 
   const [requirements, setRequirements] = useState<RequisitoAPI[]>([]);
   const [statusList, setStatusList] = useState<StatusRequisitoAPI[]>([]);
@@ -252,7 +254,7 @@ export default function RequirementList() {
             Lista de requisitos do projeto com fluxo de aprovação
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate}>
+        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate} sx={{ display: isStakeholder ? 'none' : undefined }}>
           Novo Requisito
         </Button>
       </Box>
@@ -437,12 +439,16 @@ export default function RequirementList() {
                   </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                  <Tooltip title="Editar">
-                    <IconButton size="small" onClick={(e) => openEdit(r, e)}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
-                  </Tooltip>
-                  <Tooltip title="Excluir">
-                    <IconButton size="small" color="error" onClick={(e) => openDelete(r, e)}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
-                  </Tooltip>
+                  {!isStakeholder && (
+                    <>
+                      <Tooltip title="Editar">
+                        <IconButton size="small" onClick={(e) => openEdit(r, e)}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
+                      </Tooltip>
+                      <Tooltip title="Excluir">
+                        <IconButton size="small" color="error" onClick={(e) => openDelete(r, e)}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+                      </Tooltip>
+                    </>
+                  )}
                   <ArrowForwardIcon className="arrow-icon" sx={{ fontSize: 20, color: 'primary.main', opacity: 0, transform: 'translateX(-4px)', transition: 'all 0.15s', ml: 0.5 }} />
                 </Box>
               </Box>

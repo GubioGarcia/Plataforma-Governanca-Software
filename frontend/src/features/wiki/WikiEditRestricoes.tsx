@@ -8,6 +8,7 @@ import Typography from '@mui/material/Typography';
 import WikiEditLayout from './WikiEditLayout';
 import { fetchProjectWiki, saveProjectWiki } from '../../services/wikiService';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
 import type { AuditCardHandle } from '../audit/AuditCard';
 
@@ -15,6 +16,7 @@ export default function WikiEditRestricoes() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -94,6 +96,8 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setRestricoesPrazo(e.target.value)}
             placeholder="Informe restrições de prazo e datas importantes..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
         <Box>
@@ -104,6 +108,8 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setRestricoesOrcamento(e.target.value)}
             placeholder="Informe restrições financeiras e limites de orçamento..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
         <Box>
@@ -114,6 +120,8 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setTecnologiasObrigatorias(e.target.value)}
             placeholder="Liste as tecnologias que devem ser utilizadas no projeto..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
         <Box>
@@ -124,14 +132,18 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setRegulamentacoes(e.target.value)}
             placeholder="Informe normas, leis e regulamentações aplicáveis ao projeto..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
+        {!isStakeholder && (
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
           </Button>
           <Button variant="outlined" onClick={() => navigate(backUrl)} disabled={saving}>Cancelar</Button>
         </Box>
+        )}
       </Box>
     </WikiEditLayout>
   );

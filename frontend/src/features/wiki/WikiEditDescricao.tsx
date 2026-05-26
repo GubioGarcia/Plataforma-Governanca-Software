@@ -13,6 +13,7 @@ import WikiEditLayout from './WikiEditLayout';
 import { fetchProjectWiki } from '../../services/wikiService';
 import { buscarProjetoPorId, atualizarProjeto, listarStatusProjeto } from '../../services/projetoService';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import type { WikiProjetoApi } from '../../types/wiki';
 import type { AuditCardHandle } from '../audit/AuditCard';
 import type { StatusProjetoAPI } from '../../types/projeto';
@@ -21,6 +22,7 @@ export default function WikiEditDescricao() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
+  const { isStakeholder } = usePermissions();
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -106,6 +108,8 @@ export default function WikiEditDescricao() {
             onChange={(e) => setNome(e.target.value)}
             placeholder="Nome do projeto..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
         <Box>
@@ -120,18 +124,21 @@ export default function WikiEditDescricao() {
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Descreva o projeto de forma geral..."
             InputLabelProps={{ shrink: true }}
+            InputProps={{ readOnly: isStakeholder }}
+            disabled={isStakeholder}
           />
         </Box>
         <Box>
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
             Status do Projeto
           </Typography>
-          <FormControl fullWidth>
+          <FormControl fullWidth disabled={isStakeholder}>
             <InputLabel>Status</InputLabel>
             <Select
               label="Status"
               value={projetoStatusId ?? ''}
               onChange={(e) => setProjetoStatusId(e.target.value || undefined)}
+              inputProps={{ readOnly: isStakeholder }}
             >
               {statusOptions.map((s) => (
                 <MenuItem key={s.id} value={s.id}>
@@ -141,6 +148,7 @@ export default function WikiEditDescricao() {
             </Select>
           </FormControl>
         </Box>
+        {!isStakeholder && (
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}
@@ -149,6 +157,7 @@ export default function WikiEditDescricao() {
             Cancelar
           </Button>
         </Box>
+        )}
       </Box>
     </WikiEditLayout>
   );

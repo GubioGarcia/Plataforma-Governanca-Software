@@ -2,7 +2,6 @@ import { useState, useMemo } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
 import Avatar from '@mui/material/Avatar';
-import Badge from '@mui/material/Badge';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
@@ -18,9 +17,7 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import LogoutIcon from '@mui/icons-material/Logout';
-import NotificationsIcon from '@mui/icons-material/Notifications';
 import PersonIcon from '@mui/icons-material/Person';
-import ManageAccountsIcon from '@mui/icons-material/ManageAccounts';
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import HubIcon from '@mui/icons-material/Hub';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -37,7 +34,6 @@ import type { PapelProjeto } from '../../types/stakeholder';
 const ROLES: { value: PapelProjeto; label: string }[] = [
   { value: 'GESTOR', label: 'Gestor' },
   { value: 'STAKEHOLDER', label: 'Stakeholder' },
-  { value: 'ANALISTA', label: 'Analista' },
 ];
 
 export default function AppShell() {
@@ -47,7 +43,6 @@ export default function AppShell() {
   const { mode, toggleMode } = useThemeMode();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
-  const [notifRead, setNotifRead] = useState(false);
 
   // Pending: requirements in EM_VALIDACAO that the current user hasn't voted on yet
   const pendingItems = useMemo(() => {
@@ -71,13 +66,6 @@ export default function AppShell() {
     sub: new Date(a.data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
     urgent: false,
   }));
-
-  const unreadCount = notifRead ? 0 : pendingItems.length;
-
-  const handleOpenNotif = (e: React.MouseEvent<HTMLElement>) => {
-    setNotifAnchor(e.currentTarget);
-    setNotifRead(true);
-  };
 
   const initials = user?.nome
     .split(' ')
@@ -139,15 +127,6 @@ export default function AppShell() {
               {mode === 'dark'
                 ? <LightModeIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
                 : <DarkModeIcon  sx={{ fontSize: 20, color: 'text.secondary' }} />}
-            </IconButton>
-          </Tooltip>
-
-          {/* Notifications bell */}
-          <Tooltip title="Notificações">
-            <IconButton size="small" onClick={handleOpenNotif} sx={{ mr: 1 }}>
-              <Badge badgeContent={unreadCount} color="error" max={9}>
-                <NotificationsIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
-              </Badge>
             </IconButton>
           </Tooltip>
 
@@ -225,12 +204,6 @@ export default function AppShell() {
               <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
               Meu Perfil
             </MenuItem>
-            {isGestor && (
-              <MenuItem onClick={() => { setAnchorEl(null); navigate('/users'); }} sx={{ fontSize: '13px' }}>
-                <ListItemIcon><ManageAccountsIcon fontSize="small" /></ListItemIcon>
-                Usuários do sistema
-              </MenuItem>
-            )}
             <MenuItem
               onClick={() => { logout(); navigate('/login'); setAnchorEl(null); }}
               sx={{ fontSize: '13px', color: 'error.main' }}
