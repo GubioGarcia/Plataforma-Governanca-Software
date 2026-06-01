@@ -12,6 +12,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.RequisitoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.CriterioAceiteService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.collaboration.service.ComentarioService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.files.service.ArquivoProjetoService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -298,6 +299,38 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ComentarioService.ComentarioComRespostasException.class)
     public ProblemDetail handleComentarioComRespostas(ComentarioService.ComentarioComRespostasException ex) {
         return problem(HttpStatus.CONFLICT, "Comentário com respostas posteriores", ex.getMessage(), "/errors/comentario-com-respostas");
+    }
+
+    // ArquivoProjeto (Files)
+    @ExceptionHandler(ArquivoProjetoService.ArquivoNaoEncontradoException.class)
+    public ProblemDetail handleArquivoNaoEncontrado(ArquivoProjetoService.ArquivoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Arquivo não encontrado", ex.getMessage(), "/errors/arquivo-nao-encontrado");
+    }
+
+    @ExceptionHandler(ArquivoProjetoService.ArquivoFisicoNaoEncontradoException.class)
+    public ProblemDetail handleArquivoFisicoNaoEncontrado(ArquivoProjetoService.ArquivoFisicoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Arquivo físico não encontrado", ex.getMessage(), "/errors/arquivo-fisico-nao-encontrado");
+    }
+
+    @ExceptionHandler(ArquivoProjetoService.ArquivoInvalidoException.class)
+    public ProblemDetail handleArquivoInvalido(ArquivoProjetoService.ArquivoInvalidoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Arquivo inválido", ex.getMessage(), "/errors/arquivo-invalido");
+    }
+
+    @ExceptionHandler(ArquivoProjetoService.UsuarioNaoAutorizadoException.class)
+    public ProblemDetail handleUsuarioNaoAutorizadoArquivo(ArquivoProjetoService.UsuarioNaoAutorizadoException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Usuário não autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
+    }
+
+    @ExceptionHandler(ArquivoProjetoService.StorageException.class)
+    public ProblemDetail handleStorageException(ArquivoProjetoService.StorageException ex) {
+        log.error("Erro de armazenamento de arquivo: {}", ex.getMessage(), ex.getCause());
+        return problem(HttpStatus.INTERNAL_SERVER_ERROR, "Erro de armazenamento", ex.getMessage(), "/errors/storage-error");
+    }
+
+    @ExceptionHandler(ArquivoProjetoService.ProjetoNaoEncontradoException.class)
+    public ProblemDetail handleProjetoNaoEncontradoArquivo(ArquivoProjetoService.ProjetoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
     }
 
     // Fallback

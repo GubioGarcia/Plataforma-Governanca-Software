@@ -15,7 +15,10 @@ public interface RequisitoRepository extends JpaRepository<Requisito, UUID> {
     boolean existsByStatusId(UUID statusId);
     boolean existsByPrioridadeId(UUID prioridadeId);
 
-    /** Conta todos os requisitos (ativos e inativos) do projeto para gerar o próximo código sequencial */
-    @Query("SELECT COUNT(r) FROM Requisito r WHERE r.projeto.id = :projetoId")
-    long countAllByProjetoId(@Param("projetoId") UUID projetoId);
+    /**
+     * Retorna o maior número sequencial já usado nos códigos REQ-NNN do projeto.
+     * Usado para gerar o próximo código sem risco de duplicata mesmo após inativações.
+     */
+    @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(r.codigo, 5) AS int)), 0) FROM Requisito r WHERE r.projeto.id = :projetoId")
+    long findMaxSequencialByProjetoId(@Param("projetoId") UUID projetoId);
 }
