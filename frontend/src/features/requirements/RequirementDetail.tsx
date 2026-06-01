@@ -34,6 +34,7 @@ import { CommentSection } from '../comments';
 import AuditCard, { type AuditCardHandle } from '../audit/AuditCard';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import {
   buscarRequisitoPorId,
   listarCriteriosPorRequisito,
@@ -45,6 +46,9 @@ import {
   atualizarRequisito,
 } from '../../services/requirementService';
 import type { RequisitoAPI, CriterioAceiteAPI, StatusRequisitoAPI, PrioridadeAPI, TipoRequisito } from '../../types/requirementAPI';
+
+const MAX_DESCRICAO_REQUISITO = 1000;
+const MAX_DESCRICAO_CRITERIO = 1000;
 
 const TIPO_LABELS: Record<string, string> = {
   FUNCIONAL: 'Funcional',
@@ -177,8 +181,8 @@ export default function RequirementDetail() {
       setSettingsOpen(false);
       auditCardRef.current?.reload();
       notify('Requisito atualizado com sucesso', 'success');
-    } catch {
-      notify('Erro ao atualizar requisito', 'error');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao atualizar requisito'), 'error');
     } finally {
       setSavingSettings(false);
     }
@@ -218,8 +222,8 @@ export default function RequirementDetail() {
       }
       setFormOpen(false);
       auditCardRef.current?.reload();
-    } catch {
-      notify('Erro ao salvar critério de aceite', 'error');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao salvar critério de aceite'), 'error');
     } finally {
       setSaving(false);
     }
@@ -586,6 +590,9 @@ export default function RequirementDetail() {
             size="small"
             multiline
             rows={3}
+            inputProps={{ maxLength: MAX_DESCRICAO_REQUISITO }}
+            helperText={`${settingsForm.descricao.length}/${MAX_DESCRICAO_REQUISITO}`}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
           <FormControl fullWidth size="small">
             <InputLabel>Tipo</InputLabel>
@@ -659,10 +666,12 @@ export default function RequirementDetail() {
             value={form.descricao}
             onChange={(e) => setForm((f) => ({ ...f, descricao: e.target.value }))}
             error={!!formErrors.descricao}
-            helperText={formErrors.descricao}
+            helperText={formErrors.descricao || `${form.descricao.length}/${MAX_DESCRICAO_CRITERIO}`}
+            FormHelperTextProps={{ sx: { textAlign: formErrors.descricao ? 'left' : 'right' } }}
             fullWidth
             multiline
             rows={5}
+            inputProps={{ maxLength: MAX_DESCRICAO_CRITERIO }}
             placeholder={`Dado que...\nQuando...\nEntão...`}
           />
         </DialogContent>

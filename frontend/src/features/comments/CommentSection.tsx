@@ -15,6 +15,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
 import { useAuth } from '../../context/useAuth';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import {
   listarComentarios,
   criarComentario,
@@ -22,6 +23,8 @@ import {
   deletarComentario,
 } from './commentService';
 import type { ComentarioAPI } from './types';
+
+const MAX_COMENTARIO = 2000;
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -234,6 +237,9 @@ function CommentCard({ comentario: c, isOwn, temPosterior, onEdit, onDelete }: C
               if (e.key === 'Enter' && e.ctrlKey) handleSalvarEdicao();
               if (e.key === 'Escape') handleCancelarEdicao();
             }}
+            inputProps={{ maxLength: MAX_COMENTARIO }}
+            helperText={`${textoEdicao.length}/${MAX_COMENTARIO}`}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
           />
           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
@@ -322,8 +328,8 @@ export default function CommentSection({
       setComentarios((prev) => [...prev, novo]);
       setNovoTexto('');
       notify('Comentário adicionado.', 'success');
-    } catch {
-      notify('Erro ao adicionar comentário.', 'error');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao adicionar comentário.'), 'error');
     } finally {
       setSubmitting(false);
     }
@@ -336,8 +342,8 @@ export default function CommentSection({
       const atualizado = await editarComentario(id, { conteudo: novoConteudo });
       setComentarios((prev) => prev.map((c) => (c.id === id ? atualizado : c)));
       notify('Comentário atualizado.', 'success');
-    } catch {
-      notify('Erro ao editar comentário.', 'error');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao editar comentário.'), 'error');
       throw new Error('edit failed'); // re-throw para o card não fechar o modo edição
     }
   }
@@ -444,6 +450,9 @@ export default function CommentSection({
             value={novoTexto}
             onChange={(e) => setNovoTexto(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter' && e.ctrlKey) handleSubmit(); }}
+            inputProps={{ maxLength: MAX_COMENTARIO }}
+            helperText={`${novoTexto.length}/${MAX_COMENTARIO}`}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
           />
         </Box>

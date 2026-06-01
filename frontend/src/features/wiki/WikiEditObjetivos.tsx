@@ -9,8 +9,11 @@ import WikiEditLayout from './WikiEditLayout';
 import { fetchProjectWiki, saveProjectWiki } from '../../services/wikiService';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
 import type { AuditCardHandle } from '../audit/AuditCard';
+
+const MAX_CHARS = 1000;
 
 export default function WikiEditObjetivos() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
@@ -49,8 +52,8 @@ export default function WikiEditObjetivos() {
       await saveProjectWiki(projectId, payload);
       notify('Objetivos salvos com sucesso', 'success');
       auditCardRef.current?.reload();
-    } catch {
-      notify('Falha ao salvar. Tente novamente.', 'error');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Falha ao salvar. Tente novamente.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -92,6 +95,9 @@ export default function WikiEditObjetivos() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_CHARS }}
+            helperText={!isStakeholder ? `${objetivoGeral.length}/${MAX_CHARS}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         <Box>
@@ -106,6 +112,9 @@ export default function WikiEditObjetivos() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_CHARS }}
+            helperText={!isStakeholder ? `${objetivosEspecificos.length}/${MAX_CHARS}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         <Box>
@@ -120,6 +129,9 @@ export default function WikiEditObjetivos() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_CHARS }}
+            helperText={!isStakeholder ? `${kpis.length}/${MAX_CHARS}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         {!isStakeholder && (
