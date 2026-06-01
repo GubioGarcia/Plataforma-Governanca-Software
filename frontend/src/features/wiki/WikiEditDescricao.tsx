@@ -14,9 +14,12 @@ import { fetchProjectWiki } from '../../services/wikiService';
 import { buscarProjetoPorId, atualizarProjeto, listarStatusProjeto } from '../../services/projetoService';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import type { WikiProjetoApi } from '../../types/wiki';
 import type { AuditCardHandle } from '../audit/AuditCard';
 import type { StatusProjetoAPI } from '../../types/projeto';
+
+const MAX_DESCRICAO = 1000;
 
 export default function WikiEditDescricao() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
@@ -65,10 +68,9 @@ export default function WikiEditDescricao() {
         statusId: projetoStatusId,
       });
       notify('Descrição do projeto salva com sucesso', 'success');
-      // Recarrega o card de auditoria para exibir as novas entradas
       auditCardRef.current?.reload();
-    } catch {
-      notify('Falha ao salvar. Tente novamente.', 'error');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Falha ao salvar. Tente novamente.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -126,6 +128,9 @@ export default function WikiEditDescricao() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_DESCRICAO }}
+            helperText={!isStakeholder ? `${descricao.length}/${MAX_DESCRICAO}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         <Box>

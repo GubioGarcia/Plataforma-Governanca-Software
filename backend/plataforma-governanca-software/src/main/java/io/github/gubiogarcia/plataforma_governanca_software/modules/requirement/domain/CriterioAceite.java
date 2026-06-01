@@ -23,7 +23,7 @@ public class CriterioAceite {
     @Column(nullable = false)
     private String nome;
 
-    @Column(nullable = false, columnDefinition = "TEXT")
+    @Column(nullable = false, length = 1000)
     private String descricao;
 
     @ManyToOne(fetch = FetchType.LAZY)

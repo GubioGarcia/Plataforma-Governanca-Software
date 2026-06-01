@@ -26,6 +26,7 @@ public class Projeto {
 
     private String nome;
 
+    @Column(length = 1000)
     private String descricao;
 
     @ManyToOne

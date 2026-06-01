@@ -12,7 +12,7 @@ public record AtualizarProjetoRequestDTO(
         @Size(max = 150, message = "Nome deve ter no máximo 150 caracteres")
         String nome,
 
-        @Size(max = 500, message = "Descrição deve ter no máximo 500 caracteres")
+        @Size(max = 1000, message = "Descrição deve ter no máximo 1000 caracteres")
         String descricao,
 
         @NotNull(message = "O ID do status é obrigatório")

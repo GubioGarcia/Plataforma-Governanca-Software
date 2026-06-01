@@ -9,8 +9,11 @@ import WikiEditLayout from './WikiEditLayout';
 import { fetchProjectWiki, saveProjectWiki } from '../../services/wikiService';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import type { WikiProjetoApi, WikiProjetoUpdateRequest } from '../../types/wiki';
 import type { AuditCardHandle } from '../audit/AuditCard';
+
+const MAX_CHARS = 1000;
 
 export default function WikiEditRestricoes() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
@@ -57,8 +60,8 @@ export default function WikiEditRestricoes() {
       await saveProjectWiki(projectId, payload);
       notify('Restrições salvas com sucesso', 'success');
       auditCardRef.current?.reload();
-    } catch {
-      notify('Falha ao salvar. Tente novamente.', 'error');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Falha ao salvar. Tente novamente.'), 'error');
     } finally {
       setSaving(false);
     }
@@ -98,6 +101,9 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_CHARS }}
+            helperText={!isStakeholder ? `${restricoesPrazo.length}/${MAX_CHARS}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         <Box>
@@ -110,6 +116,9 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_CHARS }}
+            helperText={!isStakeholder ? `${restricoesOrcamento.length}/${MAX_CHARS}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         <Box>
@@ -122,6 +131,9 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_CHARS }}
+            helperText={!isStakeholder ? `${tecnologiasObrigatorias.length}/${MAX_CHARS}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         <Box>
@@ -134,6 +146,9 @@ export default function WikiEditRestricoes() {
             InputLabelProps={{ shrink: true }}
             InputProps={{ readOnly: isStakeholder }}
             disabled={isStakeholder}
+            inputProps={{ maxLength: MAX_CHARS }}
+            helperText={!isStakeholder ? `${regulamentacoes.length}/${MAX_CHARS}` : undefined}
+            FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
         {!isStakeholder && (

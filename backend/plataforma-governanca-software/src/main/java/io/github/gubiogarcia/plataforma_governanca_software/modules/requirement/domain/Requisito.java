@@ -34,6 +34,7 @@ public class Requisito {
 
     private String titulo;
 
+    @Column(length = 1000)
     private String descricao;
 
     @Enumerated(EnumType.STRING)

@@ -14,6 +14,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.collaboration.service.ComentarioService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.files.service.ArquivoProjetoService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
@@ -23,6 +24,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 import java.net.URI;
+import java.sql.DataTruncation;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -331,6 +333,25 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ArquivoProjetoService.ProjetoNaoEncontradoException.class)
     public ProblemDetail handleProjetoNaoEncontradoArquivo(ArquivoProjetoService.ProjetoNaoEncontradoException ex) {
         return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
+    }
+
+    // Violacao de integridade de dados (ex: string excede o tamanho da coluna no banco)
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ProblemDetail handleDataIntegrityViolation(DataIntegrityViolationException ex) {
+        log.warn("Violacao de integridade de dados: {}", ex.getMessage());
+        Throwable cause = ex.getMostSpecificCause();
+        String detail;
+        if (cause instanceof DataTruncation) {
+            detail = "Um ou mais campos excedem o tamanho maximo permitido. Verifique os dados informados e tente novamente.";
+        } else {
+            String msg = cause.getMessage() != null ? cause.getMessage().toLowerCase() : "";
+            if (msg.contains("value too long") || msg.contains("string too long") || msg.contains("character varying")) {
+                detail = "Um ou mais campos excedem o tamanho maximo permitido. Verifique os dados informados e tente novamente.";
+            } else {
+                detail = "Os dados informados violam restricoes do banco de dados. Verifique as informacoes e tente novamente.";
+            }
+        }
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Dados invalidos", detail, "/errors/dados-invalidos");
     }
 
     // Fallback
