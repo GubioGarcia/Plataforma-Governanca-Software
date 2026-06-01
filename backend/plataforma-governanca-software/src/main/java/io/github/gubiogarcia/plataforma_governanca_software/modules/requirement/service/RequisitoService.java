@@ -64,8 +64,9 @@ public class RequisitoService {
         }
 
         // Gera o código sequencial único e imutável por projeto (REQ-001, REQ-002, ...)
-        long totalExistentes = requisitoRepository.countAllByProjetoId(projetoId);
-        String codigo = String.format("REQ-%03d", totalExistentes + 1);
+        // Busca o maior número já usado para evitar duplicatas após inativações de requisitos
+        long maxSequencial = requisitoRepository.findMaxSequencialByProjetoId(projetoId);
+        String codigo = String.format("REQ-%03d", maxSequencial + 1);
 
         Requisito requisito = Requisito.builder()
                 .projeto(projeto)

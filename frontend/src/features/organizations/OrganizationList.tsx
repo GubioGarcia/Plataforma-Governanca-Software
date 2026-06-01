@@ -230,14 +230,16 @@ export default function OrganizationList() {
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <StatusChip status={org.plano} />
-                      <Tooltip title="Mais opções">
-                        <IconButton
-                          size="small"
-                          onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); setMenuOrgId(org.id); }}
-                        >
-                          <MoreVertIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
+                      {!isStakeholder && (
+                        <Tooltip title="Mais opções">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => { e.stopPropagation(); setMenuAnchor(e.currentTarget); setMenuOrgId(org.id); }}
+                          >
+                            <MoreVertIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </Box>
                   </Box>
                   <Typography variant="h5" sx={{ mb: 0.5 }}>{org.nome}</Typography>
