@@ -1,14 +1,16 @@
 -- =============================================================================
--- V7 - Seed dos dados de referência: status_projeto, status_requisito e prioridade
+-- data.sql — Seed dos dados de referência
 --
--- Contexto: O V2__seed_status_data.sql nunca foi executado pois coexistia com
--- V2__criterio_aceite.sql (conflito de versão no Flyway). Este V7 corrige isso.
+-- Executado pelo Spring Boot APÓS o Hibernate criar/atualizar as tabelas
+-- (spring.jpa.defer-datasource-initialization=true).
 --
--- Idempotente: ON CONFLICT DO NOTHING garante segurança em reexecuções.
+-- Idempotente: ON CONFLICT (id) DO NOTHING garante segurança em re-execuções.
+-- Roda em TODA inicialização (spring.sql.init.mode=always).
 -- =============================================================================
 
-INSERT INTO status_projeto (id, nome, descricao, ordem)
-VALUES
+-- ─── STATUS PROJETO ──────────────────────────────────────────────────────────
+
+INSERT INTO status_projeto (id, nome, descricao, ordem) VALUES
     ('a1000001-0000-0000-0000-000000000001', 'RASCUNHO',     'Projeto em elaboração inicial',       1),
     ('a1000001-0000-0000-0000-000000000002', 'EM_REVISAO',   'Projeto em análise de revisão',       2),
     ('a1000001-0000-0000-0000-000000000003', 'APROVADO',     'Projeto aprovado para execução',      3),
@@ -18,21 +20,23 @@ VALUES
     ('a1000001-0000-0000-0000-000000000007', 'REPROVADO',    'Projeto não aprovado',                7),
     ('a1000001-0000-0000-0000-000000000098', 'ARQUIVADO',    'Projeto arquivado',                   98),
     ('a1000001-0000-0000-0000-000000000099', 'CANCELADO',    'Projeto cancelado',                   99)
-ON CONFLICT (nome) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO status_requisito (id, nome, descricao, ordem)
-VALUES
+-- ─── STATUS REQUISITO ────────────────────────────────────────────────────────
+
+INSERT INTO status_requisito (id, nome, descricao, ordem) VALUES
     ('b2000002-0000-0000-0000-000000000001', 'RASCUNHO',   'Requisito em elaboração inicial',  1),
     ('b2000002-0000-0000-0000-000000000002', 'EM_REVISAO', 'Requisito em análise de revisão',  2),
     ('b2000002-0000-0000-0000-000000000003', 'APROVADO',   'Requisito aprovado',               3),
     ('b2000002-0000-0000-0000-000000000004', 'REPROVADO',  'Requisito não aprovado',           4),
     ('b2000002-0000-0000-0000-000000000099', 'ARQUIVADO',  'Requisito arquivado',              99)
-ON CONFLICT (nome) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;
 
-INSERT INTO prioridade (id, codigo, nome, descricao, ordem)
-VALUES
+-- ─── PRIORIDADE ──────────────────────────────────────────────────────────────
+
+INSERT INTO prioridade (id, codigo, nome, descricao, ordem) VALUES
     ('c3000003-0000-0000-0000-000000000001', 'BAIXA',   'Baixa',   'Requisito de baixo impacto no negócio. Pode ser implementado em fases futuras sem comprometer o funcionamento do sistema.', 1),
     ('c3000003-0000-0000-0000-000000000002', 'MEDIA',   'Média',   'Requisito com impacto moderado. Importante para a evolução do sistema, mas não bloqueia entregas principais.', 2),
     ('c3000003-0000-0000-0000-000000000003', 'ALTA',    'Alta',    'Requisito com alto impacto no negócio ou na experiência do usuário. Deve ser priorizado no planejamento de desenvolvimento.', 3),
     ('c3000003-0000-0000-0000-000000000004', 'CRITICA', 'Crítica', 'Requisito essencial para o funcionamento do sistema ou atendimento de regras de negócio. Sua ausência pode comprometer o projeto.', 4)
-ON CONFLICT (nome) DO NOTHING;
+ON CONFLICT (id) DO NOTHING;

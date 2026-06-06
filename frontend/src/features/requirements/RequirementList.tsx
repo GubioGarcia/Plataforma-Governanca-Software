@@ -414,8 +414,8 @@ export default function RequirementList() {
                       </Box>
                     )}
                   </Box>
-                  <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5, lineHeight: 1.3 }}>{r.titulo}</Typography>
-                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.25, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  <Typography variant="body1" sx={{ fontWeight: 700, mb: 0.5, lineHeight: 1.3, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{r.titulo}</Typography>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.25, lineHeight: 1.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                     {r.descricao}
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 2.5, flexWrap: 'wrap', alignItems: 'center' }}>

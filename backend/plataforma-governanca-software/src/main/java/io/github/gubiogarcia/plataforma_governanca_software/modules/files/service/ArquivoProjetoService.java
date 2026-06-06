@@ -7,6 +7,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.files.dto.Ar
 import io.github.gubiogarcia.plataforma_governanca_software.modules.files.repository.ArquivoProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
@@ -27,7 +30,6 @@ import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
 import java.time.Instant;
 import java.util.List;
-import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -48,6 +50,7 @@ public class ArquivoProjetoService {
     private final OrganizacaoRepository organizacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
+    private final InteracaoService interacaoService;
 
     // ── Upload ─────────────────────────────────────────────────────────────────
 
@@ -94,6 +97,9 @@ public class ArquivoProjetoService {
                 "ARQUIVO_PROJETO", arquivo.getId(), AcaoAuditoria.CRIACAO,
                 "nomeOriginal", null, nomeOriginal
         );
+
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.ARQUIVO, TipoInteracao.CRIACAO,
+                arquivo.getId(), "Arquivo enviado: " + nomeOriginal);
 
         return toResponseDTO(arquivo);
     }
@@ -148,6 +154,9 @@ public class ArquivoProjetoService {
                 "ARQUIVO_PROJETO", fileId, AcaoAuditoria.EXCLUSAO,
                 "nomeOriginal", arquivo.getNomeOriginal(), null
         );
+
+        interacaoService.registrar(usuario, arquivo.getProjeto(), ModuloInteracao.ARQUIVO, TipoInteracao.EXCLUSAO,
+                fileId, "Arquivo excluído: " + arquivo.getNomeOriginal());
     }
 
     // ── Helpers ────────────────────────────────────────────────────────────────

@@ -383,7 +383,7 @@ export default function ProjectDashboard() {
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <GroupIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                    <Typography variant="h5">Stakeholders</Typography>
+                    <Typography variant="h5">Stakeholders / Interações</Typography>
                   </Box>
                   <Chip
                     label={membros.length}

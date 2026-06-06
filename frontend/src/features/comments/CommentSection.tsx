@@ -276,7 +276,13 @@ function CommentCard({ comentario: c, isOwn, temPosterior, onEdit, onDelete }: C
       ) : (
         <Typography
           variant="body2"
-          sx={{ color: 'text.primary', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}
+          sx={{
+            color: 'text.primary',
+            lineHeight: 1.7,
+            whiteSpace: 'pre-wrap',
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+          }}
         >
           {c.conteudo}
         </Typography>

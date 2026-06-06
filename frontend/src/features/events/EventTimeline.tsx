@@ -173,13 +173,13 @@ function CalendarView({ events, onEdit, onDelete, isStakeholder }: {
                     <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                       <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 0.5 }}>
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5 }}>{ev.nome}</Typography>
+                          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.5, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{ev.nome}</Typography>
                           <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: ev.descricao ? 1 : 0 }}>
                             🕐 {ev.dataHoraInicio && ev.dataHoraFim
                               ? `${new Date(ev.dataHoraInicio).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })} — ${new Date(ev.dataHoraFim).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}`
                               : 'Horário indisponível'}
                           </Typography>
-                          {ev.descricao && <Typography variant="body2" sx={{ color: '#4B5563', fontSize: 13 }}>{ev.descricao}</Typography>}
+                          {ev.descricao && <Typography variant="body2" sx={{ color: '#4B5563', fontSize: 13, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{ev.descricao}</Typography>}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.25 }}>
                           {!isStakeholder && (
@@ -340,14 +340,14 @@ export default function EventTimeline() {
                       <Card sx={{ border: `1px solid ${isPast ? '#E8EAED' : '#3F51B515'}`, opacity: isPast ? 0.7 : 1 }}>
                         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="h6" sx={{ mb: 0.5 }}>{event.nome}</Typography>
+                            <Box sx={{ flex: 1, minWidth: 0 }}>
+                              <Typography variant="h6" sx={{ mb: 0.5, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{event.nome}</Typography>
                               <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: event.descricao ? 1 : 0 }}>
                                 {event.dataHoraInicio
                                   ? new Date(event.dataHoraInicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
                                   : 'Data indisponível'}
                               </Typography>
-                              {event.descricao && <Typography variant="body2" sx={{ color: '#4B5563', lineHeight: 1.6 }}>{event.descricao}</Typography>}
+                              {event.descricao && <Typography variant="body2" sx={{ color: '#4B5563', lineHeight: 1.6, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{event.descricao}</Typography>}
                             </Box>
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
                               {!isStakeholder && (

@@ -4,6 +4,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Evento;
@@ -33,6 +36,7 @@ public class EventoService {
     private final OrganizacaoRepository organizacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
+    private final InteracaoService interacaoService;
 
     @Transactional
     public EventoResponseDTO criar(Jwt jwt, CriarEventoRequestDTO request) {
@@ -68,6 +72,9 @@ public class EventoService {
                 "EVENTO", evento.getId(), AcaoAuditoria.CRIACAO,
                 "nome", null, evento.getNome()
         );
+
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.EVENTO, TipoInteracao.CRIACAO,
+                evento.getId(), "Evento criado: " + evento.getNome());
 
         return mapToResponseDTO(evento);
     }
@@ -132,6 +139,10 @@ public class EventoService {
 
         evento = eventoRepository.save(evento);
         log.info("Evento {} atualizado com sucesso.", id);
+
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.EVENTO, TipoInteracao.EDICAO,
+                id, "Evento atualizado: " + evento.getNome());
+
         return mapToResponseDTO(evento);
     }
 
@@ -148,6 +159,9 @@ public class EventoService {
                 "EVENTO", id, AcaoAuditoria.EXCLUSAO,
                 "nome", evento.getNome(), null
         );
+
+        interacaoService.registrar(usuario, evento.getProjeto(), ModuloInteracao.EVENTO, TipoInteracao.EXCLUSAO,
+                id, "Evento removido: " + evento.getNome());
 
         eventoRepository.deleteById(id);
         log.info("Evento {} removido com sucesso.", id);

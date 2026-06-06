@@ -12,7 +12,6 @@ import TablePagination from '@mui/material/TablePagination';
 import Select from '@mui/material/Select';
 import MenuItem from '@mui/material/MenuItem';
 import Chip from '@mui/material/Chip';
-import Tooltip from '@mui/material/Tooltip';
 import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
@@ -327,20 +326,18 @@ export default function AuditLog() {
                         />
                       </TableCell>
                       <TableCell>
-                        <Tooltip title={descricao} placement="top-start">
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              maxWidth: 340,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                              color: 'text.primary',
-                            }}
-                          >
-                            {descricao}
-                          </Typography>
-                        </Tooltip>
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            maxWidth: 340,
+                            whiteSpace: 'pre-line',
+                            overflowWrap: 'anywhere',
+                            wordBreak: 'break-word',
+                            color: 'text.primary',
+                          }}
+                        >
+                          {descricao}
+                        </Typography>
                       </TableCell>
                     </TableRow>
                   );
