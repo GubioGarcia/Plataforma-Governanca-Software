@@ -4,5 +4,6 @@ public enum ModuloInteracao {
     WIKI,
     REQUISITO,
     COMENTARIO,
-    EVENTO
+    EVENTO,
+    ARQUIVO
 }

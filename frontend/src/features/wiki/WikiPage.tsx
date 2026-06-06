@@ -82,7 +82,7 @@ function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
       <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827', minWidth: 200, flexShrink: 0 }}>
         {label}
       </Typography>
-      <Box sx={{ fontSize: '14px', color: '#374151', whiteSpace: 'pre-line', lineHeight: 1.7, display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ fontSize: '14px', color: '#374151', whiteSpace: 'pre-line', lineHeight: 1.7, display: 'flex', alignItems: 'center', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
         {value}
       </Box>
     </Box>
@@ -98,7 +98,7 @@ function ContentBlock({ value }: { value?: string }) {
     );
   }
   return (
-    <Typography sx={{ fontSize: '14px', color: '#374151', whiteSpace: 'pre-line', lineHeight: 1.75 }}>
+    <Typography sx={{ fontSize: '14px', color: '#374151', whiteSpace: 'pre-line', lineHeight: 1.75, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
       {value}
     </Typography>
   );

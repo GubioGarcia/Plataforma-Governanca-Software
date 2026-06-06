@@ -169,14 +169,14 @@ export default function OrgDashboard() {
                           gap: 1,
                         }}
                       >
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.3 }}>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 700, lineHeight: 1.3, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                           {p.name}
                         </Typography>
                         <StatusChip status={p.status} />
                       </Box>
                       <Typography
                         variant="caption"
-                        sx={{ color: 'text.secondary', lineHeight: 1.6, flex: 1 }}
+                        sx={{ color: 'text.secondary', lineHeight: 1.6, flex: 1, overflowWrap: 'anywhere', wordBreak: 'break-word' }}
                       >
                         {p.description.length > 110
                           ? p.description.slice(0, 110) + '…'

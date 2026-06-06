@@ -242,8 +242,8 @@ export default function OrganizationList() {
                       )}
                     </Box>
                   </Box>
-                  <Typography variant="h5" sx={{ mb: 0.5 }}>{org.nome}</Typography>
-                  <Typography variant="body2" sx={{ mb: 2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minHeight: '40px' }}>
+                  <Typography variant="h5" sx={{ mb: 0.5, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{org.nome}</Typography>
+                  <Typography variant="body2" sx={{ mb: 2, overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', minHeight: '40px', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
                     {org.descricao}
                   </Typography>
                   <Divider sx={{ mb: 2 }} />

@@ -386,8 +386,8 @@ export default function ProjectList() {
                 <CardContent sx={{ p: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
                     <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75 }}>
-                        <Typography variant="h5">{project.nome}</Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75, minWidth: 0 }}>
+                        <Typography variant="h5" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{project.nome}</Typography>
                         <StatusChip status={project.status?.nome ?? 'N/A'} />
                       </Box>
                       <Typography
@@ -399,6 +399,8 @@ export default function ProjectList() {
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
                           maxWidth: '80%',
+                          overflowWrap: 'anywhere',
+                          wordBreak: 'break-word',
                         }}
                       >
                         {project.descricao}

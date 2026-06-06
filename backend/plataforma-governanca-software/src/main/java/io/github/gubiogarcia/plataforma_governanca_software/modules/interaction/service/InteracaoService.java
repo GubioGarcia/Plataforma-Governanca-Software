@@ -33,7 +33,7 @@ public class InteracaoService {
 
     /**
      * Registra uma interação de forma programática — sem Jwt.
-     * Chamado internamente por ComentarioService, RequisitoService, VisaoProdutoService, EventoService.
+     * Chamado internamente por ComentarioService, RequisitoService, VisaoProdutoService, EventoService, ArquivoProjetoService.
      */
     @Transactional
     public void registrar(
@@ -138,7 +138,8 @@ public class InteracaoService {
                     mods.getOrDefault(ModuloInteracao.WIKI, 0L),
                     mods.getOrDefault(ModuloInteracao.REQUISITO, 0L),
                     mods.getOrDefault(ModuloInteracao.COMENTARIO, 0L),
-                    mods.getOrDefault(ModuloInteracao.EVENTO, 0L)
+                    mods.getOrDefault(ModuloInteracao.EVENTO, 0L),
+                    mods.getOrDefault(ModuloInteracao.ARQUIVO, 0L)
             ));
         }
 

@@ -15,5 +15,6 @@ public record ResumoInteracaoUsuarioDTO(
         long interacoesWiki,
         long interacoesRequisito,
         long interacoesComentario,
-        long interacoesEvento
+        long interacoesEvento,
+        long interacoesArquivo
 ) {}
