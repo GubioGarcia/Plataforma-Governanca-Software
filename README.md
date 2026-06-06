@@ -11,7 +11,7 @@
 
 Para uma visão geral do uso básico da plataforma, assista ao vídeo de demonstração disponível no repositório:
 
-📽️ **[`Demonstracao_MVP.mp4`](./Demonstracao_MVP.mp4)**
+📽️ **[`Demonstracao_MVP.mp4`](https://drive.google.com/file/d/1BQ_yIf2ELcNVmNYs-FyHYtrlvP3erlQy/view?usp=drive_link)**
 
 O vídeo apresenta um uso básico das principais funcionalidades disponíveis nesta versão MVP.
 
