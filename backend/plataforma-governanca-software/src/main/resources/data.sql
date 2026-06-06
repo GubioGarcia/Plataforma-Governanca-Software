@@ -34,9 +34,9 @@ ON CONFLICT (id) DO NOTHING;
 
 -- ─── PRIORIDADE ──────────────────────────────────────────────────────────────
 
-INSERT INTO prioridade (id, codigo, nome, descricao, ordem) VALUES
-    ('c3000003-0000-0000-0000-000000000001', 'BAIXA',   'Baixa',   'Requisito de baixo impacto no negócio. Pode ser implementado em fases futuras sem comprometer o funcionamento do sistema.', 1),
-    ('c3000003-0000-0000-0000-000000000002', 'MEDIA',   'Média',   'Requisito com impacto moderado. Importante para a evolução do sistema, mas não bloqueia entregas principais.', 2),
-    ('c3000003-0000-0000-0000-000000000003', 'ALTA',    'Alta',    'Requisito com alto impacto no negócio ou na experiência do usuário. Deve ser priorizado no planejamento de desenvolvimento.', 3),
-    ('c3000003-0000-0000-0000-000000000004', 'CRITICA', 'Crítica', 'Requisito essencial para o funcionamento do sistema ou atendimento de regras de negócio. Sua ausência pode comprometer o projeto.', 4)
+INSERT INTO prioridade (id, codigo, nome, descricao, ordem, ativo) VALUES
+    ('c3000003-0000-0000-0000-000000000001', 'BAIXA',   'Baixa',   'Requisito de baixo impacto no negócio. Pode ser implementado em fases futuras sem comprometer o funcionamento do sistema.', 1, true),
+    ('c3000003-0000-0000-0000-000000000002', 'MEDIA',   'Média',   'Requisito com impacto moderado. Importante para a evolução do sistema, mas não bloqueia entregas principais.', 2, true),
+    ('c3000003-0000-0000-0000-000000000003', 'ALTA',    'Alta',    'Requisito com alto impacto no negócio ou na experiência do usuário. Deve ser priorizado no planejamento de desenvolvimento.', 3, true),
+    ('c3000003-0000-0000-0000-000000000004', 'CRITICA', 'Crítica', 'Requisito essencial para o funcionamento do sistema ou atendimento de regras de negócio. Sua ausência pode comprometer o projeto.', 4, true)
 ON CONFLICT (id) DO NOTHING;
