@@ -15,6 +15,8 @@ import WikiEditObjetivos from './features/wiki/WikiEditObjetivos';
 import WikiEditRestricoes from './features/wiki/WikiEditRestricoes';
 import RequirementList from './features/requirements/RequirementList';
 import RequirementDetail from './features/requirements/RequirementDetail';
+import TraceabilityMatrix from './features/traceability/TraceabilityMatrix';
+import DataModelPage from './features/datamodel/DataModelPage';
 import EventTimeline from './features/events/EventTimeline';
 import FileRepository from './features/files/FileRepository';
 import StakeholderList from './features/stakeholders/StakeholderList';
@@ -52,6 +54,8 @@ export default function App() {
           <Route path="wiki/restricoes" element={<WikiEditRestricoes />} />
           <Route path="requirements" element={<RequirementList />} />
           <Route path="requirements/:requirementId" element={<RequirementDetail />} />
+          <Route path="traceability" element={<TraceabilityMatrix />} />
+          <Route path="data-model" element={<DataModelPage />} />
           <Route path="events" element={<EventTimeline />} />
           <Route path="files" element={<FileRepository />} />
           <Route path="stakeholders" element={<StakeholderList />} />
