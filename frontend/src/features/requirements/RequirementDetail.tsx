@@ -32,6 +32,8 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { CommentSection } from '../comments';
 import AuditCard, { type AuditCardHandle } from '../audit/AuditCard';
+import TraceabilityCard from '../traceability/TraceabilityCard';
+import DataImpactCard from '../datamodel/DataImpactCard';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { extractApiErrorMessage } from '../../utils/apiError';
@@ -128,6 +130,10 @@ export default function RequirementDetail() {
 
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<CriterioAceiteAPI | null>(null);
+
+  // Incrementado quando os impactos no modelo de dados mudam: as relações
+  // indiretas da rastreabilidade derivam deles e precisam ser recalculadas.
+  const [versaoDados, setVersaoDados] = useState(0);
 
   const load = useCallback(async () => {
     if (!requirementId) return;
@@ -522,6 +528,21 @@ export default function RequirementDetail() {
               )}
             </CardContent>
           </Card>
+
+          {/* ── Modelagem de dados (estado atual × proposto) ── */}
+          <DataImpactCard
+            projetoId={projectId!}
+            requisitoId={requirementId!}
+            aoAlterar={() => setVersaoDados((v) => v + 1)}
+          />
+
+          {/* ── Rastreabilidade (vínculos diretos e indiretos) ── */}
+          <TraceabilityCard
+            organizacaoId={orgId!}
+            projetoId={projectId!}
+            requisitoId={requirementId!}
+            versaoDados={versaoDados}
+          />
 
           {/* ── Comentários ── */}
           <Card variant="outlined" sx={{ borderRadius: 3, mt: 3 }}>

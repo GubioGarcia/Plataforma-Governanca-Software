@@ -11,6 +11,8 @@ import IconButton from '@mui/material/IconButton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ChecklistIcon from '@mui/icons-material/Checklist';
+import HubIcon from '@mui/icons-material/Hub';
+import SchemaIcon from '@mui/icons-material/Schema';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import GroupIcon from '@mui/icons-material/Group';
@@ -34,6 +36,8 @@ export default function ProjectShell() {
     { label: 'Visão Geral',  icon: <DashboardIcon fontSize="small" />,   to: base },
     { label: 'WIKI',         icon: <AutoStoriesIcon fontSize="small" />,  to: `${base}/wiki` },
     { label: 'Requisitos',   icon: <ChecklistIcon fontSize="small" />,    to: `${base}/requirements` },
+    { label: 'Rastreabilidade', icon: <HubIcon fontSize="small" />,       to: `${base}/traceability` },
+    { label: 'Modelo de Dados', icon: <SchemaIcon fontSize="small" />,    to: `${base}/data-model` },
     { label: 'Eventos',      icon: <EventNoteIcon fontSize="small" />,    to: `${base}/events` },
     { label: 'Arquivos',     icon: <FolderOpenIcon fontSize="small" />,   to: `${base}/files` },
     { label: 'Stakeholders', icon: <GroupIcon fontSize="small" />,        to: `${base}/stakeholders` },
