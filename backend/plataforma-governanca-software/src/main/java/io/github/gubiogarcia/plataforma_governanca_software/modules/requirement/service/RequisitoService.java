@@ -2,6 +2,8 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.requirement
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.repository.ImpactoDadosRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.repository.VinculoRequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
@@ -40,6 +42,8 @@ public class RequisitoService {
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
+    private final VinculoRequisitoRepository vinculoRequisitoRepository;
+    private final ImpactoDadosRepository impactoDadosRepository;
 
     @Transactional
     public RequisitoResponseDTO criar(Jwt jwt, UUID projetoId, CriarRequisitoRequestDTO request) {
@@ -232,7 +236,10 @@ public class RequisitoService {
                 r.getDataCriacao(),
                 r.getDataAtualizacao(),
                 r.getDataSolicitacao(),
-                r.getDataAprovacao()
+                r.getDataAprovacao(),
+                // Contadores de rastreabilidade/modelagem (N+1 aceitável na escala do TCC)
+                vinculoRequisitoRepository.countByRequisitoOrigemIdOrRequisitoDestinoId(r.getId(), r.getId()),
+                impactoDadosRepository.countEntidadesDistintasByRequisitoId(r.getId())
         );
     }
 

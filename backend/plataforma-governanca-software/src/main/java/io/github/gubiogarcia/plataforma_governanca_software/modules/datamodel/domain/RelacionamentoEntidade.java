@@ -12,7 +12,13 @@ import java.util.UUID;
  * ainda não implementada nesta versão.
  */
 @Entity
-@Table(name = "relacionamento_entidade")
+@Table(
+        name = "relacionamento_entidade",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_relacionamento_entidade",
+                columnNames = {"entidade_origem_id", "entidade_destino_id", "tipo"}
+        )
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,6 +38,7 @@ public class RelacionamentoEntidade {
     @JoinColumn(name = "entidade_destino_id", nullable = false)
     private EntidadeDados entidadeDestino;
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
-    private String tipo;
+    private TipoRelacionamentoEntidade tipo;
 }
