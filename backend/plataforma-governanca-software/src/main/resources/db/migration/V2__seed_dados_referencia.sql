@@ -47,7 +47,9 @@ INSERT INTO modulo (id, codigo, nome, descricao, ativo) VALUES
     ('d4000004-0000-0000-0000-000000000002', 'REQUISITO', 'Requisitos',              'Módulo de gestão de requisitos', TRUE),
     ('d4000004-0000-0000-0000-000000000003', 'COMENTARIO','Comentários',             'Módulo de colaboração via comentários', TRUE),
     ('d4000004-0000-0000-0000-000000000004', 'EVENTO',    'Eventos',                 'Módulo de agendamento de eventos', TRUE),
-    ('d4000004-0000-0000-0000-000000000005', 'ARQUIVO',   'Arquivos',                'Módulo de gestão de arquivos', TRUE)
+    ('d4000004-0000-0000-0000-000000000005', 'ARQUIVO',   'Arquivos',                'Módulo de gestão de arquivos', TRUE),
+    ('d4000004-0000-0000-0000-000000000006', 'MODELAGEM_DADOS', 'Modelagem de Dados', 'Módulo de modelagem de entidades de dados vinculadas a requisitos', TRUE),
+    ('d4000004-0000-0000-0000-000000000007', 'RASTREABILIDADE', 'Rastreabilidade',    'Módulo de matriz de rastreabilidade e análise de impacto entre requisitos', TRUE)
 ON CONFLICT (codigo) DO NOTHING;
 
 -- ─── PERMISSOES ──────────────────────────────────────────────────────────────

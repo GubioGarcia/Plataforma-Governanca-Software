@@ -8,12 +8,17 @@
  * telas.
  */
 
-/** Operação que um requisito executa sobre o modelo de dados. */
+/**
+ * Operação que um requisito executa sobre o modelo de dados.
+ * Espelha o enum `TipoOperacaoImpacto` do backend.
+ */
 export type TipoOperacaoImpacto =
-  | 'CRIACAO_ENTIDADE'
-  | 'ADICAO_ATRIBUTO'
-  | 'ALTERACAO_ATRIBUTO'
-  | 'REMOCAO_ATRIBUTO';
+  | 'CRIA_ENTIDADE'
+  | 'ALTERA_ENTIDADE'
+  | 'REMOVE_ENTIDADE'
+  | 'CRIA_ATRIBUTO'
+  | 'ALTERA_ATRIBUTO'
+  | 'REMOVE_ATRIBUTO';
 
 /** Cardinalidade da FK entre duas entidades de negócio. */
 export type TipoRelacionamentoEntidade = 'UM_PARA_UM' | 'UM_PARA_MUITOS' | 'MUITOS_PARA_MUITOS';
@@ -31,8 +36,8 @@ export interface AtributoEntidadeAPI {
   nome: string;
   tipo: string;
   obrigatorio: boolean;
-  /** Marca a chave primária — usado apenas para leitura do diagrama. */
-  chavePrimaria?: boolean;
+  /** Marca a chave primária — usado na leitura do diagrama e na tabela de atributos. */
+  chavePrimaria: boolean;
 }
 
 export interface RelacionamentoEntidadeAPI {
@@ -40,8 +45,8 @@ export interface RelacionamentoEntidadeAPI {
   entidadeOrigemId: string;
   entidadeDestinoId: string;
   tipo: TipoRelacionamentoEntidade;
-  /** Atributo que materializa a FK (ex.: `cliente_id`). */
-  atributoFk?: string | null;
+  /** Atributo que materializa a FK (ex.: `cliente_id`); `null` quando não informado. */
+  atributoFk: string | null;
 }
 
 export interface ImpactoDadosAPI {

@@ -1,9 +1,11 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.domain.Requisito;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -41,12 +43,20 @@ public class ImpactoDados {
     @JoinColumn(name = "atributo_id")
     private AtributoEntidade atributo;
 
+    @Enumerated(EnumType.STRING)
     @Column(name = "tipo_operacao", nullable = false, length = 50)
-    private String tipoOperacao;
+    private TipoOperacaoImpacto tipoOperacao;
 
     @Column(name = "valor_anterior", columnDefinition = "TEXT")
     private String valorAnterior;
 
     @Column(name = "valor_novo", columnDefinition = "TEXT")
     private String valorNovo;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "criado_por")
+    private Usuario criadoPor;
+
+    @Column(name = "data_criacao")
+    private Instant dataCriacao;
 }

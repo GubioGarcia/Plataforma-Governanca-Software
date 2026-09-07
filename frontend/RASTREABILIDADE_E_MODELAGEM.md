@@ -137,18 +137,24 @@ Não há motor de diagramação próprio nem posicionamento manual: as entidades
 
 ## Arquitetura no frontend
 
-### Onde os dados vivem hoje
+### Onde os dados vivem
 
-Os módulos `datamodel` e `traceability` já têm **entities e repositories** no backend (PR #9), mas **ainda não têm controllers REST**. Enquanto isso, os dados são servidos por um repositório de protótipo em `localStorage`.
+Os módulos `datamodel` e `traceability` têm entities, repositories, services e **controllers REST**
+completos no backend. As telas consomem esses endpoints direto via `axios`:
 
 ```
-Tela  →  Service  →  prototypeStore (localStorage)     ← hoje
-Tela  →  Service  →  axios → API REST                  ← quando os endpoints existirem
+Tela  →  Service (axios)  →  API REST  →  PostgreSQL
 ```
 
-Os serviços já expõem as **assinaturas da API planejada**. Quando os endpoints subirem, muda apenas o corpo de cada função em `dataModelService.ts` e `traceabilityService.ts` — os tipos, os utilitários e as telas continuam iguais.
+Os `utils/` continuam derivando as projeções de visualização no cliente (matriz, BFS da análise de
+impacto, diff antes/depois, código do diagrama ER) — o backend também expõe `/api/rastreabilidade/...`
+para a matriz e a análise de impacto, hoje não consumido pela SPA para manter uma única fonte dessa lógica.
 
-O `prototypeStore` semeia um cenário de demonstração na primeira abertura (entidades `Cliente`, `Endereco`, `Pedido`, `ItemPedido`, `Produto`, mais vínculos e impactos distribuídos entre os primeiros requisitos do projeto) e suporta criação e remoção reais por cima dele. Cada tela tem um botão **↺** que restaura esse cenário — útil antes de apresentar.
+`dataModelService.ts` monta o `ModeloDadosProjeto` a partir de dois endpoints:
+`GET /api/entidade-dados/projeto/{id}/diagrama` (entidades + atributos + relacionamentos) e
+`GET /api/impacto-dados/projeto/{id}` (impactos). `traceabilityService.ts` usa
+`GET /api/vinculo-requisito/projeto/{id}` e o CRUD de `/api/vinculo-requisito`. O botão **↺** de cada
+tela agora recarrega do servidor.
 
 ### Mapa de arquivos
 
@@ -158,11 +164,8 @@ O `prototypeStore` semeia um cenário de demonstração na primeira abertura (en
 | `types/dataModel.ts` | Espelha `EntidadeDados`, `AtributoEntidade`, `RelacionamentoEntidade` e `ImpactoDados` |
 | `utils/traceability.ts` | Deriva as relações, monta a matriz e roda a BFS da análise de impacto |
 | `utils/dataModel.ts` | Constrói o diff antes/depois e gera o código do diagrama ER |
-| `services/prototypeStore.ts` | Persistência local enquanto não há API |
-| `services/traceabilityService.ts` | CRUD de vínculos, no contrato da API planejada |
-| `services/dataModelService.ts` | CRUD de entidades, atributos e impactos |
-| `mocks/traceability.ts` | Cenário de vínculos da demonstração |
-| `mocks/dataModel.ts` | Cenário do modelo de dados da demonstração |
+| `services/traceabilityService.ts` | HTTP dos vínculos diretos (`/api/vinculo-requisito`) |
+| `services/dataModelService.ts` | HTTP de entidades, atributos, impactos e diagrama (`/api/entidade-dados`, `/api/impacto-dados`) |
 | `features/traceability/TraceabilityMatrix.tsx` | Tela da matriz |
 | `features/traceability/ImpactAnalysisDrawer.tsx` | Painel de análise de impacto |
 | `features/traceability/TraceabilityCard.tsx` | Card no detalhe do requisito |
@@ -205,36 +208,24 @@ Tudo respeita `prefers-reduced-motion` (quem pediu menos movimento no sistema re
 
 ## Como testar
 
-### Sem backend — modo de demonstração
-
-Há uma entrada de demonstração que monta o app inteiro com a API simulada e
-um usuário já autenticado, para percorrer todas as telas sem subir o backend
-e o Keycloak:
+Precisa do backend no ar (as telas consomem a API real).
 
 1. `cd frontend && npm install`
-2. `npm run dev`
-3. Abra **http://localhost:5173/demo/**
-
-O menu lateral do projeto dá acesso a tudo, inclusive às duas telas novas. Os
-dados são simulados em memória (`demo/dados.ts`) e voltam ao original a cada
-recarga; vínculos e modelo de dados persistem no `localStorage`, como no app
-real. O código vive em `frontend/demo/` e não entra no bundle de produção.
-
-### Com backend
-
-1. `cd frontend && npm install`
-2. `npm run dev`
+2. `cd infrastructure && docker-compose up -d --build` (ou `npm run dev` no frontend contra o backend Docker)
 3. Faça login e entre em um projeto que tenha **pelo menos dois requisitos** cadastrados.
-4. Menu lateral → **Rastreabilidade**
-   - Clique em um código à esquerda para ver a análise de impacto.
-   - Clique em uma célula vazia para criar um vínculo; em uma célula com marcador, para ver a relação.
-   - Alterne o filtro entre diretos e indiretos.
-5. Menu lateral → **Modelo de Dados**
+4. Menu lateral → **Modelo de Dados**
+   - **Nova entidade** → **Atributo** (marque *Chave primária* quando for a PK).
    - Navegue pelas entidades e acompanhe o destaque no diagrama.
-   - Cadastre uma entidade ou um atributo.
-6. Abra um requisito e role até os cards de **Modelagem de dados** e **Rastreabilidade**.
+5. Abra um requisito e role até o card **Modelagem de dados**
+   - **Registrar impacto** (`CRIA_ATRIBUTO`, `ALTERA_ATRIBUTO`, ...) → o diff *estado atual × proposto* aparece.
+6. Menu lateral → **Rastreabilidade**
+   - Clique em uma célula vazia para criar um vínculo direto; numa célula com marcador, para ver a relação.
+   - Dois requisitos impactando a mesma entidade → aparece o anel indireto sozinho.
+   - Clique em um código à esquerda para ver a análise de impacto (BFS).
+7. Recarregue a página — o estado persiste (veio do banco). O botão **↺** recarrega do servidor.
 
-O botão **↺** de cada tela restaura o cenário de demonstração.
+> O modo `/demo/` (`frontend/demo/`) não simula os endpoints de `traceability`/`datamodel`; essas duas
+> telas só funcionam com o backend.
 
 ---
 
@@ -242,8 +233,6 @@ O botão **↺** de cada tela restaura o cenário de demonstração.
 
 | Item | Onde |
 |---|---|
-| Services, controllers e DTOs dos dois módulos | backend |
-| Migrations das novas tabelas | backend |
-| Troca do `prototypeStore` pelas chamadas HTTP | `dataModelService.ts`, `traceabilityService.ts` |
+| CRUD de `RelacionamentoEntidade` pela UI (hoje só via API) | `features/datamodel/DataModelPage.tsx` |
 | Opção 1C — impacto transitivo pela cadeia de FKs | o dado de `RelacionamentoEntidade` já está disponível |
 | Opção 2C — editor visual de modelagem | trabalho futuro |

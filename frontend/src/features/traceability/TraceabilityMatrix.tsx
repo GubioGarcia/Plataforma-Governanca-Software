@@ -242,7 +242,7 @@ export default function TraceabilityMatrix() {
     try {
       const restaurados = await restaurarVinculos(projectId, requisitos.map((r) => r.id));
       setVinculos(restaurados);
-      notify('Vínculos de demonstração restaurados', 'info');
+      notify('Vínculos recarregados do servidor', 'info');
     } finally {
       setCarregando(false);
     }
@@ -266,7 +266,7 @@ export default function TraceabilityMatrix() {
         descricao="Cada célula é o cruzamento de dois requisitos. Os vínculos diretos você cadastra; as relações indiretas aparecem sozinhas quando dois requisitos manipulam a mesma entidade de dados."
         acoes={
           <>
-            <Tooltip title="Restaurar os vínculos de demonstração">
+            <Tooltip title="Recarregar do servidor">
               <span>
                 <IconButton onClick={restaurarCenario} disabled={isStakeholder}>
                   <RestartAltIcon fontSize="small" />

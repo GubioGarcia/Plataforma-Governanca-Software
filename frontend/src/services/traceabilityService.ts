@@ -1,64 +1,64 @@
-import { criarVinculosSeed } from '../mocks/traceability';
-import { gravarColecao, lerColecao, novoId, removerColecao, simularLatencia } from './prototypeStore';
-import type { CriarVinculoPayload, VinculoRequisitoAPI } from '../types/traceability';
+import api from '../config/axios';
+import type { CriarVinculoPayload, TipoVinculoRequisito, VinculoRequisitoAPI } from '../types/traceability';
 
 /**
  * Serviço do módulo de rastreabilidade (`traceability`).
  *
- * Cobre apenas os vínculos DIRETOS, que são os únicos persistidos. As relações
- * indiretas e a análise de impacto são derivadas em `utils/traceability.ts`,
- * a partir destes vínculos somados aos impactos de dados.
+ * Cobre os vínculos DIRETOS entre requisitos, os únicos persistidos. As
+ * relações INDIRETAS e a análise de impacto são derivadas no cliente
+ * (`utils/traceability.ts`), a partir destes vínculos somados aos impactos de
+ * dados — a mesma junção que o backend também expõe em
+ * `/api/rastreabilidade/...`, aqui não consumida para manter uma única fonte
+ * da lógica de visualização.
  */
 
-const COLECAO = 'traceability';
-
-function carregar(projetoId: string): VinculoRequisitoAPI[] | null {
-  return lerColecao<VinculoRequisitoAPI[]>(COLECAO, projetoId);
+/** Projeção enxuta que a matriz consome — recorte do `VinculoRequisitoResponseDTO`. */
+interface VinculoRequisitoResponseDTO {
+  id: string;
+  requisitoOrigemId: string;
+  requisitoDestinoId: string;
+  tipo: TipoVinculoRequisito;
 }
 
-function salvar(projetoId: string, vinculos: VinculoRequisitoAPI[]): VinculoRequisitoAPI[] {
-  gravarColecao(COLECAO, projetoId, vinculos);
-  return vinculos;
+function toVinculo(dto: VinculoRequisitoResponseDTO): VinculoRequisitoAPI {
+  return {
+    id: dto.id,
+    requisitoOrigemId: dto.requisitoOrigemId,
+    requisitoDestinoId: dto.requisitoDestinoId,
+    tipo: dto.tipo,
+  };
 }
 
-/**
- * Lista os vínculos diretos do projeto, semeando o cenário de demonstração na
- * primeira abertura.
- */
+/** Lista os vínculos diretos de todos os requisitos do projeto. */
 export async function listarVinculos(
   projetoId: string,
-  requisitoIds: string[] = [],
+  _requisitoIds: string[] = [],
 ): Promise<VinculoRequisitoAPI[]> {
-  const existente = carregar(projetoId);
-  if (existente) return simularLatencia(existente);
-  if (requisitoIds.length === 0) return simularLatencia([]);
-  return simularLatencia(salvar(projetoId, criarVinculosSeed(projetoId, requisitoIds)));
+  const res = await api.get<VinculoRequisitoResponseDTO[]>(`/vinculo-requisito/projeto/${projetoId}`);
+  return res.data.map(toVinculo);
 }
 
 export async function criarVinculo(
-  projetoId: string,
+  _projetoId: string,
   payload: CriarVinculoPayload,
 ): Promise<VinculoRequisitoAPI> {
-  const vinculos = carregar(projetoId) ?? [];
-  const vinculo: VinculoRequisitoAPI = { id: novoId(), ...payload };
-  salvar(projetoId, [...vinculos, vinculo]);
-  return simularLatencia(vinculo);
+  const res = await api.post<VinculoRequisitoResponseDTO>(
+    `/vinculo-requisito/requisito/${payload.requisitoOrigemId}`,
+    { requisitoDestinoId: payload.requisitoDestinoId, tipo: payload.tipo },
+  );
+  return toVinculo(res.data);
 }
 
-export async function deletarVinculo(projetoId: string, vinculoId: string): Promise<void> {
-  const vinculos = carregar(projetoId);
-  if (!vinculos) return;
-  salvar(projetoId, vinculos.filter((v) => v.id !== vinculoId));
-  await simularLatencia(null);
+export async function deletarVinculo(_projetoId: string, vinculoId: string): Promise<void> {
+  await api.delete(`/vinculo-requisito/${vinculoId}`);
 }
 
-/** Restaura o cenário de demonstração, descartando os vínculos criados localmente. */
+/** Recarrega os vínculos do servidor (o botão ↺ das telas). */
 export async function restaurarVinculos(
   projetoId: string,
   requisitoIds: string[],
 ): Promise<VinculoRequisitoAPI[]> {
-  removerColecao(COLECAO, projetoId);
-  return simularLatencia(salvar(projetoId, criarVinculosSeed(projetoId, requisitoIds)));
+  return listarVinculos(projetoId, requisitoIds);
 }
 
 export default { listarVinculos, criarVinculo, deletarVinculo, restaurarVinculos };
