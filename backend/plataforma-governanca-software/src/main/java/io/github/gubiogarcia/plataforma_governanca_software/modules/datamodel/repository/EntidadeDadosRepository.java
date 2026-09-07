@@ -9,5 +9,10 @@ import java.util.UUID;
 
 @Repository
 public interface EntidadeDadosRepository extends JpaRepository<EntidadeDados, UUID> {
+
     List<EntidadeDados> findAllByProjetoId(UUID projetoId);
+
+    List<EntidadeDados> findAllByProjetoIdAndAtivoTrue(UUID projetoId);
+
+    boolean existsByProjetoIdAndNomeIgnoreCase(UUID projetoId, String nome);
 }

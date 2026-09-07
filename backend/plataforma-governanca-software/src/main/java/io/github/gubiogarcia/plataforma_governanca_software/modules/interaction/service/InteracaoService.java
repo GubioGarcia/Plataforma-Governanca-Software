@@ -139,7 +139,9 @@ public class InteracaoService {
                     mods.getOrDefault(ModuloInteracao.REQUISITO, 0L),
                     mods.getOrDefault(ModuloInteracao.COMENTARIO, 0L),
                     mods.getOrDefault(ModuloInteracao.EVENTO, 0L),
-                    mods.getOrDefault(ModuloInteracao.ARQUIVO, 0L)
+                    mods.getOrDefault(ModuloInteracao.ARQUIVO, 0L),
+                    mods.getOrDefault(ModuloInteracao.MODELAGEM_DADOS, 0L),
+                    mods.getOrDefault(ModuloInteracao.RASTREABILIDADE, 0L)
             ));
         }
 

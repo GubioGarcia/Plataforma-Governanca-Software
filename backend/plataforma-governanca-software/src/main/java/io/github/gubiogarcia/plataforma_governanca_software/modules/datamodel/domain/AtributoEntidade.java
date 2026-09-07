@@ -9,7 +9,13 @@ import java.util.UUID;
  * Atributo/coluna de uma EntidadeDados (ex: entidade "Cliente", atributo "cpf").
  */
 @Entity
-@Table(name = "atributo_entidade")
+@Table(
+        name = "atributo_entidade",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_atributo_entidade_entidade_nome",
+                columnNames = {"entidade_id", "nome"}
+        )
+)
 @Getter
 @Setter
 @NoArgsConstructor
@@ -33,4 +39,7 @@ public class AtributoEntidade {
 
     @Column(nullable = false)
     private Boolean obrigatorio;
+
+    /** Ordem de exibição da coluna no diagrama ER (menor = primeiro). */
+    private Integer ordem;
 }

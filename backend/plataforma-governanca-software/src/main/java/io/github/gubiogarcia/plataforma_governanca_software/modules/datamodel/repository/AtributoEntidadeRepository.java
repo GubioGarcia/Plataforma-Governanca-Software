@@ -9,5 +9,14 @@ import java.util.UUID;
 
 @Repository
 public interface AtributoEntidadeRepository extends JpaRepository<AtributoEntidade, UUID> {
+
     List<AtributoEntidade> findAllByEntidadeId(UUID entidadeId);
+
+    List<AtributoEntidade> findAllByEntidadeIdOrderByOrdemAscNomeAsc(UUID entidadeId);
+
+    List<AtributoEntidade> findAllByEntidadeProjetoIdOrderByOrdemAscNomeAsc(UUID projetoId);
+
+    boolean existsByEntidadeIdAndNomeIgnoreCase(UUID entidadeId, String nome);
+
+    long countByEntidadeId(UUID entidadeId);
 }

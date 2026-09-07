@@ -13,6 +13,11 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.CriterioAceiteService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.collaboration.service.ComentarioService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.files.service.ArquivoProjetoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.AtributoEntidadeService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.EntidadeDadosService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.ImpactoDadosService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.RelacionamentoEntidadeService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.service.VinculoRequisitoService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -333,6 +338,106 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ArquivoProjetoService.ProjetoNaoEncontradoException.class)
     public ProblemDetail handleProjetoNaoEncontradoArquivo(ArquivoProjetoService.ProjetoNaoEncontradoException ex) {
         return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
+    }
+
+    // EntidadeDados (DataModel)
+    @ExceptionHandler(EntidadeDadosService.EntidadeDadosNaoEncontradaException.class)
+    public ProblemDetail handleEntidadeDadosNaoEncontrada(EntidadeDadosService.EntidadeDadosNaoEncontradaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Entidade de dados não encontrada", ex.getMessage(), "/errors/entidade-dados-nao-encontrada");
+    }
+
+    @ExceptionHandler(EntidadeDadosService.EntidadeDadosNomeJaExisteException.class)
+    public ProblemDetail handleEntidadeDadosNomeJaExiste(EntidadeDadosService.EntidadeDadosNomeJaExisteException ex) {
+        return problem(HttpStatus.CONFLICT, "Nome de entidade já existe", ex.getMessage(), "/errors/entidade-dados-nome-ja-existe");
+    }
+
+    @ExceptionHandler(EntidadeDadosService.EntidadeDadosEmUsoException.class)
+    public ProblemDetail handleEntidadeDadosEmUso(EntidadeDadosService.EntidadeDadosEmUsoException ex) {
+        return problem(HttpStatus.CONFLICT, "Entidade de dados em uso", ex.getMessage(), "/errors/entidade-dados-em-uso");
+    }
+
+    @ExceptionHandler(EntidadeDadosService.ProjetoNaoEncontradoException.class)
+    public ProblemDetail handleProjetoNaoEncontradoDataModel(EntidadeDadosService.ProjetoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
+    }
+
+    @ExceptionHandler(EntidadeDadosService.ProjetoInativoException.class)
+    public ProblemDetail handleProjetoInativoDataModel(EntidadeDadosService.ProjetoInativoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Projeto inativo", ex.getMessage(), "/errors/projeto-inativo");
+    }
+
+    @ExceptionHandler(EntidadeDadosService.UsuarioNaoAutorizadoException.class)
+    public ProblemDetail handleUsuarioNaoAutorizadoDataModel(EntidadeDadosService.UsuarioNaoAutorizadoException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Usuário não autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
+    }
+
+    // AtributoEntidade (DataModel)
+    @ExceptionHandler(AtributoEntidadeService.AtributoEntidadeNaoEncontradoException.class)
+    public ProblemDetail handleAtributoEntidadeNaoEncontrado(AtributoEntidadeService.AtributoEntidadeNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Atributo de entidade não encontrado", ex.getMessage(), "/errors/atributo-entidade-nao-encontrado");
+    }
+
+    @ExceptionHandler(AtributoEntidadeService.AtributoEntidadeNomeJaExisteException.class)
+    public ProblemDetail handleAtributoEntidadeNomeJaExiste(AtributoEntidadeService.AtributoEntidadeNomeJaExisteException ex) {
+        return problem(HttpStatus.CONFLICT, "Nome de atributo já existe", ex.getMessage(), "/errors/atributo-entidade-nome-ja-existe");
+    }
+
+    @ExceptionHandler(AtributoEntidadeService.AtributoEntidadeEmUsoException.class)
+    public ProblemDetail handleAtributoEntidadeEmUso(AtributoEntidadeService.AtributoEntidadeEmUsoException ex) {
+        return problem(HttpStatus.CONFLICT, "Atributo em uso", ex.getMessage(), "/errors/atributo-entidade-em-uso");
+    }
+
+    // RelacionamentoEntidade (DataModel)
+    @ExceptionHandler(RelacionamentoEntidadeService.RelacionamentoEntidadeNaoEncontradoException.class)
+    public ProblemDetail handleRelacionamentoEntidadeNaoEncontrado(RelacionamentoEntidadeService.RelacionamentoEntidadeNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Relacionamento não encontrado", ex.getMessage(), "/errors/relacionamento-entidade-nao-encontrado");
+    }
+
+    @ExceptionHandler(RelacionamentoEntidadeService.RelacionamentoEntidadeDuplicadoException.class)
+    public ProblemDetail handleRelacionamentoEntidadeDuplicado(RelacionamentoEntidadeService.RelacionamentoEntidadeDuplicadoException ex) {
+        return problem(HttpStatus.CONFLICT, "Relacionamento duplicado", ex.getMessage(), "/errors/relacionamento-entidade-duplicado");
+    }
+
+    @ExceptionHandler(RelacionamentoEntidadeService.RelacionamentoEntidadeReflexivoException.class)
+    public ProblemDetail handleRelacionamentoEntidadeReflexivo(RelacionamentoEntidadeService.RelacionamentoEntidadeReflexivoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Relacionamento inválido", ex.getMessage(), "/errors/relacionamento-entidade-reflexivo");
+    }
+
+    @ExceptionHandler(RelacionamentoEntidadeService.EntidadesDeProjetosDiferentesException.class)
+    public ProblemDetail handleEntidadesDeProjetosDiferentes(RelacionamentoEntidadeService.EntidadesDeProjetosDiferentesException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Entidades de projetos diferentes", ex.getMessage(), "/errors/entidades-projetos-diferentes");
+    }
+
+    // ImpactoDados (DataModel)
+    @ExceptionHandler(ImpactoDadosService.ImpactoDadosNaoEncontradoException.class)
+    public ProblemDetail handleImpactoDadosNaoEncontrado(ImpactoDadosService.ImpactoDadosNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Impacto em dados não encontrado", ex.getMessage(), "/errors/impacto-dados-nao-encontrado");
+    }
+
+    @ExceptionHandler(ImpactoDadosService.AtributoNaoPertenceAEntidadeException.class)
+    public ProblemDetail handleAtributoNaoPertenceAEntidade(ImpactoDadosService.AtributoNaoPertenceAEntidadeException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Atributo inválido", ex.getMessage(), "/errors/atributo-nao-pertence-entidade");
+    }
+
+    // VinculoRequisito (Traceability)
+    @ExceptionHandler(VinculoRequisitoService.VinculoRequisitoNaoEncontradoException.class)
+    public ProblemDetail handleVinculoRequisitoNaoEncontrado(VinculoRequisitoService.VinculoRequisitoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Vínculo não encontrado", ex.getMessage(), "/errors/vinculo-requisito-nao-encontrado");
+    }
+
+    @ExceptionHandler(VinculoRequisitoService.VinculoRequisitoDuplicadoException.class)
+    public ProblemDetail handleVinculoRequisitoDuplicado(VinculoRequisitoService.VinculoRequisitoDuplicadoException ex) {
+        return problem(HttpStatus.CONFLICT, "Vínculo duplicado", ex.getMessage(), "/errors/vinculo-requisito-duplicado");
+    }
+
+    @ExceptionHandler(VinculoRequisitoService.VinculoRequisitoReflexivoException.class)
+    public ProblemDetail handleVinculoRequisitoReflexivo(VinculoRequisitoService.VinculoRequisitoReflexivoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Vínculo inválido", ex.getMessage(), "/errors/vinculo-requisito-reflexivo");
+    }
+
+    @ExceptionHandler(VinculoRequisitoService.RequisitosDeProjetosDiferentesException.class)
+    public ProblemDetail handleRequisitosDeProjetosDiferentes(VinculoRequisitoService.RequisitosDeProjetosDiferentesException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Requisitos de projetos diferentes", ex.getMessage(), "/errors/requisitos-projetos-diferentes");
     }
 
     // Violacao de integridade de dados (ex: string excede o tamanho da coluna no banco)

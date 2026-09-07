@@ -12,7 +12,13 @@ import java.util.UUID;
  * requisito.
  */
 @Entity
-@Table(name = "vinculo_requisito")
+@Table(
+        name = "vinculo_requisito",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_vinculo_requisito",
+                columnNames = {"requisito_origem_id", "requisito_destino_id", "tipo"}
+        )
+)
 @Getter
 @Setter
 @NoArgsConstructor

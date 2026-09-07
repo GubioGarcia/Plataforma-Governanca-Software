@@ -23,5 +23,7 @@ public record RequisitoResponseDTO(
         Instant dataCriacao,
         Instant dataAtualizacao,
         Instant dataSolicitacao,
-        Instant dataAprovacao
+        Instant dataAprovacao,
+        long qtdVinculos,
+        long qtdEntidadesImpactadas
 ) {}

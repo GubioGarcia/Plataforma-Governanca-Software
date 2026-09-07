@@ -16,5 +16,7 @@ public record ResumoInteracaoUsuarioDTO(
         long interacoesRequisito,
         long interacoesComentario,
         long interacoesEvento,
-        long interacoesArquivo
+        long interacoesArquivo,
+        long interacoesModelagemDados,
+        long interacoesRastreabilidade
 ) {}
