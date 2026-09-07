@@ -23,17 +23,21 @@ export function assinaturaAtributo(atributo: AtributoEntidadeAPI): string {
 }
 
 export const ROTULOS_OPERACAO: Record<TipoOperacaoImpacto, string> = {
-  CRIACAO_ENTIDADE: 'Criação de entidade',
-  ADICAO_ATRIBUTO: 'Adição de atributo',
-  ALTERACAO_ATRIBUTO: 'Alteração de atributo',
-  REMOCAO_ATRIBUTO: 'Remoção de atributo',
+  CRIA_ENTIDADE: 'Criação de entidade',
+  ALTERA_ENTIDADE: 'Alteração de entidade',
+  REMOVE_ENTIDADE: 'Remoção de entidade',
+  CRIA_ATRIBUTO: 'Adição de atributo',
+  ALTERA_ATRIBUTO: 'Alteração de atributo',
+  REMOVE_ATRIBUTO: 'Remoção de atributo',
 };
 
 export const CORES_OPERACAO: Record<TipoOperacaoImpacto, string> = {
-  CRIACAO_ENTIDADE: '#7C3AED',
-  ADICAO_ATRIBUTO: '#16A34A',
-  ALTERACAO_ATRIBUTO: '#D97706',
-  REMOCAO_ATRIBUTO: '#DC2626',
+  CRIA_ENTIDADE: '#7C3AED',
+  ALTERA_ENTIDADE: '#7C3AED',
+  REMOVE_ENTIDADE: '#DC2626',
+  CRIA_ATRIBUTO: '#16A34A',
+  ALTERA_ATRIBUTO: '#D97706',
+  REMOVE_ATRIBUTO: '#DC2626',
 };
 
 /**
@@ -52,7 +56,7 @@ export function construirDiff(modelo: ModeloDadosProjeto, requisitoId: string): 
     if (!entidade) return [];
 
     const impactos = impactosDoRequisito.filter((i) => i.entidadeId === entidadeId);
-    const entidadeNova = impactos.some((i) => i.tipoOperacao === 'CRIACAO_ENTIDADE');
+    const entidadeNova = impactos.some((i) => i.tipoOperacao === 'CRIA_ENTIDADE');
 
     const atributosDaEntidade = modelo.atributos.filter((a) => a.entidadeId === entidadeId);
     const linhas = new Map<string, LinhaDiffAtributo>();
@@ -82,7 +86,13 @@ function aplicarImpactoNoDiff(
   linhas: Map<string, LinhaDiffAtributo>,
   atributoPorId: Map<string, AtributoEntidadeAPI>,
 ): void {
-  if (impacto.tipoOperacao === 'CRIACAO_ENTIDADE' || !impacto.atributoId) return;
+  if (
+    impacto.tipoOperacao === 'CRIA_ENTIDADE' ||
+    impacto.tipoOperacao === 'ALTERA_ENTIDADE' ||
+    impacto.tipoOperacao === 'REMOVE_ENTIDADE' ||
+    !impacto.atributoId
+  )
+    return;
 
   const atributo = atributoPorId.get(impacto.atributoId);
   const chave = impacto.atributoId;
@@ -90,7 +100,7 @@ function aplicarImpactoNoDiff(
   const propostoAtual = atributo ? assinaturaAtributo(atributo) : impacto.valorNovo;
 
   switch (impacto.tipoOperacao) {
-    case 'ADICAO_ATRIBUTO':
+    case 'CRIA_ATRIBUTO':
       linhas.set(chave, {
         nome,
         atual: null,
@@ -98,7 +108,7 @@ function aplicarImpactoNoDiff(
         situacao: 'ADICIONADO',
       });
       break;
-    case 'ALTERACAO_ATRIBUTO':
+    case 'ALTERA_ATRIBUTO':
       linhas.set(chave, {
         nome,
         atual: impacto.valorAnterior,
@@ -106,7 +116,7 @@ function aplicarImpactoNoDiff(
         situacao: 'ALTERADO',
       });
       break;
-    case 'REMOCAO_ATRIBUTO':
+    case 'REMOVE_ATRIBUTO':
       linhas.set(chave, {
         nome,
         atual: impacto.valorAnterior ?? propostoAtual,

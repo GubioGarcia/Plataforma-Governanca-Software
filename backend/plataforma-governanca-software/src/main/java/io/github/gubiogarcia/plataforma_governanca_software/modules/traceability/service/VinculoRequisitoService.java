@@ -102,6 +102,14 @@ public class VinculoRequisitoService {
                 .toList();
     }
 
+    /** Todos os vínculos diretos do projeto — base da matriz de rastreabilidade no frontend. */
+    @Transactional(readOnly = true)
+    public List<VinculoRequisitoResponseDTO> listarPorProjeto(UUID projetoId) {
+        return vinculoRequisitoRepository.findAllByProjetoId(projetoId).stream()
+                .map(v -> mapToResponseDTO(v, v.getRequisitoOrigem().getId()))
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public VinculoRequisitoResponseDTO buscarPorId(UUID id) {
         VinculoRequisito vinculo = carregar(id);

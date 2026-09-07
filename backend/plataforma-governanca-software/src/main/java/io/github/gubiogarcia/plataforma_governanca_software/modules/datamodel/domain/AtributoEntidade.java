@@ -40,6 +40,11 @@ public class AtributoEntidade {
     @Column(nullable = false)
     private Boolean obrigatorio;
 
+    /** Marca a coluna como chave primária da entidade (usado no diagrama ER). */
+    @Column(nullable = false)
+    @Builder.Default
+    private Boolean chavePrimaria = false;
+
     /** Ordem de exibição da coluna no diagrama ER (menor = primeiro). */
     private Integer ordem;
 }

@@ -98,15 +98,20 @@ export default function DataModelPage() {
   const [dialogEntidadeAberto, setDialogEntidadeAberto] = useState(false);
   const [formEntidade, setFormEntidade] = useState({ nome: '', descricao: '' });
   const [dialogAtributoAberto, setDialogAtributoAberto] = useState(false);
-  const [formAtributo, setFormAtributo] = useState({ nome: '', tipo: 'VARCHAR(150)', obrigatorio: true });
+  const [formAtributo, setFormAtributo] = useState({
+    nome: '',
+    tipo: 'VARCHAR(150)',
+    obrigatorio: true,
+    chavePrimaria: false,
+  });
   const [salvando, setSalvando] = useState(false);
 
   const carregar = useCallback(async () => {
     if (!projectId) return;
     setCarregando(true);
     try {
-      // Os requisitos vêm da API; o modelo de dados, do repositório de
-      // protótipo — que usa os ids reais para semear o cenário inicial.
+      // Os requisitos são usados para resolver os códigos exibidos nos
+      // impactos; o modelo em si vem inteiro de /entidade-dados/.../diagrama.
       let lista: RequisitoAPI[] = [];
       try {
         lista = await listarRequisitosPorProjeto(projectId);
@@ -193,10 +198,11 @@ export default function DataModelPage() {
         nome: formAtributo.nome.trim(),
         tipo: formAtributo.tipo,
         obrigatorio: formAtributo.obrigatorio,
+        chavePrimaria: formAtributo.chavePrimaria,
       });
       setModelo((atual) => ({ ...atual, atributos: [...atual.atributos, criado] }));
       setDialogAtributoAberto(false);
-      setFormAtributo({ nome: '', tipo: 'VARCHAR(150)', obrigatorio: true });
+      setFormAtributo({ nome: '', tipo: 'VARCHAR(150)', obrigatorio: true, chavePrimaria: false });
       notify('Atributo adicionado', 'success');
     } finally {
       setSalvando(false);
@@ -209,8 +215,8 @@ export default function DataModelPage() {
     try {
       const restaurado = await restaurarModelo(projectId, requisitos.map((r) => r.id));
       setModelo(restaurado);
-      setEntidadeSelecionadaId(restaurado.entidades[0]?.id ?? null);
-      notify('Cenário de demonstração restaurado', 'info');
+      setEntidadeSelecionadaId((atual) => atual ?? restaurado.entidades[0]?.id ?? null);
+      notify('Modelo recarregado do servidor', 'info');
     } finally {
       setCarregando(false);
     }
@@ -234,7 +240,7 @@ export default function DataModelPage() {
         descricao="As entidades que os requisitos deste projeto manipulam. O diagrama sai do estado atual do modelo, e cada entidade mostra quais requisitos a alteram."
         acoes={
           <>
-            <Tooltip title="Restaurar o cenário de demonstração">
+            <Tooltip title="Recarregar do servidor">
               <span>
                 <IconButton onClick={restaurarCenario} disabled={isStakeholder}>
                   <RestartAltIcon fontSize="small" />
@@ -617,6 +623,15 @@ export default function DataModelPage() {
               />
             }
             label="Obrigatório (NOT NULL)"
+          />
+          <FormControlLabel
+            control={
+              <Switch
+                checked={formAtributo.chavePrimaria}
+                onChange={(e) => setFormAtributo((f) => ({ ...f, chavePrimaria: e.target.checked }))}
+              />
+            }
+            label="Chave primária (PK)"
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>

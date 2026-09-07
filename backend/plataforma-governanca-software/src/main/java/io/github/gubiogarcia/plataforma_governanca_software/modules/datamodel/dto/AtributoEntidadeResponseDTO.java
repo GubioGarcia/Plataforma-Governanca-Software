@@ -8,5 +8,6 @@ public record AtributoEntidadeResponseDTO(
         String nome,
         String tipo,
         Boolean obrigatorio,
+        Boolean chavePrimaria,
         Integer ordem
 ) {}

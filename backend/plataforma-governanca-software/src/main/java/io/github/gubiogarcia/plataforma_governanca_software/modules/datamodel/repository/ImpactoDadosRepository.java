@@ -15,6 +15,13 @@ public interface ImpactoDadosRepository extends JpaRepository<ImpactoDados, UUID
 
     List<ImpactoDados> findAllByRequisitoId(UUID requisitoId);
 
+    /** Todos os impactos de dados dos requisitos de um projeto — base do diff e da rastreabilidade indireta no frontend. */
+    @Query("""
+        SELECT i FROM ImpactoDados i
+        WHERE i.requisito.projeto.id = :projetoId
+    """)
+    List<ImpactoDados> findAllByProjetoId(@Param("projetoId") UUID projetoId);
+
     List<ImpactoDados> findAllByRequisitoIdOrderByEntidadeNomeAscDataCriacaoAsc(UUID requisitoId);
 
     List<ImpactoDados> findAllByEntidadeId(UUID entidadeId);

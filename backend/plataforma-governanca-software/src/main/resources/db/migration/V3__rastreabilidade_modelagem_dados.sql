@@ -40,12 +40,13 @@ CREATE INDEX idx_entidade_dados_projeto ON entidade_dados (projeto_id);
 -- =============================================================================
 
 CREATE TABLE atributo_entidade (
-    id          UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
-    entidade_id UUID         NOT NULL REFERENCES entidade_dados(id) ON DELETE CASCADE,
-    nome        VARCHAR(100) NOT NULL,
-    tipo        VARCHAR(50)  NOT NULL,
-    obrigatorio BOOLEAN      NOT NULL DEFAULT FALSE,
-    ordem       INTEGER,
+    id            UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    entidade_id   UUID         NOT NULL REFERENCES entidade_dados(id) ON DELETE CASCADE,
+    nome          VARCHAR(100) NOT NULL,
+    tipo          VARCHAR(50)  NOT NULL,
+    obrigatorio   BOOLEAN      NOT NULL DEFAULT FALSE,
+    chave_primaria BOOLEAN     NOT NULL DEFAULT FALSE,
+    ordem         INTEGER,
     CONSTRAINT uk_atributo_entidade_entidade_nome UNIQUE (entidade_id, nome)
 );
 
@@ -57,10 +58,11 @@ CREATE INDEX idx_atributo_entidade_entidade ON atributo_entidade (entidade_id);
 -- =============================================================================
 
 CREATE TABLE relacionamento_entidade (
-    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    entidade_origem_id   UUID        NOT NULL REFERENCES entidade_dados(id),
-    entidade_destino_id  UUID        NOT NULL REFERENCES entidade_dados(id),
-    tipo                 VARCHAR(50) NOT NULL,
+    id                   UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    entidade_origem_id   UUID         NOT NULL REFERENCES entidade_dados(id),
+    entidade_destino_id  UUID         NOT NULL REFERENCES entidade_dados(id),
+    tipo                 VARCHAR(50)  NOT NULL,
+    atributo_fk          VARCHAR(100),
     CONSTRAINT uk_relacionamento_entidade UNIQUE (entidade_origem_id, entidade_destino_id, tipo),
     CONSTRAINT ck_relacionamento_entidade_nao_reflexivo CHECK (entidade_origem_id <> entidade_destino_id)
 );

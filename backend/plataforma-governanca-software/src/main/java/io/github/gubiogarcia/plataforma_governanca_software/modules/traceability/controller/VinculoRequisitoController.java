@@ -36,6 +36,11 @@ public class VinculoRequisitoController {
         return ResponseEntity.ok(vinculoRequisitoService.listarPorRequisito(requisitoId));
     }
 
+    @GetMapping("/projeto/{projetoId}")
+    public ResponseEntity<List<VinculoRequisitoResponseDTO>> listarPorProjeto(@PathVariable UUID projetoId) {
+        return ResponseEntity.ok(vinculoRequisitoService.listarPorProjeto(projetoId));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<VinculoRequisitoResponseDTO> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(vinculoRequisitoService.buscarPorId(id));

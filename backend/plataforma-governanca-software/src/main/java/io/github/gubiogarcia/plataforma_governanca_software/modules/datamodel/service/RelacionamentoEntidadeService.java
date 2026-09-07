@@ -67,6 +67,7 @@ public class RelacionamentoEntidadeService {
                 .entidadeOrigem(origem)
                 .entidadeDestino(destino)
                 .tipo(request.tipo())
+                .atributoFk(request.atributoFk())
                 .build();
 
         rel = relacionamentoEntidadeRepository.save(rel);
@@ -131,6 +132,15 @@ public class RelacionamentoEntidadeService {
             rel.setTipo(request.tipo());
         }
 
+        if (request.atributoFk() != null && !request.atributoFk().equals(rel.getAtributoFk())) {
+            auditoriaService.registrar(
+                    usuario, projeto.getOrganizacao(), projeto,
+                    "RELACIONAMENTO_ENTIDADE", id, AcaoAuditoria.EDICAO, "atributo_fk",
+                    rel.getAtributoFk(), request.atributoFk()
+            );
+            rel.setAtributoFk(request.atributoFk());
+        }
+
         rel = relacionamentoEntidadeRepository.save(rel);
         log.info("RelacionamentoEntidade {} atualizado.", id);
         return mapToResponseDTO(rel);
@@ -177,7 +187,8 @@ public class RelacionamentoEntidadeService {
                 r.getEntidadeOrigem() != null ? r.getEntidadeOrigem().getNome() : null,
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getId() : null,
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getNome() : null,
-                r.getTipo()
+                r.getTipo(),
+                r.getAtributoFk()
         );
     }
 

@@ -243,6 +243,7 @@ public class EntidadeDadosService {
                 a.getNome(),
                 a.getTipo(),
                 a.getObrigatorio(),
+                a.getChavePrimaria(),
                 a.getOrdem()
         );
     }
@@ -254,7 +255,8 @@ public class EntidadeDadosService {
                 r.getEntidadeOrigem() != null ? r.getEntidadeOrigem().getNome() : null,
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getId() : null,
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getNome() : null,
-                r.getTipo()
+                r.getTipo(),
+                r.getAtributoFk()
         );
     }
 

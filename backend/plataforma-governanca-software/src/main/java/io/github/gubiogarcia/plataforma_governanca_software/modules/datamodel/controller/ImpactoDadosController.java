@@ -37,6 +37,11 @@ public class ImpactoDadosController {
         return ResponseEntity.ok(impactoDadosService.listarPorRequisito(requisitoId));
     }
 
+    @GetMapping("/projeto/{projetoId}")
+    public ResponseEntity<List<ImpactoDadosResponseDTO>> listarPorProjeto(@PathVariable UUID projetoId) {
+        return ResponseEntity.ok(impactoDadosService.listarPorProjeto(projetoId));
+    }
+
     @GetMapping("/requisito/{requisitoId}/agrupado")
     public ResponseEntity<List<ImpactoDadosPorEntidadeDTO>> listarPorRequisitoAgrupado(@PathVariable UUID requisitoId) {
         return ResponseEntity.ok(impactoDadosService.listarPorRequisitoAgrupado(requisitoId));

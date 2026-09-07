@@ -11,5 +11,7 @@ public record AtualizarAtributoEntidadeRequestDTO(
 
         Boolean obrigatorio,
 
+        Boolean chavePrimaria,
+
         Integer ordem
 ) {}

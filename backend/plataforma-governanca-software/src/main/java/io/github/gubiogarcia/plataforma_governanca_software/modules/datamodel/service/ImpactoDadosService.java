@@ -132,6 +132,14 @@ public class ImpactoDadosService {
         return resultado;
     }
 
+    /** Todos os impactos do projeto — o frontend deriva daqui o diff e a rastreabilidade indireta. */
+    @Transactional(readOnly = true)
+    public List<ImpactoDadosResponseDTO> listarPorProjeto(UUID projetoId) {
+        return impactoDadosRepository.findAllByProjetoId(projetoId).stream()
+                .map(this::mapToResponseDTO)
+                .toList();
+    }
+
     @Transactional(readOnly = true)
     public List<ImpactoDadosResponseDTO> listarPorEntidade(UUID entidadeId) {
         if (!entidadeDadosRepository.existsById(entidadeId)) {

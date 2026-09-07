@@ -16,5 +16,13 @@ public record CriarAtributoEntidadeRequestDTO(
         @NotNull(message = "Obrigatório é obrigatório")
         Boolean obrigatorio,
 
+        Boolean chavePrimaria,
+
         Integer ordem
-) {}
+) {
+
+    /** Compatibilidade: chamadas anteriores sem o campo {@code chavePrimaria}. */
+    public CriarAtributoEntidadeRequestDTO(String nome, String tipo, Boolean obrigatorio, Integer ordem) {
+        this(nome, tipo, obrigatorio, false, ordem);
+    }
+}

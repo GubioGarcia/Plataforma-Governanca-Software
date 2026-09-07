@@ -543,18 +543,6 @@ export default function RequirementDetail() {
             requisitoId={requirementId!}
             versaoDados={versaoDados}
           />
-
-          {/* ── Comentários ── */}
-          <Card variant="outlined" sx={{ borderRadius: 3, mt: 3 }}>
-            <CardContent sx={{ p: 3 }}>
-              <CommentSection
-                entidadeTipo="REQUISITO"
-                entidadeId={requirementId!}
-                projetoId={projectId!}
-                organizacaoId={orgId!}
-              />
-            </CardContent>
-          </Card>
         </Grid>
 
         {/* ── Right sidebar ── */}
@@ -581,6 +569,18 @@ export default function RequirementDetail() {
               {requisito.dataAprovacao && (
                 <InfoRow label="Data de aprovação" value={formatDate(requisito.dataAprovacao)} />
               )}
+            </CardContent>
+          </Card>
+
+          {/* Comentários */}
+          <Card variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
+            <CardContent sx={{ p: 3 }}>
+              <CommentSection
+                entidadeTipo="REQUISITO"
+                entidadeId={requirementId!}
+                projetoId={projectId!}
+                organizacaoId={orgId!}
+              />
             </CardContent>
           </Card>
 

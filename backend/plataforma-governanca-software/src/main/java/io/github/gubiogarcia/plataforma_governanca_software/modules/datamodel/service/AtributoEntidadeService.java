@@ -54,6 +54,7 @@ public class AtributoEntidadeService {
                 .nome(request.nome())
                 .tipo(request.tipo())
                 .obrigatorio(request.obrigatorio())
+                .chavePrimaria(Boolean.TRUE.equals(request.chavePrimaria()))
                 .ordem(request.ordem())
                 .build();
 
@@ -128,6 +129,15 @@ public class AtributoEntidadeService {
             atributo.setObrigatorio(request.obrigatorio());
         }
 
+        if (request.chavePrimaria() != null && !request.chavePrimaria().equals(atributo.getChavePrimaria())) {
+            auditoriaService.registrar(
+                    usuario, projeto.getOrganizacao(), projeto,
+                    "ATRIBUTO_ENTIDADE", id, AcaoAuditoria.EDICAO, "chave_primaria",
+                    String.valueOf(atributo.getChavePrimaria()), String.valueOf(request.chavePrimaria())
+            );
+            atributo.setChavePrimaria(request.chavePrimaria());
+        }
+
         if (request.ordem() != null) {
             atributo.setOrdem(request.ordem());
         }
@@ -177,6 +187,7 @@ public class AtributoEntidadeService {
                 a.getNome(),
                 a.getTipo(),
                 a.getObrigatorio(),
+                a.getChavePrimaria(),
                 a.getOrdem()
         );
     }

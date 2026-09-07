@@ -11,10 +11,12 @@ import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
 import Divider from '@mui/material/Divider';
 import FormControl from '@mui/material/FormControl';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import IconButton from '@mui/material/IconButton';
 import InputLabel from '@mui/material/InputLabel';
 import MenuItem from '@mui/material/MenuItem';
 import Select from '@mui/material/Select';
+import Switch from '@mui/material/Switch';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
@@ -24,9 +26,16 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import StorageIcon from '@mui/icons-material/Storage';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
-import { criarImpacto, deletarImpacto, obterModelo } from '../../services/dataModelService';
+import {
+  criarAtributo,
+  criarEntidade,
+  criarImpacto,
+  deletarImpacto,
+  obterModelo,
+} from '../../services/dataModelService';
 import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import {
+  assinaturaAtributo,
   construirDiff,
   CORES_OPERACAO,
   gerarErDiagram,
@@ -70,13 +79,52 @@ const ROTULOS_SITUACAO: Record<SituacaoAtributoDiff, string> = {
   REMOVIDO: 'Removido',
 };
 
+const TIPOS_SUGERIDOS = [
+  'UUID',
+  'VARCHAR(50)',
+  'VARCHAR(150)',
+  'TEXT',
+  'INTEGER',
+  'NUMERIC(12,2)',
+  'BOOLEAN',
+  'DATE',
+  'TIMESTAMP',
+];
+
+interface NovoAtributoForm {
+  nome: string;
+  tipo: string;
+  obrigatorio: boolean;
+  chavePrimaria: boolean;
+}
+
+const ATRIBUTO_VAZIO: NovoAtributoForm = {
+  nome: '',
+  tipo: 'VARCHAR(150)',
+  obrigatorio: true,
+  chavePrimaria: false,
+};
+
 const FORM_VAZIO = {
   entidadeId: '',
   atributoId: '',
-  tipoOperacao: 'ADICAO_ATRIBUTO' as TipoOperacaoImpacto,
+  // "Criação de entidade" é a primeira operação da lista e o ponto de partida
+  // natural: quando o projeto ainda não tem modelo, é por aqui que se começa.
+  tipoOperacao: 'CRIA_ENTIDADE' as TipoOperacaoImpacto,
   valorAnterior: '',
   valorNovo: '',
+  // Usados apenas quando tipoOperacao === 'CRIA_ENTIDADE'.
+  novaEntidadeNome: '',
+  novaEntidadeDescricao: '',
+  novosAtributos: [] as NovoAtributoForm[],
+  // Usado apenas quando tipoOperacao === 'CRIA_ATRIBUTO'.
+  novoAtributo: { ...ATRIBUTO_VAZIO } as NovoAtributoForm,
 };
+
+/** Estado inicial do formulário, sempre com objetos/arrays novos. */
+function formInicial(): typeof FORM_VAZIO {
+  return { ...FORM_VAZIO, novosAtributos: [], novoAtributo: { ...ATRIBUTO_VAZIO } };
+}
 
 /**
  * Card de modelagem de dados exibido no detalhe do requisito.
@@ -92,7 +140,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
   const [modelo, setModelo] = useState<ModeloDadosProjeto>(MODELO_VAZIO);
   const [carregando, setCarregando] = useState(true);
   const [dialogAberto, setDialogAberto] = useState(false);
-  const [form, setForm] = useState(FORM_VAZIO);
+  const [form, setForm] = useState(formInicial);
   const [salvando, setSalvando] = useState(false);
 
   const carregar = useCallback(async () => {
@@ -134,22 +182,104 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
     [modelo.atributos, form.entidadeId],
   );
 
+  const criandoEntidade = form.tipoOperacao === 'CRIA_ENTIDADE';
+  const criandoAtributo = form.tipoOperacao === 'CRIA_ATRIBUTO';
+
+  const podeSalvar = criandoEntidade
+    ? form.novaEntidadeNome.trim().length > 0 &&
+      form.novosAtributos.every((a) => a.nome.trim().length > 0)
+    : criandoAtributo
+      ? form.entidadeId.length > 0 && form.novoAtributo.nome.trim().length > 0
+      : form.entidadeId.length > 0;
+
+  function adicionarAtributo() {
+    setForm((f) => ({ ...f, novosAtributos: [...f.novosAtributos, { ...ATRIBUTO_VAZIO }] }));
+  }
+
+  function atualizarAtributo(indice: number, patch: Partial<NovoAtributoForm>) {
+    setForm((f) => ({
+      ...f,
+      novosAtributos: f.novosAtributos.map((a, i) => (i === indice ? { ...a, ...patch } : a)),
+    }));
+  }
+
+  function removerAtributoForm(indice: number) {
+    setForm((f) => ({ ...f, novosAtributos: f.novosAtributos.filter((_, i) => i !== indice) }));
+  }
+
+  function atualizarNovoAtributo(patch: Partial<NovoAtributoForm>) {
+    setForm((f) => ({ ...f, novoAtributo: { ...f.novoAtributo, ...patch } }));
+  }
+
+  function fecharDialog() {
+    setDialogAberto(false);
+    setForm(formInicial());
+  }
+
   async function salvarImpacto() {
-    if (!form.entidadeId) return;
+    if (!podeSalvar) return;
     setSalvando(true);
     try {
-      const criado = await criarImpacto(projetoId, {
-        requisitoId,
-        entidadeId: form.entidadeId,
-        atributoId: form.atributoId || null,
-        tipoOperacao: form.tipoOperacao,
-        valorAnterior: form.valorAnterior.trim() || null,
-        valorNovo: form.valorNovo.trim() || null,
-      });
-      setModelo((atual) => ({ ...atual, impactos: [...atual.impactos, criado] }));
-      setDialogAberto(false);
-      setForm(FORM_VAZIO);
-      notify('Impacto no modelo de dados registrado', 'success');
+      if (criandoEntidade) {
+        // Fluxo guiado: cria a entidade, seus atributos e o registro de
+        // impacto que amarra o requisito a essa nova entidade.
+        const entidade = await criarEntidade(projetoId, {
+          nome: form.novaEntidadeNome.trim(),
+          descricao: form.novaEntidadeDescricao.trim() || null,
+        });
+        for (const atributo of form.novosAtributos) {
+          if (!atributo.nome.trim()) continue;
+          await criarAtributo(projetoId, {
+            entidadeId: entidade.id,
+            nome: atributo.nome.trim(),
+            tipo: atributo.tipo,
+            obrigatorio: atributo.obrigatorio,
+            chavePrimaria: atributo.chavePrimaria,
+          });
+        }
+        await criarImpacto(projetoId, {
+          requisitoId,
+          entidadeId: entidade.id,
+          atributoId: null,
+          tipoOperacao: 'CRIA_ENTIDADE',
+          valorAnterior: null,
+          valorNovo: null,
+        });
+        await carregar();
+        notify('Entidade criada e impacto registrado', 'success');
+      } else if (criandoAtributo) {
+        // Cria o atributo na entidade escolhida e registra o impacto
+        // apontando para ele — o diff mostra a entidade com a coluna nova.
+        const atributo = await criarAtributo(projetoId, {
+          entidadeId: form.entidadeId,
+          nome: form.novoAtributo.nome.trim(),
+          tipo: form.novoAtributo.tipo,
+          obrigatorio: form.novoAtributo.obrigatorio,
+          chavePrimaria: form.novoAtributo.chavePrimaria,
+        });
+        await criarImpacto(projetoId, {
+          requisitoId,
+          entidadeId: form.entidadeId,
+          atributoId: atributo.id,
+          tipoOperacao: 'CRIA_ATRIBUTO',
+          valorAnterior: null,
+          valorNovo: assinaturaAtributo(atributo),
+        });
+        await carregar();
+        notify('Atributo adicionado e impacto registrado', 'success');
+      } else {
+        const criado = await criarImpacto(projetoId, {
+          requisitoId,
+          entidadeId: form.entidadeId,
+          atributoId: form.atributoId || null,
+          tipoOperacao: form.tipoOperacao,
+          valorAnterior: form.valorAnterior.trim() || null,
+          valorNovo: form.valorNovo.trim() || null,
+        });
+        setModelo((atual) => ({ ...atual, impactos: [...atual.impactos, criado] }));
+        notify('Impacto no modelo de dados registrado', 'success');
+      }
+      fecharDialog();
       aoAlterar?.();
     } finally {
       setSalvando(false);
@@ -220,8 +350,8 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                         height: 20,
                         fontSize: 10.5,
                         fontWeight: 700,
-                        bgcolor: alpha(CORES_OPERACAO.CRIACAO_ENTIDADE, 0.12),
-                        color: CORES_OPERACAO.CRIACAO_ENTIDADE,
+                        bgcolor: alpha(CORES_OPERACAO.CRIA_ENTIDADE, 0.12),
+                        color: CORES_OPERACAO.CRIA_ENTIDADE,
                       }}
                     />
                   )}
@@ -320,42 +450,15 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
       </CardContent>
 
       {/* ── Dialog: registrar impacto ── */}
-      <Dialog open={dialogAberto} onClose={() => setDialogAberto(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Registrar impacto no modelo de dados</DialogTitle>
+      <Dialog open={dialogAberto} onClose={fecharDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          {criandoEntidade
+            ? 'Criar entidade impactada pelo requisito'
+            : criandoAtributo
+              ? 'Adicionar atributo a uma entidade'
+              : 'Registrar impacto no modelo de dados'}
+        </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: '16px !important' }}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Entidade</InputLabel>
-            <Select
-              label="Entidade"
-              value={form.entidadeId}
-              onChange={(e) => setForm((f) => ({ ...f, entidadeId: e.target.value, atributoId: '' }))}
-            >
-              {modelo.entidades.map((entidade) => (
-                <MenuItem key={entidade.id} value={entidade.id}>
-                  {entidade.nome}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl fullWidth size="small" disabled={!form.entidadeId}>
-            <InputLabel>Atributo (opcional)</InputLabel>
-            <Select
-              label="Atributo (opcional)"
-              value={form.atributoId}
-              onChange={(e) => setForm((f) => ({ ...f, atributoId: e.target.value }))}
-            >
-              <MenuItem value="">
-                <em>Nenhum — impacto na entidade inteira</em>
-              </MenuItem>
-              {atributosDaEntidadeSelecionada.map((atributo) => (
-                <MenuItem key={atributo.id} value={atributo.id}>
-                  {atributo.nome} ({atributo.tipo})
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
           <FormControl fullWidth size="small">
             <InputLabel>Operação</InputLabel>
             <Select
@@ -371,33 +474,239 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
             </Select>
           </FormControl>
 
-          <TextField
-            label="Valor anterior"
-            value={form.valorAnterior}
-            onChange={(e) => setForm((f) => ({ ...f, valorAnterior: e.target.value }))}
-            fullWidth
-            size="small"
-            placeholder="Ex.: VARCHAR(100) NULL — deixe vazio se o atributo não existia"
-          />
-          <TextField
-            label="Valor novo"
-            value={form.valorNovo}
-            onChange={(e) => setForm((f) => ({ ...f, valorNovo: e.target.value }))}
-            fullWidth
-            size="small"
-            placeholder="Ex.: VARCHAR(150) NOT NULL"
-          />
-          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-            O par anterior/novo é o mesmo princípio já usado na auditoria da plataforma, aplicado ao
-            schema em vez de a um campo do cadastro.
-          </Typography>
+          {criandoEntidade ? (
+            <>
+              <Typography variant="caption" sx={{ color: 'text.secondary', mt: -1 }}>
+                A entidade e os atributos abaixo são criados no modelo do projeto e ficam vinculados a
+                este requisito como uma criação de entidade.
+              </Typography>
+
+              <TextField
+                label="Nome da entidade"
+                value={form.novaEntidadeNome}
+                onChange={(e) => setForm((f) => ({ ...f, novaEntidadeNome: e.target.value }))}
+                fullWidth
+                size="small"
+                autoFocus
+                placeholder="Ex.: Cliente"
+              />
+              <TextField
+                label="Descrição (opcional)"
+                value={form.novaEntidadeDescricao}
+                onChange={(e) => setForm((f) => ({ ...f, novaEntidadeDescricao: e.target.value }))}
+                fullWidth
+                size="small"
+                multiline
+                rows={2}
+                placeholder="O que esta entidade representa no domínio do projeto"
+              />
+
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Typography component="span" sx={{ ...ETIQUETA, color: 'text.secondary' }}>
+                  Atributos
+                </Typography>
+                <Button size="small" startIcon={<AddIcon />} onClick={adicionarAtributo}>
+                  Adicionar
+                </Button>
+              </Box>
+
+              {form.novosAtributos.length === 0 ? (
+                <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                  Nenhum atributo ainda — você pode adicionar agora ou depois, pela tela Modelo de Dados.
+                </Typography>
+              ) : (
+                form.novosAtributos.map((atributo, indice) => (
+                  <Box
+                    key={indice}
+                    sx={{
+                      display: 'flex',
+                      flexWrap: 'wrap',
+                      alignItems: 'center',
+                      gap: 1,
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      borderRadius: 1.5,
+                      p: 1,
+                    }}
+                  >
+                    <TextField
+                      label="Nome"
+                      value={atributo.nome}
+                      onChange={(e) => atualizarAtributo(indice, { nome: e.target.value })}
+                      size="small"
+                      sx={{ flex: '1 1 120px' }}
+                      placeholder="Ex.: cpf"
+                    />
+                    <FormControl size="small" sx={{ flex: '1 1 120px' }}>
+                      <InputLabel>Tipo</InputLabel>
+                      <Select
+                        label="Tipo"
+                        value={atributo.tipo}
+                        onChange={(e) => atualizarAtributo(indice, { tipo: e.target.value })}
+                      >
+                        {TIPOS_SUGERIDOS.map((tipo) => (
+                          <MenuItem key={tipo} value={tipo}>
+                            {tipo}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={atributo.obrigatorio}
+                          onChange={(e) => atualizarAtributo(indice, { obrigatorio: e.target.checked })}
+                        />
+                      }
+                      label="NOT NULL"
+                      sx={{ mr: 0 }}
+                    />
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          size="small"
+                          checked={atributo.chavePrimaria}
+                          onChange={(e) => atualizarAtributo(indice, { chavePrimaria: e.target.checked })}
+                        />
+                      }
+                      label="PK"
+                      sx={{ mr: 0 }}
+                    />
+                    <IconButton size="small" color="error" onClick={() => removerAtributoForm(indice)}>
+                      <DeleteIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </Box>
+                ))
+              )}
+            </>
+          ) : (
+            <>
+              <FormControl fullWidth size="small">
+                <InputLabel>Entidade</InputLabel>
+                <Select
+                  label="Entidade"
+                  value={form.entidadeId}
+                  onChange={(e) => setForm((f) => ({ ...f, entidadeId: e.target.value, atributoId: '' }))}
+                >
+                  {modelo.entidades.length === 0 && (
+                    <MenuItem value="" disabled>
+                      <em>Nenhuma entidade — use a operação "Criação de entidade"</em>
+                    </MenuItem>
+                  )}
+                  {modelo.entidades.map((entidade) => (
+                    <MenuItem key={entidade.id} value={entidade.id}>
+                      {entidade.nome}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {criandoAtributo ? (
+                <>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', mt: -1 }}>
+                    O atributo é criado na entidade selecionada. O estado atual continua mostrando a
+                    entidade como está; o estado proposto e o diagrama passam a exibi-la com a coluna nova.
+                  </Typography>
+
+                  <TextField
+                    label="Nome do atributo"
+                    value={form.novoAtributo.nome}
+                    onChange={(e) => atualizarNovoAtributo({ nome: e.target.value })}
+                    fullWidth
+                    size="small"
+                    placeholder="Ex.: cpf"
+                  />
+                  <FormControl fullWidth size="small">
+                    <InputLabel>Tipo</InputLabel>
+                    <Select
+                      label="Tipo"
+                      value={form.novoAtributo.tipo}
+                      onChange={(e) => atualizarNovoAtributo({ tipo: e.target.value })}
+                    >
+                      {TIPOS_SUGERIDOS.map((tipo) => (
+                        <MenuItem key={tipo} value={tipo}>
+                          {tipo}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={form.novoAtributo.obrigatorio}
+                        onChange={(e) => atualizarNovoAtributo({ obrigatorio: e.target.checked })}
+                      />
+                    }
+                    label="Obrigatório (NOT NULL)"
+                  />
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={form.novoAtributo.chavePrimaria}
+                        onChange={(e) => atualizarNovoAtributo({ chavePrimaria: e.target.checked })}
+                      />
+                    }
+                    label="Chave primária (PK)"
+                  />
+                </>
+              ) : (
+                <>
+                  <FormControl fullWidth size="small" disabled={!form.entidadeId}>
+                    <InputLabel>Atributo (opcional)</InputLabel>
+                    <Select
+                      label="Atributo (opcional)"
+                      value={form.atributoId}
+                      onChange={(e) => setForm((f) => ({ ...f, atributoId: e.target.value }))}
+                    >
+                      <MenuItem value="">
+                        <em>Nenhum — impacto na entidade inteira</em>
+                      </MenuItem>
+                      {atributosDaEntidadeSelecionada.map((atributo) => (
+                        <MenuItem key={atributo.id} value={atributo.id}>
+                          {atributo.nome} ({atributo.tipo})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                    label="Valor anterior"
+                    value={form.valorAnterior}
+                    onChange={(e) => setForm((f) => ({ ...f, valorAnterior: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    placeholder="Ex.: VARCHAR(100) NULL — deixe vazio se o atributo não existia"
+                  />
+                  <TextField
+                    label="Valor novo"
+                    value={form.valorNovo}
+                    onChange={(e) => setForm((f) => ({ ...f, valorNovo: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    placeholder="Ex.: VARCHAR(150) NOT NULL"
+                  />
+                  <Typography variant="caption" sx={{ color: 'text.disabled' }}>
+                    O par anterior/novo é o mesmo princípio já usado na auditoria da plataforma, aplicado
+                    ao schema em vez de a um campo do cadastro.
+                  </Typography>
+                </>
+              )}
+            </>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogAberto(false)} color="inherit" size="small" disabled={salvando}>
+          <Button onClick={fecharDialog} color="inherit" size="small" disabled={salvando}>
             Cancelar
           </Button>
-          <Button onClick={salvarImpacto} variant="contained" size="small" disabled={salvando || !form.entidadeId}>
-            {salvando ? 'Salvando...' : 'Registrar'}
+          <Button onClick={salvarImpacto} variant="contained" size="small" disabled={salvando || !podeSalvar}>
+            {salvando
+              ? 'Salvando...'
+              : criandoEntidade
+                ? 'Criar entidade'
+                : criandoAtributo
+                  ? 'Adicionar atributo'
+                  : 'Registrar'}
           </Button>
         </DialogActions>
       </Dialog>

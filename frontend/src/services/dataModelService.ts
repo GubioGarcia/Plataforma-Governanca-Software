@@ -1,123 +1,191 @@
-import { criarModeloSeed } from '../mocks/dataModel';
-import { gravarColecao, lerColecao, novoId, removerColecao, simularLatencia } from './prototypeStore';
+import api from '../config/axios';
 import type {
   AtributoEntidadeAPI,
   CriarImpactoPayload,
   EntidadeDadosAPI,
   ImpactoDadosAPI,
   ModeloDadosProjeto,
+  RelacionamentoEntidadeAPI,
+  TipoOperacaoImpacto,
+  TipoRelacionamentoEntidade,
 } from '../types/dataModel';
 
 /**
  * Serviço do módulo de modelagem de dados (`datamodel`).
  *
- * As assinaturas abaixo já são as da API planejada — o corpo de cada função é
- * o único ponto que muda quando os controllers REST forem publicados
- * (ver `services/prototypeStore.ts`).
+ * Monta o `ModeloDadosProjeto` que as telas consomem a partir de dois
+ * endpoints REST: o diagrama do projeto (entidades + atributos +
+ * relacionamentos) e a lista de impactos do projeto. As projeções derivadas
+ * (diff antes/depois, diagrama ER) continuam em `utils/dataModel.ts`.
  */
 
-const COLECAO = 'datamodel';
+// ── Formato dos DTOs do backend (apenas os campos consumidos) ───────────────
 
-const MODELO_VAZIO: ModeloDadosProjeto = {
-  entidades: [],
-  atributos: [],
-  relacionamentos: [],
-  impactos: [],
-};
-
-function carregar(projetoId: string): ModeloDadosProjeto | null {
-  return lerColecao<ModeloDadosProjeto>(COLECAO, projetoId);
+interface AtributoEntidadeResponseDTO {
+  id: string;
+  entidadeId: string;
+  nome: string;
+  tipo: string;
+  obrigatorio: boolean;
+  chavePrimaria: boolean;
+  ordem: number | null;
 }
 
-function salvar(projetoId: string, modelo: ModeloDadosProjeto): ModeloDadosProjeto {
-  gravarColecao(COLECAO, projetoId, modelo);
-  return modelo;
+interface RelacionamentoEntidadeResponseDTO {
+  id: string;
+  entidadeOrigemId: string;
+  entidadeDestinoId: string;
+  tipo: TipoRelacionamentoEntidade;
+  atributoFk: string | null;
 }
 
-/**
- * Devolve o modelo de dados do projeto, semeando o cenário de demonstração na
- * primeira vez em que a tela é aberta.
- *
- * @param requisitoIds ids dos requisitos do projeto ordenados por código —
- *                     necessários apenas para semear os impactos iniciais
- */
+interface EntidadeDadosDetalheResponseDTO {
+  id: string;
+  projetoId: string;
+  nome: string;
+  descricao: string | null;
+  atributos: AtributoEntidadeResponseDTO[];
+  relacionamentos: RelacionamentoEntidadeResponseDTO[];
+}
+
+interface DiagramaProjetoResponseDTO {
+  projetoId: string;
+  entidadeDestacadaId: string | null;
+  entidades: EntidadeDadosDetalheResponseDTO[];
+  relacionamentos: RelacionamentoEntidadeResponseDTO[];
+}
+
+interface EntidadeDadosResponseDTO {
+  id: string;
+  projetoId: string;
+  nome: string;
+  descricao: string | null;
+}
+
+interface ImpactoDadosResponseDTO {
+  id: string;
+  requisitoId: string;
+  entidadeId: string;
+  atributoId: string | null;
+  tipoOperacao: TipoOperacaoImpacto;
+  valorAnterior: string | null;
+  valorNovo: string | null;
+}
+
+// ── Adaptadores DTO → tipos das telas ──────────────────────────────────────
+
+function toEntidade(e: EntidadeDadosDetalheResponseDTO | EntidadeDadosResponseDTO): EntidadeDadosAPI {
+  return { id: e.id, projetoId: e.projetoId, nome: e.nome, descricao: e.descricao };
+}
+
+function toAtributo(a: AtributoEntidadeResponseDTO): AtributoEntidadeAPI {
+  return {
+    id: a.id,
+    entidadeId: a.entidadeId,
+    nome: a.nome,
+    tipo: a.tipo,
+    obrigatorio: a.obrigatorio,
+    chavePrimaria: a.chavePrimaria,
+  };
+}
+
+function toRelacionamento(r: RelacionamentoEntidadeResponseDTO): RelacionamentoEntidadeAPI {
+  return {
+    id: r.id,
+    entidadeOrigemId: r.entidadeOrigemId,
+    entidadeDestinoId: r.entidadeDestinoId,
+    tipo: r.tipo,
+    atributoFk: r.atributoFk,
+  };
+}
+
+function toImpacto(i: ImpactoDadosResponseDTO): ImpactoDadosAPI {
+  return {
+    id: i.id,
+    requisitoId: i.requisitoId,
+    entidadeId: i.entidadeId,
+    atributoId: i.atributoId,
+    tipoOperacao: i.tipoOperacao,
+    valorAnterior: i.valorAnterior,
+    valorNovo: i.valorNovo,
+  };
+}
+
+// ── API ───────────────────────────────────────────────────────────────────
+
+/** Modelo de dados completo do projeto, montado a partir do diagrama + impactos. */
 export async function obterModelo(
   projetoId: string,
-  requisitoIds: string[] = [],
+  _requisitoIds: string[] = [],
 ): Promise<ModeloDadosProjeto> {
-  const existente = carregar(projetoId);
-  if (existente) return simularLatencia(existente);
-  if (requisitoIds.length === 0) return simularLatencia(MODELO_VAZIO);
-  return simularLatencia(salvar(projetoId, criarModeloSeed(projetoId, requisitoIds)));
+  const [diagrama, impactos] = await Promise.all([
+    api.get<DiagramaProjetoResponseDTO>(`/entidade-dados/projeto/${projetoId}/diagrama`),
+    api.get<ImpactoDadosResponseDTO[]>(`/impacto-dados/projeto/${projetoId}`),
+  ]);
+
+  return {
+    entidades: diagrama.data.entidades.map(toEntidade),
+    atributos: diagrama.data.entidades.flatMap((e) => e.atributos.map(toAtributo)),
+    relacionamentos: diagrama.data.relacionamentos.map(toRelacionamento),
+    impactos: impactos.data.map(toImpacto),
+  };
 }
 
-/** Restaura o cenário de demonstração, descartando as alterações locais. */
+/** Recarrega o modelo do servidor (o botão ↺ das telas). */
 export async function restaurarModelo(
   projetoId: string,
   requisitoIds: string[],
 ): Promise<ModeloDadosProjeto> {
-  removerColecao(COLECAO, projetoId);
-  return simularLatencia(salvar(projetoId, criarModeloSeed(projetoId, requisitoIds)));
+  return obterModelo(projetoId, requisitoIds);
 }
 
 export async function criarEntidade(
   projetoId: string,
   payload: { nome: string; descricao: string | null },
 ): Promise<EntidadeDadosAPI> {
-  const modelo = carregar(projetoId) ?? MODELO_VAZIO;
-  const entidade: EntidadeDadosAPI = {
-    id: novoId(),
-    projetoId,
-    nome: payload.nome,
-    descricao: payload.descricao,
-  };
-  salvar(projetoId, { ...modelo, entidades: [...modelo.entidades, entidade] });
-  return simularLatencia(entidade);
+  const res = await api.post<EntidadeDadosResponseDTO>(
+    `/entidade-dados/projeto/${projetoId}`,
+    { nome: payload.nome, descricao: payload.descricao },
+  );
+  return toEntidade(res.data);
 }
 
 export async function criarAtributo(
-  projetoId: string,
-  payload: { entidadeId: string; nome: string; tipo: string; obrigatorio: boolean },
+  _projetoId: string,
+  payload: { entidadeId: string; nome: string; tipo: string; obrigatorio: boolean; chavePrimaria: boolean },
 ): Promise<AtributoEntidadeAPI> {
-  const modelo = carregar(projetoId) ?? MODELO_VAZIO;
-  const atributo: AtributoEntidadeAPI = {
-    id: novoId(),
-    entidadeId: payload.entidadeId,
-    nome: payload.nome,
-    tipo: payload.tipo,
-    obrigatorio: payload.obrigatorio,
-    chavePrimaria: false,
-  };
-  salvar(projetoId, { ...modelo, atributos: [...modelo.atributos, atributo] });
-  return simularLatencia(atributo);
+  const res = await api.post<AtributoEntidadeResponseDTO>(
+    `/atributo-entidade/entidade/${payload.entidadeId}`,
+    {
+      nome: payload.nome,
+      tipo: payload.tipo,
+      obrigatorio: payload.obrigatorio,
+      chavePrimaria: payload.chavePrimaria,
+      ordem: null,
+    },
+  );
+  return toAtributo(res.data);
 }
 
 export async function criarImpacto(
-  projetoId: string,
+  _projetoId: string,
   payload: CriarImpactoPayload,
 ): Promise<ImpactoDadosAPI> {
-  const modelo = carregar(projetoId) ?? MODELO_VAZIO;
-  const impacto: ImpactoDadosAPI = {
-    id: novoId(),
-    requisitoId: payload.requisitoId,
-    entidadeId: payload.entidadeId,
-    atributoId: payload.atributoId ?? null,
-    tipoOperacao: payload.tipoOperacao,
-    valorAnterior: payload.valorAnterior ?? null,
-    valorNovo: payload.valorNovo ?? null,
-  };
-  salvar(projetoId, { ...modelo, impactos: [...modelo.impactos, impacto] });
-  return simularLatencia(impacto);
+  const res = await api.post<ImpactoDadosResponseDTO>(
+    `/impacto-dados/requisito/${payload.requisitoId}`,
+    {
+      entidadeId: payload.entidadeId,
+      atributoId: payload.atributoId ?? null,
+      tipoOperacao: payload.tipoOperacao,
+      valorAnterior: payload.valorAnterior ?? null,
+      valorNovo: payload.valorNovo ?? null,
+    },
+  );
+  return toImpacto(res.data);
 }
 
-export async function deletarImpacto(projetoId: string, impactoId: string): Promise<void> {
-  const modelo = carregar(projetoId);
-  if (!modelo) return;
-  salvar(projetoId, {
-    ...modelo,
-    impactos: modelo.impactos.filter((i) => i.id !== impactoId),
-  });
-  await simularLatencia(null);
+export async function deletarImpacto(_projetoId: string, impactoId: string): Promise<void> {
+  await api.delete(`/impacto-dados/${impactoId}`);
 }
 
 export default {

@@ -41,4 +41,8 @@ public class RelacionamentoEntidade {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 50)
     private TipoRelacionamentoEntidade tipo;
+
+    /** Nome do atributo da entidade de destino que materializa a FK (ex.: {@code cliente_id}). */
+    @Column(length = 100)
+    private String atributoFk;
 }
