@@ -1,9 +1,12 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain.TipoRelacionamentoEntidade;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto.AtributoEntidadeResponseDTO;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto.AtualizarAtributoEntidadeRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto.CriarAtributoEntidadeRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto.CriarEntidadeDadosRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.repository.AtributoEntidadeRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.repository.RelacionamentoEntidadeRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
@@ -37,6 +40,7 @@ class AtributoEntidadeServiceTest {
     @Autowired private AtributoEntidadeService atributoEntidadeService;
     @Autowired private EntidadeDadosService entidadeDadosService;
     @Autowired private AtributoEntidadeRepository atributoEntidadeRepository;
+    @Autowired private RelacionamentoEntidadeRepository relacionamentoEntidadeRepository;
     @Autowired private ProjetoRepository projetoRepository;
     @Autowired private StatusProjetoRepository statusProjetoRepository;
     @Autowired private OrganizacaoRepository organizacaoRepository;
@@ -46,7 +50,9 @@ class AtributoEntidadeServiceTest {
     @MockitoBean private JwtDecoder jwtDecoder;
 
     private Jwt jwtMock;
+    private Projeto projeto;
     private UUID entidadeId;
+    private UUID clienteId;
 
     @BeforeEach
     void setUp() {
@@ -63,24 +69,46 @@ class AtributoEntidadeServiceTest {
         Organizacao org = organizacaoRepository.save(Organizacao.builder()
                 .nome("Org Attr").ativo(true).criadoPor(UUID.randomUUID())
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
-        Projeto projeto = projetoRepository.save(Projeto.builder()
+        projeto = projetoRepository.save(Projeto.builder()
                 .nome("Projeto Attr").organizacao(org).status(sp).criadoPor(usuario).ativo(true)
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
         entityManager.flush();
 
         entidadeId = entidadeDadosService.criar(jwtMock, projeto.getId(),
+                new CriarEntidadeDadosRequestDTO("Pedido", null)).id();
+        clienteId = entidadeDadosService.criar(jwtMock, projeto.getId(),
                 new CriarEntidadeDadosRequestDTO("Cliente", null)).id();
+    }
+
+    private CriarAtributoEntidadeRequestDTO dtoSimples(String nome, String tipo, boolean obrigatorio, int ordem) {
+        return new CriarAtributoEntidadeRequestDTO(nome, tipo, obrigatorio, false, ordem, false, null, null);
+    }
+
+    /** Uma entidade em um projeto (e organização) diferentes de {@link #projeto}, para os testes de validação cross-project. */
+    private UUID criarEntidadeEmOutroProjeto() {
+        Usuario usuario = usuarioRepository.findByExternalIdentityId(UUID.fromString(jwtMock.getSubject())).orElseThrow();
+        StatusProjeto sp = statusProjetoRepository.save(StatusProjeto.builder()
+                .nome("RASCUNHO").descricao("x").ordem(1).build());
+        Organizacao org = organizacaoRepository.save(Organizacao.builder()
+                .nome("Org Attr Outro").ativo(true).criadoPor(UUID.randomUUID())
+                .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
+        Projeto outroProjeto = projetoRepository.save(Projeto.builder()
+                .nome("Projeto Attr Outro").organizacao(org).status(sp).criadoPor(usuario).ativo(true)
+                .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
+        entityManager.flush();
+
+        return entidadeDadosService.criar(jwtMock, outroProjeto.getId(),
+                new CriarEntidadeDadosRequestDTO("Externa", null)).id();
     }
 
     @Test
     void criar_devePersistirAtributo() {
-        var dto = new CriarAtributoEntidadeRequestDTO("cpf", "VARCHAR(11)", true, 1);
-
-        var resultado = atributoEntidadeService.criar(jwtMock, entidadeId, dto);
+        var resultado = atributoEntidadeService.criar(jwtMock, entidadeId, dtoSimples("cpf", "VARCHAR(11)", true, 1));
 
         assertThat(resultado.id()).isNotNull();
         assertThat(resultado.nome()).isEqualTo("cpf");
         assertThat(resultado.obrigatorio()).isTrue();
+        assertThat(resultado.chaveEstrangeira()).isFalse();
         entityManager.flush();
         entityManager.clear();
         assertThat(atributoEntidadeRepository.findById(resultado.id())).isPresent();
@@ -88,24 +116,24 @@ class AtributoEntidadeServiceTest {
 
     @Test
     void criar_deveLancarException_quandoNomeDuplicado() {
-        atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO("email", "TEXT", false, 1));
+        atributoEntidadeService.criar(jwtMock, entidadeId, dtoSimples("email", "TEXT", false, 1));
 
         assertThatThrownBy(() -> atributoEntidadeService.criar(jwtMock, entidadeId,
-                new CriarAtributoEntidadeRequestDTO("EMAIL", "TEXT", false, 2)))
+                dtoSimples("EMAIL", "TEXT", false, 2)))
                 .isInstanceOf(AtributoEntidadeService.AtributoEntidadeNomeJaExisteException.class);
     }
 
     @Test
     void criar_deveLancarException_quandoEntidadeNaoEncontrada() {
         assertThatThrownBy(() -> atributoEntidadeService.criar(jwtMock, UUID.randomUUID(),
-                new CriarAtributoEntidadeRequestDTO("x", "TEXT", false, 1)))
+                dtoSimples("x", "TEXT", false, 1)))
                 .isInstanceOf(EntidadeDadosService.EntidadeDadosNaoEncontradaException.class);
     }
 
     @Test
     void listarPorEntidade_deveOrdenarPorOrdem() {
-        atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO("b", "TEXT", false, 2));
-        atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO("a", "TEXT", false, 1));
+        atributoEntidadeService.criar(jwtMock, entidadeId, dtoSimples("b", "TEXT", false, 2));
+        atributoEntidadeService.criar(jwtMock, entidadeId, dtoSimples("a", "TEXT", false, 1));
 
         var lista = atributoEntidadeService.listarPorEntidade(entidadeId);
 
@@ -114,13 +142,136 @@ class AtributoEntidadeServiceTest {
 
     @Test
     void deletar_deveRemoverAtributo() {
-        var criado = atributoEntidadeService.criar(jwtMock, entidadeId,
-                new CriarAtributoEntidadeRequestDTO("tmp", "TEXT", false, 1));
+        var criado = atributoEntidadeService.criar(jwtMock, entidadeId, dtoSimples("tmp", "TEXT", false, 1));
 
         atributoEntidadeService.deletar(jwtMock, criado.id());
 
         entityManager.flush();
         entityManager.clear();
         assertThat(atributoEntidadeRepository.findById(criado.id())).isEmpty();
+    }
+
+    // ── Chave estrangeira: relacionamento derivado ──────────────────────────────
+
+    @Test
+    void criar_comChaveEstrangeira_deveDerivarRelacionamento() {
+        var dto = new CriarAtributoEntidadeRequestDTO(
+                "cliente_id", "UUID", true, false, 1, true, clienteId, TipoRelacionamentoEntidade.UM_PARA_MUITOS);
+
+        var resultado = atributoEntidadeService.criar(jwtMock, entidadeId, dto);
+
+        assertThat(resultado.chaveEstrangeira()).isTrue();
+        assertThat(resultado.entidadeReferenciadaId()).isEqualTo(clienteId);
+        assertThat(resultado.relacionamentoId()).isNotNull();
+        assertThat(resultado.tipoRelacionamento()).isEqualTo(TipoRelacionamentoEntidade.UM_PARA_MUITOS);
+
+        entityManager.flush();
+        entityManager.clear();
+        var relacionamento = relacionamentoEntidadeRepository.findByAtributoFkId(resultado.id()).orElseThrow();
+        assertThat(relacionamento.getEntidadeOrigem().getId()).isEqualTo(entidadeId);
+        assertThat(relacionamento.getEntidadeDestino().getId()).isEqualTo(clienteId);
+    }
+
+    @Test
+    void criar_comChaveEstrangeiraSemTipo_deveUsarUmParaMuitosComoDefault() {
+        var dto = new CriarAtributoEntidadeRequestDTO(
+                "cliente_id", "UUID", true, false, 1, true, clienteId, null);
+
+        var resultado = atributoEntidadeService.criar(jwtMock, entidadeId, dto);
+
+        assertThat(resultado.tipoRelacionamento()).isEqualTo(TipoRelacionamentoEntidade.UM_PARA_MUITOS);
+    }
+
+    @Test
+    void criar_comChaveEstrangeira_deveLancarException_quandoEntidadeReferenciadaAusente() {
+        var dto = new CriarAtributoEntidadeRequestDTO(
+                "cliente_id", "UUID", true, false, 1, true, null, null);
+
+        assertThatThrownBy(() -> atributoEntidadeService.criar(jwtMock, entidadeId, dto))
+                .isInstanceOf(AtributoEntidadeService.EntidadeReferenciadaObrigatoriaException.class);
+    }
+
+    @Test
+    void criar_comChaveEstrangeira_deveLancarException_quandoReflexiva() {
+        var dto = new CriarAtributoEntidadeRequestDTO(
+                "auto_id", "UUID", true, false, 1, true, entidadeId, null);
+
+        assertThatThrownBy(() -> atributoEntidadeService.criar(jwtMock, entidadeId, dto))
+                .isInstanceOf(RelacionamentoEntidadeService.RelacionamentoEntidadeReflexivoException.class);
+    }
+
+    @Test
+    void criar_comChaveEstrangeira_deveLancarException_quandoEntidadeReferenciadaNaoEncontrada() {
+        var dto = new CriarAtributoEntidadeRequestDTO(
+                "cliente_id", "UUID", true, false, 1, true, UUID.randomUUID(), null);
+
+        assertThatThrownBy(() -> atributoEntidadeService.criar(jwtMock, entidadeId, dto))
+                .isInstanceOf(EntidadeDadosService.EntidadeDadosNaoEncontradaException.class);
+    }
+
+    @Test
+    void criar_comChaveEstrangeira_deveLancarException_quandoProjetoDiferente() {
+        UUID entidadeOutroProjetoId = criarEntidadeEmOutroProjeto();
+
+        var dto = new CriarAtributoEntidadeRequestDTO(
+                "externo_id", "UUID", true, false, 1, true, entidadeOutroProjetoId, null);
+
+        assertThatThrownBy(() -> atributoEntidadeService.criar(jwtMock, entidadeId, dto))
+                .isInstanceOf(RelacionamentoEntidadeService.EntidadesDeProjetosDiferentesException.class);
+    }
+
+    @Test
+    void atualizar_desmarcandoChaveEstrangeira_deveRemoverRelacionamentoDerivado() {
+        var criado = atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO(
+                "cliente_id", "UUID", true, false, 1, true, clienteId, TipoRelacionamentoEntidade.UM_PARA_MUITOS));
+
+        atributoEntidadeService.atualizar(jwtMock, criado.id(),
+                new AtualizarAtributoEntidadeRequestDTO(null, null, null, null, null, false, null, null));
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(relacionamentoEntidadeRepository.findByAtributoFkId(criado.id())).isEmpty();
+        assertThat(atributoEntidadeRepository.findById(criado.id()).orElseThrow().getChaveEstrangeira()).isFalse();
+    }
+
+    @Test
+    void atualizar_trocandoEntidadeReferenciada_deveAtualizarRelacionamentoDerivado() {
+        UUID vendedorId = entidadeDadosService.criar(jwtMock, projeto.getId(),
+                new CriarEntidadeDadosRequestDTO("Vendedor", null)).id();
+
+        var criado = atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO(
+                "cliente_id", "UUID", true, false, 1, true, clienteId, TipoRelacionamentoEntidade.UM_PARA_MUITOS));
+
+        var atualizado = atributoEntidadeService.atualizar(jwtMock, criado.id(),
+                new AtualizarAtributoEntidadeRequestDTO(null, null, null, null, null, true, vendedorId, null));
+
+        assertThat(atualizado.entidadeReferenciadaId()).isEqualTo(vendedorId);
+        entityManager.flush();
+        entityManager.clear();
+        var relacionamento = relacionamentoEntidadeRepository.findByAtributoFkId(criado.id()).orElseThrow();
+        assertThat(relacionamento.getEntidadeDestino().getId()).isEqualTo(vendedorId);
+    }
+
+    @Test
+    void deletar_comChaveEstrangeira_deveRemoverRelacionamentoDerivado() {
+        var criado = atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO(
+                "cliente_id", "UUID", true, false, 1, true, clienteId, TipoRelacionamentoEntidade.UM_PARA_MUITOS));
+
+        atributoEntidadeService.deletar(jwtMock, criado.id());
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(relacionamentoEntidadeRepository.findByAtributoFkId(criado.id())).isEmpty();
+    }
+
+    @Test
+    void criar_deveAceitarDuasFksDaMesmaEntidadeParaOMesmoDestino() {
+        // Ex.: Transferencia.conta_origem_id e Transferencia.conta_destino_id -> Conta.
+        var primeira = atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO(
+                "cliente_faturamento_id", "UUID", true, false, 1, true, clienteId, TipoRelacionamentoEntidade.UM_PARA_MUITOS));
+        var segunda = atributoEntidadeService.criar(jwtMock, entidadeId, new CriarAtributoEntidadeRequestDTO(
+                "cliente_entrega_id", "UUID", true, false, 2, true, clienteId, TipoRelacionamentoEntidade.UM_PARA_MUITOS));
+
+        assertThat(primeira.relacionamentoId()).isNotEqualTo(segunda.relacionamentoId());
     }
 }

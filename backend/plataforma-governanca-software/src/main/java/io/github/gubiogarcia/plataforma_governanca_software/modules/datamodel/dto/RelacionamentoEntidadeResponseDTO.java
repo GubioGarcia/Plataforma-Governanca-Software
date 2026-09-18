@@ -11,5 +11,6 @@ public record RelacionamentoEntidadeResponseDTO(
         UUID entidadeDestinoId,
         String entidadeDestinoNome,
         TipoRelacionamentoEntidade tipo,
-        String atributoFk
+        UUID atributoFkId,
+        String atributoFkNome
 ) {}

@@ -1,8 +1,11 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain.TipoRelacionamentoEntidade;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
+
+import java.util.UUID;
 
 public record CriarAtributoEntidadeRequestDTO(
         @NotBlank(message = "Nome é obrigatório")
@@ -18,11 +21,14 @@ public record CriarAtributoEntidadeRequestDTO(
 
         Boolean chavePrimaria,
 
-        Integer ordem
-) {
+        Integer ordem,
 
-    /** Compatibilidade: chamadas anteriores sem o campo {@code chavePrimaria}. */
-    public CriarAtributoEntidadeRequestDTO(String nome, String tipo, Boolean obrigatorio, Integer ordem) {
-        this(nome, tipo, obrigatorio, false, ordem);
-    }
-}
+        /** Marca o atributo como chave estrangeira — deriva um RelacionamentoEntidade automaticamente. */
+        Boolean chaveEstrangeira,
+
+        /** Entidade referenciada pela FK. Obrigatório quando {@code chaveEstrangeira} é {@code true}. */
+        UUID entidadeReferenciadaId,
+
+        /** Cardinalidade do relacionamento derivado. Default {@code UM_PARA_MUITOS} quando omitido. */
+        TipoRelacionamentoEntidade tipoRelacionamento
+) {}

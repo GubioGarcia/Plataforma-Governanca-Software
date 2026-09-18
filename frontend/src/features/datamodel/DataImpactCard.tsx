@@ -26,7 +26,10 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import StorageIcon from '@mui/icons-material/Storage';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import {
+  atualizarAtributo,
+  atualizarEntidade,
   criarAtributo,
   criarEntidade,
   criarImpacto,
@@ -40,6 +43,7 @@ import {
   CORES_OPERACAO,
   gerarErDiagram,
   idEntidadeNoDiagrama,
+  ROTULOS_CARDINALIDADE,
   ROTULOS_OPERACAO,
 } from '../../utils/dataModel';
 import type {
@@ -47,6 +51,7 @@ import type {
   ModeloDadosProjeto,
   SituacaoAtributoDiff,
   TipoOperacaoImpacto,
+  TipoRelacionamentoEntidade,
 } from '../../types/dataModel';
 import { ETIQUETA, FONTE_DADOS } from '../../theme/tokens';
 import ErDiagram from './ErDiagram';
@@ -96,6 +101,9 @@ interface NovoAtributoForm {
   tipo: string;
   obrigatorio: boolean;
   chavePrimaria: boolean;
+  chaveEstrangeira: boolean;
+  entidadeReferenciadaId: string;
+  tipoRelacionamento: TipoRelacionamentoEntidade;
 }
 
 const ATRIBUTO_VAZIO: NovoAtributoForm = {
@@ -103,6 +111,9 @@ const ATRIBUTO_VAZIO: NovoAtributoForm = {
   tipo: 'VARCHAR(150)',
   obrigatorio: true,
   chavePrimaria: false,
+  chaveEstrangeira: false,
+  entidadeReferenciadaId: '',
+  tipoRelacionamento: 'UM_PARA_MUITOS',
 };
 
 const FORM_VAZIO = {
@@ -111,19 +122,29 @@ const FORM_VAZIO = {
   // "Criação de entidade" é a primeira operação da lista e o ponto de partida
   // natural: quando o projeto ainda não tem modelo, é por aqui que se começa.
   tipoOperacao: 'CRIA_ENTIDADE' as TipoOperacaoImpacto,
-  valorAnterior: '',
-  valorNovo: '',
   // Usados apenas quando tipoOperacao === 'CRIA_ENTIDADE'.
   novaEntidadeNome: '',
   novaEntidadeDescricao: '',
   novosAtributos: [] as NovoAtributoForm[],
   // Usado apenas quando tipoOperacao === 'CRIA_ATRIBUTO'.
   novoAtributo: { ...ATRIBUTO_VAZIO } as NovoAtributoForm,
+  // Usado apenas quando tipoOperacao === 'ALTERA_ATRIBUTO' — pré-carregado a
+  // partir do atributo selecionado, no mesmo modelo do dialog de edição da
+  // tela Modelo de Dados.
+  edicaoAtributo: { ...ATRIBUTO_VAZIO } as NovoAtributoForm,
+  // Usados apenas quando tipoOperacao === 'ALTERA_ENTIDADE'.
+  edicaoEntidadeNome: '',
+  edicaoEntidadeDescricao: '',
 };
 
 /** Estado inicial do formulário, sempre com objetos/arrays novos. */
 function formInicial(): typeof FORM_VAZIO {
-  return { ...FORM_VAZIO, novosAtributos: [], novoAtributo: { ...ATRIBUTO_VAZIO } };
+  return {
+    ...FORM_VAZIO,
+    novosAtributos: [],
+    novoAtributo: { ...ATRIBUTO_VAZIO },
+    edicaoAtributo: { ...ATRIBUTO_VAZIO },
+  };
 }
 
 /**
@@ -156,10 +177,12 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
         // Sem a listagem do projeto o modelo simplesmente não é semeado.
       }
       setModelo(await obterModelo(projetoId, requisitoIds));
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Não foi possível carregar o modelo de dados.'), 'error');
     } finally {
       setCarregando(false);
     }
-  }, [projetoId]);
+  }, [projetoId, notify]);
 
   useEffect(() => {
     carregar();
@@ -184,19 +207,38 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
 
   const criandoEntidade = form.tipoOperacao === 'CRIA_ENTIDADE';
   const criandoAtributo = form.tipoOperacao === 'CRIA_ATRIBUTO';
+  const alterandoAtributo = form.tipoOperacao === 'ALTERA_ATRIBUTO';
+  const alterandoEntidade = form.tipoOperacao === 'ALTERA_ENTIDADE';
+  const removendoAtributo = form.tipoOperacao === 'REMOVE_ATRIBUTO';
+  const removendoEntidade = form.tipoOperacao === 'REMOVE_ENTIDADE';
+
+  const atributoFkValido = (a: NovoAtributoForm) => !a.chaveEstrangeira || a.entidadeReferenciadaId.length > 0;
 
   const podeSalvar = criandoEntidade
     ? form.novaEntidadeNome.trim().length > 0 &&
-      form.novosAtributos.every((a) => a.nome.trim().length > 0)
+      form.novosAtributos.every((a) => a.nome.trim().length > 0 && atributoFkValido(a))
     : criandoAtributo
-      ? form.entidadeId.length > 0 && form.novoAtributo.nome.trim().length > 0
-      : form.entidadeId.length > 0;
+      ? form.entidadeId.length > 0 &&
+        form.novoAtributo.nome.trim().length > 0 &&
+        atributoFkValido(form.novoAtributo)
+      : alterandoAtributo
+        ? form.entidadeId.length > 0 &&
+          form.atributoId.length > 0 &&
+          form.edicaoAtributo.nome.trim().length > 0 &&
+          atributoFkValido(form.edicaoAtributo)
+        : alterandoEntidade
+          ? form.entidadeId.length > 0 && form.edicaoEntidadeNome.trim().length > 0
+          : removendoAtributo
+            ? form.entidadeId.length > 0 && form.atributoId.length > 0
+            : removendoEntidade
+              ? form.entidadeId.length > 0
+              : false;
 
   function adicionarAtributo() {
     setForm((f) => ({ ...f, novosAtributos: [...f.novosAtributos, { ...ATRIBUTO_VAZIO }] }));
   }
 
-  function atualizarAtributo(indice: number, patch: Partial<NovoAtributoForm>) {
+  function atualizarAtributoDaLista(indice: number, patch: Partial<NovoAtributoForm>) {
     setForm((f) => ({
       ...f,
       novosAtributos: f.novosAtributos.map((a, i) => (i === indice ? { ...a, ...patch } : a)),
@@ -209,6 +251,46 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
 
   function atualizarNovoAtributo(patch: Partial<NovoAtributoForm>) {
     setForm((f) => ({ ...f, novoAtributo: { ...f.novoAtributo, ...patch } }));
+  }
+
+  function atualizarEdicaoAtributo(patch: Partial<NovoAtributoForm>) {
+    setForm((f) => ({ ...f, edicaoAtributo: { ...f.edicaoAtributo, ...patch } }));
+  }
+
+  /** Troca de entidade no formulário de impacto — reseta o atributo escolhido
+   * e, conforme a operação, pré-carrega os campos editáveis (nome/descrição
+   * da entidade, ou zera o formulário de edição de atributo). */
+  function selecionarEntidadeImpacto(entidadeId: string) {
+    setForm((f) => {
+      const atualizado = { ...f, entidadeId, atributoId: '', edicaoAtributo: { ...ATRIBUTO_VAZIO } };
+      if (f.tipoOperacao === 'ALTERA_ENTIDADE') {
+        const entidade = modelo.entidades.find((e) => e.id === entidadeId);
+        atualizado.edicaoEntidadeNome = entidade?.nome ?? '';
+        atualizado.edicaoEntidadeDescricao = entidade?.descricao ?? '';
+      }
+      return atualizado;
+    });
+  }
+
+  /** Seleção do atributo a alterar — pré-carrega o mini-formulário de edição
+   * com os valores atuais, no mesmo princípio da tela Modelo de Dados. */
+  function selecionarAtributoParaAlterar(atributoId: string) {
+    const atributo = modelo.atributos.find((a) => a.id === atributoId);
+    setForm((f) => ({
+      ...f,
+      atributoId,
+      edicaoAtributo: atributo
+        ? {
+            nome: atributo.nome,
+            tipo: atributo.tipo,
+            obrigatorio: atributo.obrigatorio,
+            chavePrimaria: atributo.chavePrimaria,
+            chaveEstrangeira: atributo.chaveEstrangeira,
+            entidadeReferenciadaId: atributo.entidadeReferenciadaId ?? '',
+            tipoRelacionamento: atributo.tipoRelacionamento ?? 'UM_PARA_MUITOS',
+          }
+        : { ...ATRIBUTO_VAZIO },
+    }));
   }
 
   function fecharDialog() {
@@ -235,6 +317,9 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
             tipo: atributo.tipo,
             obrigatorio: atributo.obrigatorio,
             chavePrimaria: atributo.chavePrimaria,
+            chaveEstrangeira: atributo.chaveEstrangeira,
+            entidadeReferenciadaId: atributo.chaveEstrangeira ? atributo.entidadeReferenciadaId : null,
+            tipoRelacionamento: atributo.chaveEstrangeira ? atributo.tipoRelacionamento : null,
           });
         }
         await criarImpacto(projetoId, {
@@ -256,6 +341,9 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
           tipo: form.novoAtributo.tipo,
           obrigatorio: form.novoAtributo.obrigatorio,
           chavePrimaria: form.novoAtributo.chavePrimaria,
+          chaveEstrangeira: form.novoAtributo.chaveEstrangeira,
+          entidadeReferenciadaId: form.novoAtributo.chaveEstrangeira ? form.novoAtributo.entidadeReferenciadaId : null,
+          tipoRelacionamento: form.novoAtributo.chaveEstrangeira ? form.novoAtributo.tipoRelacionamento : null,
         });
         await criarImpacto(projetoId, {
           requisitoId,
@@ -267,30 +355,102 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
         });
         await carregar();
         notify('Atributo adicionado e impacto registrado', 'success');
-      } else {
+      } else if (alterandoAtributo) {
+        // Atualiza o atributo de verdade (mesmo endpoint da tela Modelo de
+        // Dados) e registra o impacto com a assinatura antes/depois
+        // calculada automaticamente — sem texto livre.
+        const atributoOriginal = modelo.atributos.find((a) => a.id === form.atributoId);
+        const assinaturaAntes = atributoOriginal ? assinaturaAtributo(atributoOriginal) : null;
+        await atualizarAtributo(projetoId, form.atributoId, {
+          nome: form.edicaoAtributo.nome.trim(),
+          tipo: form.edicaoAtributo.tipo,
+          obrigatorio: form.edicaoAtributo.obrigatorio,
+          chavePrimaria: form.edicaoAtributo.chavePrimaria,
+          chaveEstrangeira: form.edicaoAtributo.chaveEstrangeira,
+          entidadeReferenciadaId: form.edicaoAtributo.chaveEstrangeira ? form.edicaoAtributo.entidadeReferenciadaId : null,
+          tipoRelacionamento: form.edicaoAtributo.chaveEstrangeira ? form.edicaoAtributo.tipoRelacionamento : null,
+        });
+        const entidadeReferenciadaNomeDepois = form.edicaoAtributo.chaveEstrangeira
+          ? modelo.entidades.find((e) => e.id === form.edicaoAtributo.entidadeReferenciadaId)?.nome ?? null
+          : null;
+        await criarImpacto(projetoId, {
+          requisitoId,
+          entidadeId: form.entidadeId,
+          atributoId: form.atributoId,
+          tipoOperacao: 'ALTERA_ATRIBUTO',
+          valorAnterior: assinaturaAntes,
+          valorNovo: assinaturaAtributo({
+            tipo: form.edicaoAtributo.tipo,
+            obrigatorio: form.edicaoAtributo.obrigatorio,
+            chavePrimaria: form.edicaoAtributo.chavePrimaria,
+            chaveEstrangeira: form.edicaoAtributo.chaveEstrangeira,
+            entidadeReferenciadaNome: entidadeReferenciadaNomeDepois,
+          }),
+        });
+        await carregar();
+        notify('Atributo atualizado e impacto registrado', 'success');
+      } else if (alterandoEntidade) {
+        const entidadeOriginal = modelo.entidades.find((e) => e.id === form.entidadeId);
+        await atualizarEntidade(projetoId, form.entidadeId, {
+          nome: form.edicaoEntidadeNome.trim(),
+          descricao: form.edicaoEntidadeDescricao.trim() || null,
+        });
+        await criarImpacto(projetoId, {
+          requisitoId,
+          entidadeId: form.entidadeId,
+          atributoId: null,
+          tipoOperacao: 'ALTERA_ENTIDADE',
+          valorAnterior: entidadeOriginal?.nome ?? null,
+          valorNovo: form.edicaoEntidadeNome.trim(),
+        });
+        await carregar();
+        notify('Entidade atualizada e impacto registrado', 'success');
+      } else if (removendoAtributo) {
+        // Só registra o plano de remoção — o atributo continua existindo no
+        // modelo para preservar o histórico (o backend bloqueia excluir um
+        // atributo que já tem impacto vinculado).
+        const atributo = modelo.atributos.find((a) => a.id === form.atributoId);
         const criado = await criarImpacto(projetoId, {
           requisitoId,
           entidadeId: form.entidadeId,
-          atributoId: form.atributoId || null,
-          tipoOperacao: form.tipoOperacao,
-          valorAnterior: form.valorAnterior.trim() || null,
-          valorNovo: form.valorNovo.trim() || null,
+          atributoId: form.atributoId,
+          tipoOperacao: 'REMOVE_ATRIBUTO',
+          valorAnterior: atributo ? assinaturaAtributo(atributo) : null,
+          valorNovo: null,
         });
         setModelo((atual) => ({ ...atual, impactos: [...atual.impactos, criado] }));
-        notify('Impacto no modelo de dados registrado', 'success');
+        notify('Impacto de remoção de atributo registrado', 'success');
+      } else if (removendoEntidade) {
+        const entidade = modelo.entidades.find((e) => e.id === form.entidadeId);
+        const criado = await criarImpacto(projetoId, {
+          requisitoId,
+          entidadeId: form.entidadeId,
+          atributoId: null,
+          tipoOperacao: 'REMOVE_ENTIDADE',
+          valorAnterior: entidade?.nome ?? null,
+          valorNovo: null,
+        });
+        setModelo((atual) => ({ ...atual, impactos: [...atual.impactos, criado] }));
+        notify('Impacto de remoção de entidade registrado', 'success');
       }
       fecharDialog();
       aoAlterar?.();
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao registrar impacto no modelo de dados.'), 'error');
     } finally {
       setSalvando(false);
     }
   }
 
   async function removerImpacto(impactoId: string) {
-    await deletarImpacto(projetoId, impactoId);
-    setModelo((atual) => ({ ...atual, impactos: atual.impactos.filter((i) => i.id !== impactoId) }));
-    notify('Impacto removido', 'info');
-    aoAlterar?.();
+    try {
+      await deletarImpacto(projetoId, impactoId);
+      setModelo((atual) => ({ ...atual, impactos: atual.impactos.filter((i) => i.id !== impactoId) }));
+      notify('Impacto removido', 'info');
+      aoAlterar?.();
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao remover impacto.'), 'error');
+    }
   }
 
   return (
@@ -456,7 +616,15 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
             ? 'Criar entidade impactada pelo requisito'
             : criandoAtributo
               ? 'Adicionar atributo a uma entidade'
-              : 'Registrar impacto no modelo de dados'}
+              : alterandoAtributo
+                ? 'Alterar atributo existente'
+                : alterandoEntidade
+                  ? 'Alterar entidade existente'
+                  : removendoAtributo
+                    ? 'Remover atributo'
+                    : removendoEntidade
+                      ? 'Remover entidade'
+                      : 'Registrar impacto no modelo de dados'}
         </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: '16px !important' }}>
           <FormControl fullWidth size="small">
@@ -464,7 +632,10 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
             <Select
               label="Operação"
               value={form.tipoOperacao}
-              onChange={(e) => setForm((f) => ({ ...f, tipoOperacao: e.target.value as TipoOperacaoImpacto }))}
+              onChange={(e) => {
+                const tipoOperacao = e.target.value as TipoOperacaoImpacto;
+                setForm({ ...formInicial(), tipoOperacao });
+              }}
             >
               {(Object.keys(ROTULOS_OPERACAO) as TipoOperacaoImpacto[]).map((operacao) => (
                 <MenuItem key={operacao} value={operacao}>
@@ -532,7 +703,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                     <TextField
                       label="Nome"
                       value={atributo.nome}
-                      onChange={(e) => atualizarAtributo(indice, { nome: e.target.value })}
+                      onChange={(e) => atualizarAtributoDaLista(indice, { nome: e.target.value })}
                       size="small"
                       sx={{ flex: '1 1 120px' }}
                       placeholder="Ex.: cpf"
@@ -542,7 +713,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                       <Select
                         label="Tipo"
                         value={atributo.tipo}
-                        onChange={(e) => atualizarAtributo(indice, { tipo: e.target.value })}
+                        onChange={(e) => atualizarAtributoDaLista(indice, { tipo: e.target.value })}
                       >
                         {TIPOS_SUGERIDOS.map((tipo) => (
                           <MenuItem key={tipo} value={tipo}>
@@ -556,26 +727,82 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                         <Switch
                           size="small"
                           checked={atributo.obrigatorio}
-                          onChange={(e) => atualizarAtributo(indice, { obrigatorio: e.target.checked })}
+                          onChange={(e) => atualizarAtributoDaLista(indice, { obrigatorio: e.target.checked })}
                         />
                       }
                       label="NOT NULL"
                       sx={{ mr: 0 }}
                     />
+                    <Tooltip
+                      title={
+                        !atributo.chavePrimaria && form.novosAtributos.some((a, i) => a.chavePrimaria && i !== indice)
+                          ? 'Já existe outro atributo marcado como chave primária nesta lista'
+                          : ''
+                      }
+                    >
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            size="small"
+                            checked={atributo.chavePrimaria}
+                            disabled={form.novosAtributos.some((a, i) => a.chavePrimaria && i !== indice)}
+                            onChange={(e) => atualizarAtributoDaLista(indice, { chavePrimaria: e.target.checked })}
+                          />
+                        }
+                        label="PK"
+                        sx={{ mr: 0 }}
+                      />
+                    </Tooltip>
                     <FormControlLabel
                       control={
                         <Switch
                           size="small"
-                          checked={atributo.chavePrimaria}
-                          onChange={(e) => atualizarAtributo(indice, { chavePrimaria: e.target.checked })}
+                          checked={atributo.chaveEstrangeira}
+                          onChange={(e) => atualizarAtributoDaLista(indice, { chaveEstrangeira: e.target.checked })}
                         />
                       }
-                      label="PK"
+                      label="FK"
                       sx={{ mr: 0 }}
                     />
                     <IconButton size="small" color="error" onClick={() => removerAtributoForm(indice)}>
                       <DeleteIcon sx={{ fontSize: 16 }} />
                     </IconButton>
+                    {atributo.chaveEstrangeira && (
+                      <>
+                        <FormControl size="small" sx={{ flex: '1 1 160px' }}>
+                          <InputLabel>Entidade referenciada</InputLabel>
+                          <Select
+                            label="Entidade referenciada"
+                            value={atributo.entidadeReferenciadaId}
+                            onChange={(e) => atualizarAtributoDaLista(indice, { entidadeReferenciadaId: e.target.value })}
+                          >
+                            {modelo.entidades.map((e) => (
+                              <MenuItem key={e.id} value={e.id}>
+                                {e.nome}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <FormControl size="small" sx={{ flex: '1 1 120px' }}>
+                          <InputLabel>Cardinalidade</InputLabel>
+                          <Select
+                            label="Cardinalidade"
+                            value={atributo.tipoRelacionamento}
+                            onChange={(e) =>
+                              atualizarAtributoDaLista(indice, {
+                                tipoRelacionamento: e.target.value as TipoRelacionamentoEntidade,
+                              })
+                            }
+                          >
+                            {(Object.keys(ROTULOS_CARDINALIDADE) as TipoRelacionamentoEntidade[]).map((tipo) => (
+                              <MenuItem key={tipo} value={tipo}>
+                                {ROTULOS_CARDINALIDADE[tipo]}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </>
+                    )}
                   </Box>
                 ))
               )}
@@ -587,7 +814,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                 <Select
                   label="Entidade"
                   value={form.entidadeId}
-                  onChange={(e) => setForm((f) => ({ ...f, entidadeId: e.target.value, atributoId: '' }))}
+                  onChange={(e) => selecionarEntidadeImpacto(e.target.value)}
                 >
                   {modelo.entidades.length === 0 && (
                     <MenuItem value="" disabled>
@@ -640,28 +867,79 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                     }
                     label="Obrigatório (NOT NULL)"
                   />
+                  <Tooltip
+                    title={
+                      atributosDaEntidadeSelecionada.some((a) => a.chavePrimaria)
+                        ? 'Esta entidade já tem um atributo marcado como chave primária'
+                        : ''
+                    }
+                  >
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={form.novoAtributo.chavePrimaria}
+                          disabled={atributosDaEntidadeSelecionada.some((a) => a.chavePrimaria)}
+                          onChange={(e) => atualizarNovoAtributo({ chavePrimaria: e.target.checked })}
+                        />
+                      }
+                      label="Chave primária (PK)"
+                    />
+                  </Tooltip>
                   <FormControlLabel
                     control={
                       <Switch
-                        checked={form.novoAtributo.chavePrimaria}
-                        onChange={(e) => atualizarNovoAtributo({ chavePrimaria: e.target.checked })}
+                        checked={form.novoAtributo.chaveEstrangeira}
+                        onChange={(e) => atualizarNovoAtributo({ chaveEstrangeira: e.target.checked })}
                       />
                     }
-                    label="Chave primária (PK)"
+                    label="Chave estrangeira (FK)"
                   />
+                  {form.novoAtributo.chaveEstrangeira && (
+                    <>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Entidade referenciada</InputLabel>
+                        <Select
+                          label="Entidade referenciada"
+                          value={form.novoAtributo.entidadeReferenciadaId}
+                          onChange={(e) => atualizarNovoAtributo({ entidadeReferenciadaId: e.target.value })}
+                        >
+                          {modelo.entidades
+                            .filter((e) => e.id !== form.entidadeId)
+                            .map((e) => (
+                              <MenuItem key={e.id} value={e.id}>
+                                {e.nome}
+                              </MenuItem>
+                            ))}
+                        </Select>
+                      </FormControl>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Cardinalidade</InputLabel>
+                        <Select
+                          label="Cardinalidade"
+                          value={form.novoAtributo.tipoRelacionamento}
+                          onChange={(e) =>
+                            atualizarNovoAtributo({ tipoRelacionamento: e.target.value as TipoRelacionamentoEntidade })
+                          }
+                        >
+                          {(Object.keys(ROTULOS_CARDINALIDADE) as TipoRelacionamentoEntidade[]).map((tipo) => (
+                            <MenuItem key={tipo} value={tipo}>
+                              {ROTULOS_CARDINALIDADE[tipo]}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                    </>
+                  )}
                 </>
-              ) : (
+              ) : alterandoAtributo ? (
                 <>
                   <FormControl fullWidth size="small" disabled={!form.entidadeId}>
-                    <InputLabel>Atributo (opcional)</InputLabel>
+                    <InputLabel>Atributo</InputLabel>
                     <Select
-                      label="Atributo (opcional)"
+                      label="Atributo"
                       value={form.atributoId}
-                      onChange={(e) => setForm((f) => ({ ...f, atributoId: e.target.value }))}
+                      onChange={(e) => selecionarAtributoParaAlterar(e.target.value)}
                     >
-                      <MenuItem value="">
-                        <em>Nenhum — impacto na entidade inteira</em>
-                      </MenuItem>
                       {atributosDaEntidadeSelecionada.map((atributo) => (
                         <MenuItem key={atributo.id} value={atributo.id}>
                           {atributo.nome} ({atributo.tipo})
@@ -670,28 +948,143 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                     </Select>
                   </FormControl>
 
-                  <TextField
-                    label="Valor anterior"
-                    value={form.valorAnterior}
-                    onChange={(e) => setForm((f) => ({ ...f, valorAnterior: e.target.value }))}
-                    fullWidth
-                    size="small"
-                    placeholder="Ex.: VARCHAR(100) NULL — deixe vazio se o atributo não existia"
-                  />
-                  <TextField
-                    label="Valor novo"
-                    value={form.valorNovo}
-                    onChange={(e) => setForm((f) => ({ ...f, valorNovo: e.target.value }))}
-                    fullWidth
-                    size="small"
-                    placeholder="Ex.: VARCHAR(150) NOT NULL"
-                  />
-                  <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-                    O par anterior/novo é o mesmo princípio já usado na auditoria da plataforma, aplicado
-                    ao schema em vez de a um campo do cadastro.
-                  </Typography>
+                  {form.atributoId && (
+                    <>
+                      <TextField
+                        label="Nome do atributo"
+                        value={form.edicaoAtributo.nome}
+                        onChange={(e) => atualizarEdicaoAtributo({ nome: e.target.value })}
+                        fullWidth
+                        size="small"
+                      />
+                      <FormControl fullWidth size="small">
+                        <InputLabel>Tipo</InputLabel>
+                        <Select
+                          label="Tipo"
+                          value={form.edicaoAtributo.tipo}
+                          onChange={(e) => atualizarEdicaoAtributo({ tipo: e.target.value })}
+                        >
+                          {TIPOS_SUGERIDOS.map((tipo) => (
+                            <MenuItem key={tipo} value={tipo}>
+                              {tipo}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={form.edicaoAtributo.obrigatorio}
+                            onChange={(e) => atualizarEdicaoAtributo({ obrigatorio: e.target.checked })}
+                          />
+                        }
+                        label="Obrigatório (NOT NULL)"
+                      />
+                      <Tooltip
+                        title={
+                          atributosDaEntidadeSelecionada.some((a) => a.chavePrimaria && a.id !== form.atributoId)
+                            ? 'Esta entidade já tem um atributo marcado como chave primária'
+                            : ''
+                        }
+                      >
+                        <FormControlLabel
+                          control={
+                            <Switch
+                              checked={form.edicaoAtributo.chavePrimaria}
+                              disabled={atributosDaEntidadeSelecionada.some((a) => a.chavePrimaria && a.id !== form.atributoId)}
+                              onChange={(e) => atualizarEdicaoAtributo({ chavePrimaria: e.target.checked })}
+                            />
+                          }
+                          label="Chave primária (PK)"
+                        />
+                      </Tooltip>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={form.edicaoAtributo.chaveEstrangeira}
+                            onChange={(e) => atualizarEdicaoAtributo({ chaveEstrangeira: e.target.checked })}
+                          />
+                        }
+                        label="Chave estrangeira (FK)"
+                      />
+                      {form.edicaoAtributo.chaveEstrangeira && (
+                        <>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Entidade referenciada</InputLabel>
+                            <Select
+                              label="Entidade referenciada"
+                              value={form.edicaoAtributo.entidadeReferenciadaId}
+                              onChange={(e) => atualizarEdicaoAtributo({ entidadeReferenciadaId: e.target.value })}
+                            >
+                              {modelo.entidades
+                                .filter((e) => e.id !== form.entidadeId)
+                                .map((e) => (
+                                  <MenuItem key={e.id} value={e.id}>
+                                    {e.nome}
+                                  </MenuItem>
+                                ))}
+                            </Select>
+                          </FormControl>
+                          <FormControl fullWidth size="small">
+                            <InputLabel>Cardinalidade</InputLabel>
+                            <Select
+                              label="Cardinalidade"
+                              value={form.edicaoAtributo.tipoRelacionamento}
+                              onChange={(e) =>
+                                atualizarEdicaoAtributo({
+                                  tipoRelacionamento: e.target.value as TipoRelacionamentoEntidade,
+                                })
+                              }
+                            >
+                              {(Object.keys(ROTULOS_CARDINALIDADE) as TipoRelacionamentoEntidade[]).map((tipo) => (
+                                <MenuItem key={tipo} value={tipo}>
+                                  {ROTULOS_CARDINALIDADE[tipo]}
+                                </MenuItem>
+                              ))}
+                            </Select>
+                          </FormControl>
+                        </>
+                      )}
+                    </>
+                  )}
                 </>
-              )}
+              ) : alterandoEntidade ? (
+                <>
+                  <TextField
+                    label="Nome da entidade"
+                    value={form.edicaoEntidadeNome}
+                    onChange={(e) => setForm((f) => ({ ...f, edicaoEntidadeNome: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    disabled={!form.entidadeId}
+                  />
+                  <TextField
+                    label="Descrição"
+                    value={form.edicaoEntidadeDescricao}
+                    onChange={(e) => setForm((f) => ({ ...f, edicaoEntidadeDescricao: e.target.value }))}
+                    fullWidth
+                    size="small"
+                    multiline
+                    rows={2}
+                    disabled={!form.entidadeId}
+                  />
+                </>
+              ) : removendoAtributo ? (
+                <FormControl fullWidth size="small" disabled={!form.entidadeId}>
+                  <InputLabel>Atributo</InputLabel>
+                  <Select
+                    label="Atributo"
+                    value={form.atributoId}
+                    onChange={(e) => setForm((f) => ({ ...f, atributoId: e.target.value }))}
+                  >
+                    {atributosDaEntidadeSelecionada.map((atributo) => (
+                      <MenuItem key={atributo.id} value={atributo.id}>
+                        {atributo.nome} ({atributo.tipo})
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+              ) : null}
             </>
           )}
         </DialogContent>
@@ -706,7 +1099,9 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                 ? 'Criar entidade'
                 : criandoAtributo
                   ? 'Adicionar atributo'
-                  : 'Registrar'}
+                  : alterandoAtributo || alterandoEntidade
+                    ? 'Salvar'
+                    : 'Registrar'}
           </Button>
         </DialogActions>
       </Dialog>

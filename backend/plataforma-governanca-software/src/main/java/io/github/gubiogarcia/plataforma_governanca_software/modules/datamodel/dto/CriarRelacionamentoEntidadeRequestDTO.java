@@ -2,10 +2,10 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.d
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain.TipoRelacionamentoEntidade;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Size;
 
 import java.util.UUID;
 
+/** Criação manual de um relacionamento sem atributo físico correspondente (caso avançado). */
 public record CriarRelacionamentoEntidadeRequestDTO(
         @NotNull(message = "Entidade de origem é obrigatória")
         UUID entidadeOrigemId,
@@ -16,13 +16,6 @@ public record CriarRelacionamentoEntidadeRequestDTO(
         @NotNull(message = "Tipo é obrigatório")
         TipoRelacionamentoEntidade tipo,
 
-        @Size(max = 100, message = "Atributo FK deve ter no máximo 100 caracteres")
-        String atributoFk
-) {
-
-    /** Compatibilidade: chamadas anteriores sem o campo {@code atributoFk}. */
-    public CriarRelacionamentoEntidadeRequestDTO(UUID entidadeOrigemId, UUID entidadeDestinoId,
-                                                 TipoRelacionamentoEntidade tipo) {
-        this(entidadeOrigemId, entidadeDestinoId, tipo, null);
-    }
-}
+        /** Atributo (da entidade de origem) que materializa a FK. Opcional. */
+        UUID atributoFkId
+) {}

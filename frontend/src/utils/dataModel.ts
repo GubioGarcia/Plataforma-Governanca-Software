@@ -5,6 +5,7 @@ import type {
   LinhaDiffAtributo,
   ModeloDadosProjeto,
   TipoOperacaoImpacto,
+  TipoRelacionamentoEntidade,
 } from '../types/dataModel';
 
 /**
@@ -17,9 +18,19 @@ import type {
  * mesmo princípio já adotado no módulo de auditoria.
  */
 
-/** Assinatura textual de um atributo, no formato exibido no diff. */
-export function assinaturaAtributo(atributo: AtributoEntidadeAPI): string {
-  return `${atributo.tipo} ${atributo.obrigatorio ? 'NOT NULL' : 'NULL'}`;
+/**
+ * Assinatura textual de um atributo, no formato exibido no diff — inclui PK/FK
+ * para que uma edição que só muda a chave (sem mexer em tipo/obrigatório)
+ * apareça como uma alteração real no texto, não só na cor da linha.
+ */
+export function assinaturaAtributo(
+  atributo: Pick<AtributoEntidadeAPI, 'tipo' | 'obrigatorio' | 'chavePrimaria' | 'chaveEstrangeira' | 'entidadeReferenciadaNome'>,
+): string {
+  const marcadores: string[] = [];
+  if (atributo.chavePrimaria) marcadores.push('PK');
+  if (atributo.chaveEstrangeira) marcadores.push(`FK → ${atributo.entidadeReferenciadaNome ?? '—'}`);
+  const sufixo = marcadores.length > 0 ? ` · ${marcadores.join(', ')}` : '';
+  return `${atributo.tipo} ${atributo.obrigatorio ? 'NOT NULL' : 'NULL'}${sufixo}`;
 }
 
 export const ROTULOS_OPERACAO: Record<TipoOperacaoImpacto, string> = {
@@ -29,6 +40,12 @@ export const ROTULOS_OPERACAO: Record<TipoOperacaoImpacto, string> = {
   CRIA_ATRIBUTO: 'Adição de atributo',
   ALTERA_ATRIBUTO: 'Alteração de atributo',
   REMOVE_ATRIBUTO: 'Remoção de atributo',
+};
+
+export const ROTULOS_CARDINALIDADE: Record<TipoRelacionamentoEntidade, string> = {
+  UM_PARA_UM: '1 : 1',
+  UM_PARA_MUITOS: '1 : N',
+  MUITOS_PARA_MUITOS: 'N : N',
 };
 
 export const CORES_OPERACAO: Record<TipoOperacaoImpacto, string> = {
@@ -171,11 +188,21 @@ export interface OpcoesDiagrama {
  * O diagrama é derivado a cada render — não há artefato salvo para
  * desatualizar.
  */
+/** Classe Mermaid aplicada às entidades com impacto de remoção registrado. */
+const CLASSE_ENTIDADE_REMOVIDA = 'entidadeRemovida';
+
 export function gerarErDiagram(modelo: ModeloDadosProjeto, opcoes: OpcoesDiagrama = {}): string {
   const { entidadesEmFoco, somenteEstrutura = false } = opcoes;
 
   let entidades = modelo.entidades;
   let relacionamentos = modelo.relacionamentos;
+
+  // Entidades com ao menos um impacto de remoção registrado (de qualquer
+  // requisito) ganham destaque em vermelho no diagrama — mesmo princípio já
+  // usado para as cores de operação (CORES_OPERACAO.REMOVE_ENTIDADE).
+  const entidadesMarcadasParaRemocao = new Set(
+    modelo.impactos.filter((i) => i.tipoOperacao === 'REMOVE_ENTIDADE').map((i) => i.entidadeId),
+  );
 
   if (entidadesEmFoco && entidadesEmFoco.length > 0) {
     const foco = new Set(entidadesEmFoco);
@@ -198,33 +225,34 @@ export function gerarErDiagram(modelo: ModeloDadosProjeto, opcoes: OpcoesDiagram
     const destino = nomePorId.get(relacionamento.entidadeDestinoId);
     if (!origem || !destino) continue;
     const cardinalidade = CARDINALIDADE_MERMAID[relacionamento.tipo] ?? '||--o{';
-    const rotulo = relacionamento.atributoFk ?? 'relaciona';
+    const rotulo = relacionamento.atributoFkNome ?? 'relaciona';
     linhas.push(`    ${origem} ${cardinalidade} ${destino} : "${rotulo}"`);
   }
 
+  const nomesMarcadosParaRemocao: string[] = [];
+
   for (const entidade of entidades) {
     const nome = nomePorId.get(entidade.id) as string;
+    if (entidadesMarcadasParaRemocao.has(entidade.id)) {
+      nomesMarcadosParaRemocao.push(nome);
+    }
+
     if (somenteEstrutura) {
       linhas.push(`    ${nome} {`, '    }');
       continue;
     }
 
-    const chavesEstrangeiras = new Set(
-      modelo.relacionamentos
-        .filter((r) => r.entidadeDestinoId === entidade.id && r.atributoFk)
-        .map((r) => r.atributoFk as string),
-    );
-
     linhas.push(`    ${nome} {`);
     for (const atributo of modelo.atributos.filter((a) => a.entidadeId === entidade.id)) {
-      const marcador = atributo.chavePrimaria
-        ? ' PK'
-        : chavesEstrangeiras.has(atributo.nome)
-          ? ' FK'
-          : '';
+      const marcador = atributo.chavePrimaria ? ' PK' : atributo.chaveEstrangeira ? ' FK' : '';
       linhas.push(`        ${tipoMermaid(atributo.tipo)} ${atributo.nome}${marcador}`);
     }
     linhas.push('    }');
+  }
+
+  if (nomesMarcadosParaRemocao.length > 0) {
+    linhas.push(`    classDef ${CLASSE_ENTIDADE_REMOVIDA} fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D`);
+    linhas.push(`    class ${nomesMarcadosParaRemocao.join(',')} ${CLASSE_ENTIDADE_REMOVIDA}`);
   }
 
   return linhas.join('\n');

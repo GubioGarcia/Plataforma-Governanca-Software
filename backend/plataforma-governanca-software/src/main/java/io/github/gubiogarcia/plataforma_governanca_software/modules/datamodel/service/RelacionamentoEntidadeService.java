@@ -2,11 +2,14 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.s
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain.AtributoEntidade;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain.EntidadeDados;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain.RelacionamentoEntidade;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.domain.TipoRelacionamentoEntidade;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto.AtualizarRelacionamentoEntidadeRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto.CriarRelacionamentoEntidadeRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.dto.RelacionamentoEntidadeResponseDTO;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.repository.AtributoEntidadeRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.repository.EntidadeDadosRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.repository.RelacionamentoEntidadeRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
@@ -26,8 +29,13 @@ import java.util.UUID;
 
 /**
  * CRUD dos relacionamentos (FKs) entre entidades de negócio de um projeto.
- * Base de dados já pronta para a rastreabilidade indireta via cadeia de FKs
- * (Opção 1C do estudo), ainda não implementada.
+ *
+ * A maior parte dos relacionamentos é <b>derivada</b>: quando um
+ * {@link AtributoEntidade} é marcado como chave estrangeira,
+ * {@code AtributoEntidadeService} chama {@link #sincronizarPorAtributo} /
+ * {@link #removerPorAtributo} para manter a linha correspondente aqui em dia.
+ * O CRUD manual (endpoints REST) continua disponível para relacionamentos
+ * sem um atributo físico correspondente.
  */
 @Slf4j
 @Service
@@ -36,11 +44,51 @@ public class RelacionamentoEntidadeService {
 
     private final RelacionamentoEntidadeRepository relacionamentoEntidadeRepository;
     private final EntidadeDadosRepository entidadeDadosRepository;
+    private final AtributoEntidadeRepository atributoEntidadeRepository;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
 
-    // ── Criar ─────────────────────────────────────────────────────────────────
+    // ── Sincronização derivada (chamada por AtributoEntidadeService) ───────────
+
+    /**
+     * Cria ou atualiza o relacionamento derivado de {@code atributo}. Reaproveita
+     * as mesmas validações do CRUD manual (não-reflexivo, mesmo projeto).
+     */
+    @Transactional
+    public RelacionamentoEntidade sincronizarPorAtributo(AtributoEntidade atributo, EntidadeDados entidadeReferenciada, TipoRelacionamentoEntidade tipo) {
+        EntidadeDados origem = atributo.getEntidade();
+
+        if (origem.getId().equals(entidadeReferenciada.getId())) {
+            throw new RelacionamentoEntidadeReflexivoException();
+        }
+        if (!origem.getProjeto().getId().equals(entidadeReferenciada.getProjeto().getId())) {
+            throw new EntidadesDeProjetosDiferentesException();
+        }
+
+        RelacionamentoEntidade rel = relacionamentoEntidadeRepository.findByAtributoFkId(atributo.getId())
+                .orElseGet(() -> RelacionamentoEntidade.builder().atributoFk(atributo).build());
+
+        rel.setEntidadeOrigem(origem);
+        rel.setEntidadeDestino(entidadeReferenciada);
+        rel.setTipo(tipo);
+
+        rel = relacionamentoEntidadeRepository.save(rel);
+        log.info("RelacionamentoEntidade sincronizado a partir do atributo {}: {} -> {} ({}).",
+                atributo.getId(), origem.getNome(), entidadeReferenciada.getNome(), tipo);
+        return rel;
+    }
+
+    /** Remove o relacionamento derivado de {@code atributoId}, se existir. */
+    @Transactional
+    public void removerPorAtributo(UUID atributoId) {
+        relacionamentoEntidadeRepository.findByAtributoFkId(atributoId).ifPresent(rel -> {
+            relacionamentoEntidadeRepository.delete(rel);
+            log.info("RelacionamentoEntidade {} removido (atributo {} deixou de ser FK).", rel.getId(), atributoId);
+        });
+    }
+
+    // ── Criar (manual) ───────────────────────────────────────────────────────
 
     @Transactional
     public RelacionamentoEntidadeResponseDTO criar(Jwt jwt, CriarRelacionamentoEntidadeRequestDTO request) {
@@ -58,16 +106,14 @@ public class RelacionamentoEntidadeService {
         if (!origem.getProjeto().getId().equals(destino.getProjeto().getId())) {
             throw new EntidadesDeProjetosDiferentesException();
         }
-        if (relacionamentoEntidadeRepository.existsByEntidadeOrigemIdAndEntidadeDestinoIdAndTipo(
-                origem.getId(), destino.getId(), request.tipo())) {
-            throw new RelacionamentoEntidadeDuplicadoException();
-        }
+
+        AtributoEntidade atributoFk = resolverAtributoFk(request.atributoFkId());
 
         RelacionamentoEntidade rel = RelacionamentoEntidade.builder()
                 .entidadeOrigem(origem)
                 .entidadeDestino(destino)
                 .tipo(request.tipo())
-                .atributoFk(request.atributoFk())
+                .atributoFk(atributoFk)
                 .build();
 
         rel = relacionamentoEntidadeRepository.save(rel);
@@ -111,7 +157,7 @@ public class RelacionamentoEntidadeService {
         return mapToResponseDTO(carregar(id));
     }
 
-    // ── Atualizar ─────────────────────────────────────────────────────────────
+    // ── Atualizar (manual) ───────────────────────────────────────────────────
 
     @Transactional
     public RelacionamentoEntidadeResponseDTO atualizar(Jwt jwt, UUID id, AtualizarRelacionamentoEntidadeRequestDTO request) {
@@ -120,10 +166,6 @@ public class RelacionamentoEntidadeService {
         Projeto projeto = rel.getEntidadeOrigem().getProjeto();
 
         if (!request.tipo().equals(rel.getTipo())) {
-            if (relacionamentoEntidadeRepository.existsByEntidadeOrigemIdAndEntidadeDestinoIdAndTipo(
-                    rel.getEntidadeOrigem().getId(), rel.getEntidadeDestino().getId(), request.tipo())) {
-                throw new RelacionamentoEntidadeDuplicadoException();
-            }
             auditoriaService.registrar(
                     usuario, projeto.getOrganizacao(), projeto,
                     "RELACIONAMENTO_ENTIDADE", id, AcaoAuditoria.EDICAO, "tipo",
@@ -132,13 +174,16 @@ public class RelacionamentoEntidadeService {
             rel.setTipo(request.tipo());
         }
 
-        if (request.atributoFk() != null && !request.atributoFk().equals(rel.getAtributoFk())) {
+        UUID atributoFkAtualId = rel.getAtributoFk() != null ? rel.getAtributoFk().getId() : null;
+        if (request.atributoFkId() != null && !request.atributoFkId().equals(atributoFkAtualId)) {
+            AtributoEntidade novoAtributoFk = resolverAtributoFk(request.atributoFkId());
             auditoriaService.registrar(
                     usuario, projeto.getOrganizacao(), projeto,
                     "RELACIONAMENTO_ENTIDADE", id, AcaoAuditoria.EDICAO, "atributo_fk",
-                    rel.getAtributoFk(), request.atributoFk()
+                    rel.getAtributoFk() != null ? rel.getAtributoFk().getNome() : null,
+                    novoAtributoFk != null ? novoAtributoFk.getNome() : null
             );
-            rel.setAtributoFk(request.atributoFk());
+            rel.setAtributoFk(novoAtributoFk);
         }
 
         rel = relacionamentoEntidadeRepository.save(rel);
@@ -173,6 +218,18 @@ public class RelacionamentoEntidadeService {
                 .orElseThrow(() -> new RelacionamentoEntidadeNaoEncontradoException(id));
     }
 
+    private AtributoEntidade resolverAtributoFk(UUID atributoFkId) {
+        if (atributoFkId == null) {
+            return null;
+        }
+        AtributoEntidade atributo = atributoEntidadeRepository.findById(atributoFkId)
+                .orElseThrow(() -> new AtributoEntidadeService.AtributoEntidadeNaoEncontradoException(atributoFkId));
+        if (relacionamentoEntidadeRepository.existsByAtributoFkId(atributoFkId)) {
+            throw new AtributoFkJaVinculadoException(atributoFkId);
+        }
+        return atributo;
+    }
+
     private Usuario resolverUsuario(Jwt jwt) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
         return usuarioRepository.findByExternalIdentityId(keycloakId)
@@ -188,7 +245,8 @@ public class RelacionamentoEntidadeService {
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getId() : null,
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getNome() : null,
                 r.getTipo(),
-                r.getAtributoFk()
+                r.getAtributoFk() != null ? r.getAtributoFk().getId() : null,
+                r.getAtributoFk() != null ? r.getAtributoFk().getNome() : null
         );
     }
 
@@ -197,12 +255,6 @@ public class RelacionamentoEntidadeService {
     public static class RelacionamentoEntidadeNaoEncontradoException extends RuntimeException {
         public RelacionamentoEntidadeNaoEncontradoException(UUID id) {
             super("Relacionamento de entidade não encontrado com o id: " + id);
-        }
-    }
-
-    public static class RelacionamentoEntidadeDuplicadoException extends RuntimeException {
-        public RelacionamentoEntidadeDuplicadoException() {
-            super("Já existe um relacionamento entre essas entidades com o mesmo tipo.");
         }
     }
 
@@ -215,6 +267,12 @@ public class RelacionamentoEntidadeService {
     public static class EntidadesDeProjetosDiferentesException extends RuntimeException {
         public EntidadesDeProjetosDiferentesException() {
             super("As entidades de origem e destino pertencem a projetos diferentes.");
+        }
+    }
+
+    public static class AtributoFkJaVinculadoException extends RuntimeException {
+        public AtributoFkJaVinculadoException(UUID atributoId) {
+            super("O atributo " + atributoId + " já materializa outro relacionamento.");
         }
     }
 }
