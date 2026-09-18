@@ -29,6 +29,11 @@ interface AtributoEntidadeResponseDTO {
   obrigatorio: boolean;
   chavePrimaria: boolean;
   ordem: number | null;
+  chaveEstrangeira: boolean;
+  entidadeReferenciadaId: string | null;
+  entidadeReferenciadaNome: string | null;
+  relacionamentoId: string | null;
+  tipoRelacionamento: TipoRelacionamentoEntidade | null;
 }
 
 interface RelacionamentoEntidadeResponseDTO {
@@ -36,7 +41,8 @@ interface RelacionamentoEntidadeResponseDTO {
   entidadeOrigemId: string;
   entidadeDestinoId: string;
   tipo: TipoRelacionamentoEntidade;
-  atributoFk: string | null;
+  atributoFkId: string | null;
+  atributoFkNome: string | null;
 }
 
 interface EntidadeDadosDetalheResponseDTO {
@@ -86,6 +92,11 @@ function toAtributo(a: AtributoEntidadeResponseDTO): AtributoEntidadeAPI {
     tipo: a.tipo,
     obrigatorio: a.obrigatorio,
     chavePrimaria: a.chavePrimaria,
+    chaveEstrangeira: a.chaveEstrangeira,
+    entidadeReferenciadaId: a.entidadeReferenciadaId,
+    entidadeReferenciadaNome: a.entidadeReferenciadaNome,
+    relacionamentoId: a.relacionamentoId,
+    tipoRelacionamento: a.tipoRelacionamento,
   };
 }
 
@@ -95,7 +106,8 @@ function toRelacionamento(r: RelacionamentoEntidadeResponseDTO): RelacionamentoE
     entidadeOrigemId: r.entidadeOrigemId,
     entidadeDestinoId: r.entidadeDestinoId,
     tipo: r.tipo,
-    atributoFk: r.atributoFk,
+    atributoFkId: r.atributoFkId,
+    atributoFkNome: r.atributoFkNome,
   };
 }
 
@@ -150,9 +162,30 @@ export async function criarEntidade(
   return toEntidade(res.data);
 }
 
+export async function atualizarEntidade(
+  _projetoId: string,
+  entidadeId: string,
+  payload: { nome: string; descricao: string | null },
+): Promise<EntidadeDadosAPI> {
+  const res = await api.put<EntidadeDadosResponseDTO>(
+    `/entidade-dados/${entidadeId}`,
+    { nome: payload.nome, descricao: payload.descricao },
+  );
+  return toEntidade(res.data);
+}
+
 export async function criarAtributo(
   _projetoId: string,
-  payload: { entidadeId: string; nome: string; tipo: string; obrigatorio: boolean; chavePrimaria: boolean },
+  payload: {
+    entidadeId: string;
+    nome: string;
+    tipo: string;
+    obrigatorio: boolean;
+    chavePrimaria: boolean;
+    chaveEstrangeira?: boolean;
+    entidadeReferenciadaId?: string | null;
+    tipoRelacionamento?: TipoRelacionamentoEntidade | null;
+  },
 ): Promise<AtributoEntidadeAPI> {
   const res = await api.post<AtributoEntidadeResponseDTO>(
     `/atributo-entidade/entidade/${payload.entidadeId}`,
@@ -162,6 +195,38 @@ export async function criarAtributo(
       obrigatorio: payload.obrigatorio,
       chavePrimaria: payload.chavePrimaria,
       ordem: null,
+      chaveEstrangeira: payload.chaveEstrangeira ?? false,
+      entidadeReferenciadaId: payload.entidadeReferenciadaId ?? null,
+      tipoRelacionamento: payload.tipoRelacionamento ?? null,
+    },
+  );
+  return toAtributo(res.data);
+}
+
+export async function atualizarAtributo(
+  _projetoId: string,
+  atributoId: string,
+  payload: {
+    nome: string;
+    tipo: string;
+    obrigatorio: boolean;
+    chavePrimaria: boolean;
+    chaveEstrangeira?: boolean;
+    entidadeReferenciadaId?: string | null;
+    tipoRelacionamento?: TipoRelacionamentoEntidade | null;
+  },
+): Promise<AtributoEntidadeAPI> {
+  const res = await api.put<AtributoEntidadeResponseDTO>(
+    `/atributo-entidade/${atributoId}`,
+    {
+      nome: payload.nome,
+      tipo: payload.tipo,
+      obrigatorio: payload.obrigatorio,
+      chavePrimaria: payload.chavePrimaria,
+      ordem: null,
+      chaveEstrangeira: payload.chaveEstrangeira ?? false,
+      entidadeReferenciadaId: payload.entidadeReferenciadaId ?? null,
+      tipoRelacionamento: payload.tipoRelacionamento ?? null,
     },
   );
   return toAtributo(res.data);
@@ -192,7 +257,9 @@ export default {
   obterModelo,
   restaurarModelo,
   criarEntidade,
+  atualizarEntidade,
   criarAtributo,
+  atualizarAtributo,
   criarImpacto,
   deletarImpacto,
 };

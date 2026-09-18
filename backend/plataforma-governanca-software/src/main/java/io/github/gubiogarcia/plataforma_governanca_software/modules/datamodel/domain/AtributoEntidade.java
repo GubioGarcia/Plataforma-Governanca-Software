@@ -47,4 +47,18 @@ public class AtributoEntidade {
 
     /** Ordem de exibição da coluna no diagrama ER (menor = primeiro). */
     private Integer ordem;
+
+    /**
+     * Marca a coluna como chave estrangeira. Quando {@code true}, o
+     * {@link RelacionamentoEntidade} correspondente é derivado e mantido
+     * automaticamente por {@code AtributoEntidadeService}.
+     */
+    @Column(name = "chave_estrangeira", nullable = false)
+    @Builder.Default
+    private Boolean chaveEstrangeira = false;
+
+    /** Entidade referenciada pela FK, quando {@code chaveEstrangeira} é {@code true}. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "entidade_referenciada_id")
+    private EntidadeDados entidadeReferenciada;
 }

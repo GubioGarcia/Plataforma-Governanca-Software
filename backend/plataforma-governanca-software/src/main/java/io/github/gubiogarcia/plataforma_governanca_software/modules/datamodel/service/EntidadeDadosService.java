@@ -237,6 +237,9 @@ public class EntidadeDadosService {
     }
 
     private AtributoEntidadeResponseDTO mapAtributo(AtributoEntidade a) {
+        RelacionamentoEntidade relacionamento = Boolean.TRUE.equals(a.getChaveEstrangeira())
+                ? relacionamentoEntidadeRepository.findByAtributoFkId(a.getId()).orElse(null)
+                : null;
         return new AtributoEntidadeResponseDTO(
                 a.getId(),
                 a.getEntidade() != null ? a.getEntidade().getId() : null,
@@ -244,7 +247,12 @@ public class EntidadeDadosService {
                 a.getTipo(),
                 a.getObrigatorio(),
                 a.getChavePrimaria(),
-                a.getOrdem()
+                a.getOrdem(),
+                a.getChaveEstrangeira(),
+                a.getEntidadeReferenciada() != null ? a.getEntidadeReferenciada().getId() : null,
+                a.getEntidadeReferenciada() != null ? a.getEntidadeReferenciada().getNome() : null,
+                relacionamento != null ? relacionamento.getId() : null,
+                relacionamento != null ? relacionamento.getTipo() : null
         );
     }
 
@@ -256,7 +264,8 @@ public class EntidadeDadosService {
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getId() : null,
                 r.getEntidadeDestino() != null ? r.getEntidadeDestino().getNome() : null,
                 r.getTipo(),
-                r.getAtributoFk()
+                r.getAtributoFk() != null ? r.getAtributoFk().getId() : null,
+                r.getAtributoFk() != null ? r.getAtributoFk().getNome() : null
         );
     }
 

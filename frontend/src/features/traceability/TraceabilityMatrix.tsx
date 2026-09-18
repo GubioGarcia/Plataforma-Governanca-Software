@@ -33,6 +33,7 @@ import MetricBand from '../../components/common/MetricBand';
 import PageHeading from '../../components/common/PageHeading';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import { obterModelo } from '../../services/dataModelService';
 import {
@@ -145,6 +146,8 @@ export default function TraceabilityMatrix() {
       ]);
       setVinculos(vinculosCarregados);
       setModelo(modeloCarregado);
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Não foi possível carregar a matriz de rastreabilidade.'), 'error');
     } finally {
       setCarregando(false);
     }
@@ -223,6 +226,8 @@ export default function TraceabilityMatrix() {
       setVinculos((atual) => [...atual, criado]);
       setDialogVinculoAberto(false);
       notify('Vínculo criado com sucesso', 'success');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao criar vínculo.'), 'error');
     } finally {
       setSalvando(false);
     }
@@ -230,10 +235,14 @@ export default function TraceabilityMatrix() {
 
   async function removerVinculo(vinculoId: string) {
     if (!projectId) return;
-    await deletarVinculo(projectId, vinculoId);
-    setVinculos((atual) => atual.filter((v) => v.id !== vinculoId));
-    setSelecao(null);
-    notify('Vínculo removido', 'info');
+    try {
+      await deletarVinculo(projectId, vinculoId);
+      setVinculos((atual) => atual.filter((v) => v.id !== vinculoId));
+      setSelecao(null);
+      notify('Vínculo removido', 'info');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao remover vínculo.'), 'error');
+    }
   }
 
   async function restaurarCenario() {
@@ -243,6 +252,8 @@ export default function TraceabilityMatrix() {
       const restaurados = await restaurarVinculos(projectId, requisitos.map((r) => r.id));
       setVinculos(restaurados);
       notify('Vínculos recarregados do servidor', 'info');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Não foi possível recarregar os vínculos.'), 'error');
     } finally {
       setCarregando(false);
     }

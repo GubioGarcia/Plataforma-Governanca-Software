@@ -26,6 +26,7 @@ import LinkIcon from '@mui/icons-material/Link';
 import StorageIcon from '@mui/icons-material/Storage';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import { obterModelo } from '../../services/dataModelService';
 import { criarVinculo, deletarVinculo, listarVinculos } from '../../services/traceabilityService';
@@ -102,10 +103,12 @@ export default function TraceabilityCard({
       ]);
       setVinculos(vinculosCarregados);
       setModelo(modeloCarregado);
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Não foi possível carregar a rastreabilidade deste requisito.'), 'error');
     } finally {
       setCarregando(false);
     }
-  }, [projetoId]);
+  }, [projetoId, notify]);
 
   useEffect(() => {
     carregar();
@@ -148,15 +151,21 @@ export default function TraceabilityCard({
       setDialogAberto(false);
       setForm({ requisitoDestinoId: '', tipo: 'DEPENDE_DE' });
       notify('Vínculo criado com sucesso', 'success');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao criar vínculo.'), 'error');
     } finally {
       setSalvando(false);
     }
   }
 
   async function removerVinculo(vinculoId: string) {
-    await deletarVinculo(projetoId, vinculoId);
-    setVinculos((atual) => atual.filter((v) => v.id !== vinculoId));
-    notify('Vínculo removido', 'info');
+    try {
+      await deletarVinculo(projetoId, vinculoId);
+      setVinculos((atual) => atual.filter((v) => v.id !== vinculoId));
+      notify('Vínculo removido', 'info');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao remover vínculo.'), 'error');
+    }
   }
 
   function abrirRequisito(id: string) {

@@ -18,5 +18,9 @@ public interface AtributoEntidadeRepository extends JpaRepository<AtributoEntida
 
     boolean existsByEntidadeIdAndNomeIgnoreCase(UUID entidadeId, String nome);
 
+    boolean existsByEntidadeIdAndChavePrimariaTrue(UUID entidadeId);
+
+    boolean existsByEntidadeIdAndChavePrimariaTrueAndIdNot(UUID entidadeId, UUID id);
+
     long countByEntidadeId(UUID entidadeId);
 }

@@ -87,7 +87,7 @@ class ImpactoDadosServiceTest {
 
         clienteId = entidadeDadosService.criar(jwtMock, projeto.getId(), new CriarEntidadeDadosRequestDTO("Cliente", null)).id();
         cpfId = atributoEntidadeService.criar(jwtMock, clienteId,
-                new CriarAtributoEntidadeRequestDTO("cpf", "VARCHAR(11)", true, 1)).id();
+                new CriarAtributoEntidadeRequestDTO("cpf", "VARCHAR(11)", true, false, 1, false, null, null)).id();
     }
 
     private Requisito novoRequisito(Usuario usuario, String codigo, String titulo) {

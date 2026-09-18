@@ -38,6 +38,14 @@ export interface AtributoEntidadeAPI {
   obrigatorio: boolean;
   /** Marca a chave primária — usado na leitura do diagrama e na tabela de atributos. */
   chavePrimaria: boolean;
+  /** Marca a chave estrangeira — deriva um RelacionamentoEntidade automaticamente. */
+  chaveEstrangeira: boolean;
+  /** Entidade referenciada pela FK, quando `chaveEstrangeira` é `true`. */
+  entidadeReferenciadaId: string | null;
+  entidadeReferenciadaNome: string | null;
+  /** Relacionamento derivado deste atributo, quando `chaveEstrangeira` é `true`. */
+  relacionamentoId: string | null;
+  tipoRelacionamento: TipoRelacionamentoEntidade | null;
 }
 
 export interface RelacionamentoEntidadeAPI {
@@ -45,8 +53,9 @@ export interface RelacionamentoEntidadeAPI {
   entidadeOrigemId: string;
   entidadeDestinoId: string;
   tipo: TipoRelacionamentoEntidade;
-  /** Atributo que materializa a FK (ex.: `cliente_id`); `null` quando não informado. */
-  atributoFk: string | null;
+  /** Atributo (da entidade de origem) que materializa a FK; `null` quando não informado. */
+  atributoFkId: string | null;
+  atributoFkNome: string | null;
 }
 
 export interface ImpactoDadosAPI {

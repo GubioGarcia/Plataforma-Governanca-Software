@@ -387,15 +387,25 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.CONFLICT, "Atributo em uso", ex.getMessage(), "/errors/atributo-entidade-em-uso");
     }
 
+    @ExceptionHandler(AtributoEntidadeService.EntidadeReferenciadaObrigatoriaException.class)
+    public ProblemDetail handleEntidadeReferenciadaObrigatoria(AtributoEntidadeService.EntidadeReferenciadaObrigatoriaException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Entidade referenciada obrigatória", ex.getMessage(), "/errors/entidade-referenciada-obrigatoria");
+    }
+
+    @ExceptionHandler(AtributoEntidadeService.AtributoEntidadeChavePrimariaJaExisteException.class)
+    public ProblemDetail handleAtributoEntidadeChavePrimariaJaExiste(AtributoEntidadeService.AtributoEntidadeChavePrimariaJaExisteException ex) {
+        return problem(HttpStatus.CONFLICT, "Chave primária já existe", ex.getMessage(), "/errors/atributo-entidade-chave-primaria-ja-existe");
+    }
+
     // RelacionamentoEntidade (DataModel)
     @ExceptionHandler(RelacionamentoEntidadeService.RelacionamentoEntidadeNaoEncontradoException.class)
     public ProblemDetail handleRelacionamentoEntidadeNaoEncontrado(RelacionamentoEntidadeService.RelacionamentoEntidadeNaoEncontradoException ex) {
         return problem(HttpStatus.NOT_FOUND, "Relacionamento não encontrado", ex.getMessage(), "/errors/relacionamento-entidade-nao-encontrado");
     }
 
-    @ExceptionHandler(RelacionamentoEntidadeService.RelacionamentoEntidadeDuplicadoException.class)
-    public ProblemDetail handleRelacionamentoEntidadeDuplicado(RelacionamentoEntidadeService.RelacionamentoEntidadeDuplicadoException ex) {
-        return problem(HttpStatus.CONFLICT, "Relacionamento duplicado", ex.getMessage(), "/errors/relacionamento-entidade-duplicado");
+    @ExceptionHandler(RelacionamentoEntidadeService.AtributoFkJaVinculadoException.class)
+    public ProblemDetail handleAtributoFkJaVinculado(RelacionamentoEntidadeService.AtributoFkJaVinculadoException ex) {
+        return problem(HttpStatus.CONFLICT, "Atributo FK já vinculado", ex.getMessage(), "/errors/atributo-fk-ja-vinculado");
     }
 
     @ExceptionHandler(RelacionamentoEntidadeService.RelacionamentoEntidadeReflexivoException.class)

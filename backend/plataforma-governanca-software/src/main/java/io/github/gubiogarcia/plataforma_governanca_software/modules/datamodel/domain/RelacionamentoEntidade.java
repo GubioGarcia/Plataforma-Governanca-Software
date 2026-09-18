@@ -7,18 +7,14 @@ import java.util.UUID;
 
 /**
  * Auto-relacionamento N:N em EntidadeDados — representa a FK entre duas
- * entidades de negócio do projeto (ex: Pedido -> Cliente). Base de dados
- * já deixada pronta para a rastreabilidade indireta via cadeia de FKs,
- * ainda não implementada nesta versão.
+ * entidades de negócio do projeto (ex: Pedido -> Cliente). Cada linha é
+ * derivada de um {@link AtributoEntidade} marcado como chave estrangeira
+ * ({@code atributoFk}, único) e mantida automaticamente por
+ * {@code AtributoEntidadeService}; o CRUD manual continua disponível para
+ * casos sem um atributo físico correspondente.
  */
 @Entity
-@Table(
-        name = "relacionamento_entidade",
-        uniqueConstraints = @UniqueConstraint(
-                name = "uk_relacionamento_entidade",
-                columnNames = {"entidade_origem_id", "entidade_destino_id", "tipo"}
-        )
-)
+@Table(name = "relacionamento_entidade")
 @Getter
 @Setter
 @NoArgsConstructor
@@ -42,7 +38,8 @@ public class RelacionamentoEntidade {
     @Column(nullable = false, length = 50)
     private TipoRelacionamentoEntidade tipo;
 
-    /** Nome do atributo da entidade de destino que materializa a FK (ex.: {@code cliente_id}). */
-    @Column(length = 100)
-    private String atributoFk;
+    /** Atributo da entidade de origem que materializa a FK (ex.: {@code cliente_id}). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "atributo_fk_id", unique = true)
+    private AtributoEntidade atributoFk;
 }

@@ -29,6 +29,7 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import EditIcon from '@mui/icons-material/Edit';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
 import TableChartIcon from '@mui/icons-material/TableChart';
 import EmptyState from '../../components/common/EmptyState';
@@ -37,24 +38,26 @@ import MetricBand from '../../components/common/MetricBand';
 import PageHeading from '../../components/common/PageHeading';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { extractApiErrorMessage } from '../../utils/apiError';
 import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import {
+  atualizarAtributo,
   criarAtributo,
   criarEntidade,
   obterModelo,
   restaurarModelo,
 } from '../../services/dataModelService';
-import { gerarErDiagram, idEntidadeNoDiagrama, ROTULOS_OPERACAO, CORES_OPERACAO } from '../../utils/dataModel';
-import type { ModeloDadosProjeto } from '../../types/dataModel';
+import {
+  gerarErDiagram,
+  idEntidadeNoDiagrama,
+  ROTULOS_OPERACAO,
+  ROTULOS_CARDINALIDADE,
+  CORES_OPERACAO,
+} from '../../utils/dataModel';
+import type { AtributoEntidadeAPI, ModeloDadosProjeto, TipoRelacionamentoEntidade } from '../../types/dataModel';
 import type { RequisitoAPI } from '../../types/requirementAPI';
 import { ETIQUETA, FONTE_DADOS } from '../../theme/tokens';
 import ErDiagram from './ErDiagram';
-
-const ROTULOS_CARDINALIDADE: Record<string, string> = {
-  UM_PARA_UM: '1 : 1',
-  UM_PARA_MUITOS: '1 : N',
-  MUITOS_PARA_MUITOS: 'N : N',
-};
 
 const TIPOS_SUGERIDOS = [
   'UUID',
@@ -98,13 +101,47 @@ export default function DataModelPage() {
   const [dialogEntidadeAberto, setDialogEntidadeAberto] = useState(false);
   const [formEntidade, setFormEntidade] = useState({ nome: '', descricao: '' });
   const [dialogAtributoAberto, setDialogAtributoAberto] = useState(false);
+  const [atributoEmEdicao, setAtributoEmEdicao] = useState<AtributoEntidadeAPI | null>(null);
   const [formAtributo, setFormAtributo] = useState({
     nome: '',
     tipo: 'VARCHAR(150)',
     obrigatorio: true,
     chavePrimaria: false,
+    chaveEstrangeira: false,
+    entidadeReferenciadaId: '',
+    tipoRelacionamento: 'UM_PARA_MUITOS' as TipoRelacionamentoEntidade,
   });
   const [salvando, setSalvando] = useState(false);
+
+  const ATRIBUTO_FORM_VAZIO = {
+    nome: '',
+    tipo: 'VARCHAR(150)',
+    obrigatorio: true,
+    chavePrimaria: false,
+    chaveEstrangeira: false,
+    entidadeReferenciadaId: '',
+    tipoRelacionamento: 'UM_PARA_MUITOS' as TipoRelacionamentoEntidade,
+  };
+
+  function abrirNovoAtributo() {
+    setAtributoEmEdicao(null);
+    setFormAtributo(ATRIBUTO_FORM_VAZIO);
+    setDialogAtributoAberto(true);
+  }
+
+  function abrirEdicaoAtributo(atributo: AtributoEntidadeAPI) {
+    setAtributoEmEdicao(atributo);
+    setFormAtributo({
+      nome: atributo.nome,
+      tipo: atributo.tipo,
+      obrigatorio: atributo.obrigatorio,
+      chavePrimaria: atributo.chavePrimaria,
+      chaveEstrangeira: atributo.chaveEstrangeira,
+      entidadeReferenciadaId: atributo.entidadeReferenciadaId ?? '',
+      tipoRelacionamento: atributo.tipoRelacionamento ?? 'UM_PARA_MUITOS',
+    });
+    setDialogAtributoAberto(true);
+  }
 
   const carregar = useCallback(async () => {
     if (!projectId) return;
@@ -124,6 +161,8 @@ export default function DataModelPage() {
       const carregado = await obterModelo(projectId, ordenados.map((r) => r.id));
       setModelo(carregado);
       setEntidadeSelecionadaId((atual) => atual ?? carregado.entidades[0]?.id ?? null);
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Não foi possível carregar o modelo de dados.'), 'error');
     } finally {
       setCarregando(false);
     }
@@ -141,6 +180,12 @@ export default function DataModelPage() {
   const atributosDaEntidade = useMemo(
     () => modelo.atributos.filter((a) => a.entidadeId === entidadeSelecionadaId),
     [modelo.atributos, entidadeSelecionadaId],
+  );
+
+  // Uma entidade só pode ter uma PK — desabilita o switch quando já existe
+  // outro atributo marcado (ignora o próprio atributo em edição).
+  const entidadeJaTemOutraChavePrimaria = atributosDaEntidade.some(
+    (a) => a.chavePrimaria && a.id !== atributoEmEdicao?.id,
   );
 
   const relacionamentosDaEntidade = useMemo(
@@ -184,6 +229,8 @@ export default function DataModelPage() {
       setDialogEntidadeAberto(false);
       setFormEntidade({ nome: '', descricao: '' });
       notify('Entidade criada com sucesso', 'success');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Erro ao criar entidade.'), 'error');
     } finally {
       setSalvando(false);
     }
@@ -193,17 +240,43 @@ export default function DataModelPage() {
     if (!projectId || !entidadeSelecionadaId || !formAtributo.nome.trim()) return;
     setSalvando(true);
     try {
-      const criado = await criarAtributo(projectId, {
-        entidadeId: entidadeSelecionadaId,
-        nome: formAtributo.nome.trim(),
-        tipo: formAtributo.tipo,
-        obrigatorio: formAtributo.obrigatorio,
-        chavePrimaria: formAtributo.chavePrimaria,
-      });
-      setModelo((atual) => ({ ...atual, atributos: [...atual.atributos, criado] }));
+      if (atributoEmEdicao) {
+        await atualizarAtributo(projectId, atributoEmEdicao.id, {
+          nome: formAtributo.nome.trim(),
+          tipo: formAtributo.tipo,
+          obrigatorio: formAtributo.obrigatorio,
+          chavePrimaria: formAtributo.chavePrimaria,
+          chaveEstrangeira: formAtributo.chaveEstrangeira,
+          entidadeReferenciadaId: formAtributo.chaveEstrangeira ? formAtributo.entidadeReferenciadaId : null,
+          tipoRelacionamento: formAtributo.chaveEstrangeira ? formAtributo.tipoRelacionamento : null,
+        });
+        // A edição pode criar, remover ou alterar um RelacionamentoEntidade
+        // derivado — recarrega o modelo inteiro para refletir isso no
+        // diagrama e na lista de relacionamentos, não só o atributo em si.
+        await carregar();
+        notify('Atributo atualizado', 'success');
+      } else {
+        const criado = await criarAtributo(projectId, {
+          entidadeId: entidadeSelecionadaId,
+          nome: formAtributo.nome.trim(),
+          tipo: formAtributo.tipo,
+          obrigatorio: formAtributo.obrigatorio,
+          chavePrimaria: formAtributo.chavePrimaria,
+          chaveEstrangeira: formAtributo.chaveEstrangeira,
+          entidadeReferenciadaId: formAtributo.chaveEstrangeira ? formAtributo.entidadeReferenciadaId : null,
+          tipoRelacionamento: formAtributo.chaveEstrangeira ? formAtributo.tipoRelacionamento : null,
+        });
+        setModelo((atual) => ({ ...atual, atributos: [...atual.atributos, criado] }));
+        notify('Atributo adicionado', 'success');
+      }
       setDialogAtributoAberto(false);
-      setFormAtributo({ nome: '', tipo: 'VARCHAR(150)', obrigatorio: true, chavePrimaria: false });
-      notify('Atributo adicionado', 'success');
+      setAtributoEmEdicao(null);
+      setFormAtributo(ATRIBUTO_FORM_VAZIO);
+    } catch (err) {
+      notify(
+        extractApiErrorMessage(err, atributoEmEdicao ? 'Erro ao atualizar atributo.' : 'Erro ao adicionar atributo.'),
+        'error',
+      );
     } finally {
       setSalvando(false);
     }
@@ -217,6 +290,8 @@ export default function DataModelPage() {
       setModelo(restaurado);
       setEntidadeSelecionadaId((atual) => atual ?? restaurado.entidades[0]?.id ?? null);
       notify('Modelo recarregado do servidor', 'info');
+    } catch (err) {
+      notify(extractApiErrorMessage(err, 'Não foi possível recarregar o modelo de dados.'), 'error');
     } finally {
       setCarregando(false);
     }
@@ -394,7 +469,7 @@ export default function DataModelPage() {
                       )}
                     </Box>
                     {!isStakeholder && (
-                      <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setDialogAtributoAberto(true)}>
+                      <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={abrirNovoAtributo}>
                         Atributo
                       </Button>
                     )}
@@ -414,27 +489,38 @@ export default function DataModelPage() {
                           <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Obrigatório</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Chave</TableCell>
+                          {!isStakeholder && <TableCell sx={{ fontWeight: 700 }} align="right" />}
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {atributosDaEntidade.map((atributo) => {
-                          const ehFk = modelo.relacionamentos.some(
-                            (r) => r.entidadeDestinoId === entidadeSelecionada.id && r.atributoFk === atributo.nome,
-                          );
-                          return (
-                            <TableRow key={atributo.id}>
-                              <TableCell sx={{ fontFamily: FONTE_DADOS, fontSize: 12 }}>{atributo.nome}</TableCell>
-                              <TableCell sx={{ fontFamily: FONTE_DADOS, fontSize: 12, color: 'text.secondary' }}>
-                                {atributo.tipo}
+                        {atributosDaEntidade.map((atributo) => (
+                          <TableRow key={atributo.id}>
+                            <TableCell sx={{ fontFamily: FONTE_DADOS, fontSize: 12 }}>{atributo.nome}</TableCell>
+                            <TableCell sx={{ fontFamily: FONTE_DADOS, fontSize: 12, color: 'text.secondary' }}>
+                              {atributo.tipo}
+                            </TableCell>
+                            <TableCell>{atributo.obrigatorio ? 'Sim' : 'Não'}</TableCell>
+                            <TableCell>
+                              {atributo.chavePrimaria && <Chip label="PK" size="small" color="primary" sx={{ height: 18, fontSize: 10 }} />}
+                              {atributo.chaveEstrangeira && (
+                                <Chip
+                                  label={`FK → ${atributo.entidadeReferenciadaNome ?? '—'}`}
+                                  size="small"
+                                  sx={{ height: 18, fontSize: 10, ml: 0.5 }}
+                                />
+                              )}
+                            </TableCell>
+                            {!isStakeholder && (
+                              <TableCell align="right" sx={{ py: 0.5 }}>
+                                <Tooltip title="Editar atributo">
+                                  <IconButton size="small" onClick={() => abrirEdicaoAtributo(atributo)}>
+                                    <EditIcon sx={{ fontSize: 15 }} />
+                                  </IconButton>
+                                </Tooltip>
                               </TableCell>
-                              <TableCell>{atributo.obrigatorio ? 'Sim' : 'Não'}</TableCell>
-                              <TableCell>
-                                {atributo.chavePrimaria && <Chip label="PK" size="small" color="primary" sx={{ height: 18, fontSize: 10 }} />}
-                                {ehFk && <Chip label="FK" size="small" sx={{ height: 18, fontSize: 10, ml: 0.5 }} />}
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
+                            )}
+                          </TableRow>
+                        ))}
                       </TableBody>
                     </Table>
                   </Box>
@@ -477,9 +563,9 @@ export default function DataModelPage() {
                             <Typography variant="body2" sx={{ fontWeight: 600 }}>
                               {destino?.nome ?? '—'}
                             </Typography>
-                            {relacionamento.atributoFk && (
+                            {relacionamento.atributoFkNome && (
                               <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: FONTE_DADOS, fontSize: 10.5 }}>
-                                via {relacionamento.atributoFk}
+                                via {relacionamento.atributoFkNome}
                               </Typography>
                             )}
                           </Box>
@@ -588,9 +674,19 @@ export default function DataModelPage() {
         </DialogActions>
       </Dialog>
 
-      {/* ── Dialog: novo atributo ── */}
-      <Dialog open={dialogAtributoAberto} onClose={() => setDialogAtributoAberto(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Novo atributo em {entidadeSelecionada?.nome}</DialogTitle>
+      {/* ── Dialog: novo atributo / editar atributo ── */}
+      <Dialog
+        open={dialogAtributoAberto}
+        onClose={() => {
+          setDialogAtributoAberto(false);
+          setAtributoEmEdicao(null);
+        }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          {atributoEmEdicao ? `Editar atributo ${atributoEmEdicao.nome}` : `Novo atributo em ${entidadeSelecionada?.nome}`}
+        </DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: '16px !important' }}>
           <TextField
             label="Nome"
@@ -624,22 +720,90 @@ export default function DataModelPage() {
             }
             label="Obrigatório (NOT NULL)"
           />
+          <Tooltip title={entidadeJaTemOutraChavePrimaria ? 'Esta entidade já tem um atributo marcado como chave primária' : ''}>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={formAtributo.chavePrimaria}
+                  disabled={entidadeJaTemOutraChavePrimaria}
+                  onChange={(e) => setFormAtributo((f) => ({ ...f, chavePrimaria: e.target.checked }))}
+                />
+              }
+              label="Chave primária (PK)"
+            />
+          </Tooltip>
           <FormControlLabel
             control={
               <Switch
-                checked={formAtributo.chavePrimaria}
-                onChange={(e) => setFormAtributo((f) => ({ ...f, chavePrimaria: e.target.checked }))}
+                checked={formAtributo.chaveEstrangeira}
+                onChange={(e) => setFormAtributo((f) => ({ ...f, chaveEstrangeira: e.target.checked }))}
               />
             }
-            label="Chave primária (PK)"
+            label="Chave estrangeira (FK)"
           />
+          {formAtributo.chaveEstrangeira && (
+            <>
+              <FormControl fullWidth size="small">
+                <InputLabel>Entidade referenciada</InputLabel>
+                <Select
+                  label="Entidade referenciada"
+                  value={formAtributo.entidadeReferenciadaId}
+                  onChange={(e) => setFormAtributo((f) => ({ ...f, entidadeReferenciadaId: e.target.value }))}
+                >
+                  {modelo.entidades
+                    .filter((e) => e.id !== entidadeSelecionadaId)
+                    .map((e) => (
+                      <MenuItem key={e.id} value={e.id}>
+                        {e.nome}
+                      </MenuItem>
+                    ))}
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel>Cardinalidade</InputLabel>
+                <Select
+                  label="Cardinalidade"
+                  value={formAtributo.tipoRelacionamento}
+                  onChange={(e) =>
+                    setFormAtributo((f) => ({
+                      ...f,
+                      tipoRelacionamento: e.target.value as TipoRelacionamentoEntidade,
+                    }))
+                  }
+                >
+                  {(Object.keys(ROTULOS_CARDINALIDADE) as TipoRelacionamentoEntidade[]).map((tipo) => (
+                    <MenuItem key={tipo} value={tipo}>
+                      {ROTULOS_CARDINALIDADE[tipo]}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </>
+          )}
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDialogAtributoAberto(false)} color="inherit" size="small" disabled={salvando}>
+          <Button
+            onClick={() => {
+              setDialogAtributoAberto(false);
+              setAtributoEmEdicao(null);
+            }}
+            color="inherit"
+            size="small"
+            disabled={salvando}
+          >
             Cancelar
           </Button>
-          <Button onClick={salvarAtributo} variant="contained" size="small" disabled={salvando || !formAtributo.nome.trim()}>
-            {salvando ? 'Salvando...' : 'Adicionar'}
+          <Button
+            onClick={salvarAtributo}
+            variant="contained"
+            size="small"
+            disabled={
+              salvando ||
+              !formAtributo.nome.trim() ||
+              (formAtributo.chaveEstrangeira && !formAtributo.entidadeReferenciadaId)
+            }
+          >
+            {salvando ? 'Salvando...' : atributoEmEdicao ? 'Salvar' : 'Adicionar'}
           </Button>
         </DialogActions>
       </Dialog>

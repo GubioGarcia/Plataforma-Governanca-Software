@@ -157,7 +157,7 @@ class EntidadeDadosServiceTest {
         var cliente = entidadeDadosService.criar(jwtMock, projeto.getId(), new CriarEntidadeDadosRequestDTO("Cliente", null));
         var pedido = entidadeDadosService.criar(jwtMock, projeto.getId(), new CriarEntidadeDadosRequestDTO("Pedido", null));
         relacionamentoEntidadeService.criar(jwtMock, new CriarRelacionamentoEntidadeRequestDTO(
-                pedido.id(), cliente.id(), TipoRelacionamentoEntidade.UM_PARA_MUITOS));
+                pedido.id(), cliente.id(), TipoRelacionamentoEntidade.UM_PARA_MUITOS, null));
 
         var diagrama = entidadeDadosService.montarDiagrama(projeto.getId(), cliente.id());
 
