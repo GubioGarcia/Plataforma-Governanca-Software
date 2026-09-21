@@ -23,7 +23,9 @@ import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { alpha, useTheme } from '@mui/material/styles';
 import AddIcon from '@mui/icons-material/Add';
+import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
+import FullscreenIcon from '@mui/icons-material/Fullscreen';
 import HubIcon from '@mui/icons-material/Hub';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import RestartAltIcon from '@mui/icons-material/RestartAlt';
@@ -107,6 +109,7 @@ export default function TraceabilityMatrix() {
   const [filtro, setFiltro] = useState<Filtro>('TODOS');
   const [cruzamento, setCruzamento] = useState<{ linha: string; coluna: string } | null>(null);
 
+  const [matrizExpandida, setMatrizExpandida] = useState(false);
   const [selecao, setSelecao] = useState<SelecaoCelula | null>(null);
   const [requisitoAnalisado, setRequisitoAnalisado] = useState<string | null>(null);
   /** Muda a cada análise aberta para que a onda de propagação seja reexibida. */
@@ -333,9 +336,22 @@ export default function TraceabilityMatrix() {
           />
         </Card>
       ) : (
-        <Grid container spacing={3} alignItems="flex-start">
+        <>
           {/* ── Instrumento ── */}
-          <Grid size={{ xs: 12, lg: 8 }}>
+          <Box
+            sx={
+              matrizExpandida
+                ? {
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: (t) => t.zIndex.modal,
+                    bgcolor: 'background.default',
+                    p: { xs: 2, md: 4 },
+                    overflow: 'auto',
+                  }
+                : { mb: 3 }
+            }
+          >
             <Card variant="outlined" sx={{ borderRadius: 2, overflow: 'hidden' }}>
               <Box
                 sx={{
@@ -392,33 +408,41 @@ export default function TraceabilityMatrix() {
                   </Box>
                 </Box>
 
-                <ToggleButtonGroup
-                  size="small"
-                  exclusive
-                  value={filtro}
-                  onChange={(_, valor: Filtro | null) => valor && setFiltro(valor)}
-                  sx={{
-                    '& .MuiToggleButton-root': {
-                      px: 1.5,
-                      py: 0.35,
-                      fontFamily: FONTE_DADOS,
-                      fontSize: 10.5,
-                      letterSpacing: '0.08em',
-                      textTransform: 'uppercase',
-                    },
-                  }}
-                >
-                  <ToggleButton value="TODOS">Todos</ToggleButton>
-                  <ToggleButton value="DIRETOS">Diretos</ToggleButton>
-                  <ToggleButton value="INDIRETOS">Indiretos</ToggleButton>
-                </ToggleButtonGroup>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <ToggleButtonGroup
+                    size="small"
+                    exclusive
+                    value={filtro}
+                    onChange={(_, valor: Filtro | null) => valor && setFiltro(valor)}
+                    sx={{
+                      '& .MuiToggleButton-root': {
+                        px: 1.5,
+                        py: 0.35,
+                        fontFamily: FONTE_DADOS,
+                        fontSize: 10.5,
+                        letterSpacing: '0.08em',
+                        textTransform: 'uppercase',
+                      },
+                    }}
+                  >
+                    <ToggleButton value="TODOS">Todos</ToggleButton>
+                    <ToggleButton value="DIRETOS">Diretos</ToggleButton>
+                    <ToggleButton value="INDIRETOS">Indiretos</ToggleButton>
+                  </ToggleButtonGroup>
+
+                  <Tooltip title={matrizExpandida ? 'Sair da tela cheia' : 'Expandir matriz'}>
+                    <IconButton size="small" onClick={() => setMatrizExpandida((v) => !v)}>
+                      {matrizExpandida ? <CloseIcon fontSize="small" /> : <FullscreenIcon fontSize="small" />}
+                    </IconButton>
+                  </Tooltip>
+                </Box>
               </Box>
 
               <CardContent sx={{ p: 0 }}>
                 <Box
                   sx={{
                     overflow: 'auto',
-                    maxHeight: '70vh',
+                    maxHeight: matrizExpandida ? 'calc(100vh - 220px)' : '70vh',
                     bgcolor: alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.04 : 0.015),
                   }}
                   onMouseLeave={() => setCruzamento(null)}
@@ -770,11 +794,12 @@ export default function TraceabilityMatrix() {
               Clique em uma célula para abrir a relação, ou em um código à esquerda para ver o alcance
               de uma mudança.
             </Typography>
-          </Grid>
+          </Box>
 
-          {/* ── Leitura lateral ── */}
-          <Grid size={{ xs: 12, lg: 4 }}>
-            <Card variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
+          {/* ── Leitura ── */}
+          <Grid container spacing={3}>
+          <Grid size={{ xs: 12, md: 6 }}>
+            <Card variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Typography component="span" sx={{ ...ETIQUETA, color: 'text.secondary' }}>
                   Grau de conexão
@@ -840,7 +865,9 @@ export default function TraceabilityMatrix() {
                 </Box>
               </CardContent>
             </Card>
+          </Grid>
 
+          <Grid size={{ xs: 12, md: 6 }}>
             <Card variant="outlined" sx={{ borderRadius: 2 }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Typography component="span" sx={{ ...ETIQUETA, color: 'text.secondary' }}>
@@ -898,7 +925,8 @@ export default function TraceabilityMatrix() {
               </CardContent>
             </Card>
           </Grid>
-        </Grid>
+          </Grid>
+        </>
       )}
 
       {/* ── Detalhe da célula ── */}
@@ -985,6 +1013,15 @@ export default function TraceabilityMatrix() {
                 }}
               >
                 Ver alcance da origem
+              </Button>
+              <Button
+                startIcon={<OpenInNewIcon />}
+                size="small"
+                onClick={() =>
+                  navigate(`/organizations/${orgId}/projects/${projectId}/requirements/${selecao.origemId}`)
+                }
+              >
+                Abrir requisito de origem
               </Button>
               <Button
                 startIcon={<OpenInNewIcon />}

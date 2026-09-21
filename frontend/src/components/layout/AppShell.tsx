@@ -75,7 +75,7 @@ export default function AppShell() {
     .toUpperCase() ?? 'U';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', bgcolor: 'background.default' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
       <AppBar
         position="sticky"
         elevation={0}
