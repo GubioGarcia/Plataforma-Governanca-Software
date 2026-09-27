@@ -16,28 +16,41 @@ import CloseIcon from '@mui/icons-material/Close';
 import BadgeIcon from '@mui/icons-material/Badge';
 import EmailIcon from '@mui/icons-material/Email';
 import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
-import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
+import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import BusinessIcon from '@mui/icons-material/Business';
 import HistoryIcon from '@mui/icons-material/History';
+import CircularProgress from '@mui/material/CircularProgress';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
-import { mockAudit } from '../mocks/audit';
-import { mockProjects } from '../mocks/projects';
+import { useSnackbar } from '../context/SnackbarContext';
+import { atualizarMeuPerfil, isApiError } from '../services/userService';
+import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../types/acesso';
 
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, recarregarPermissoes } = useAuth();
+  const { notify } = useSnackbar();
+  const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({ nome: user?.nome ?? '', email: user?.email ?? '' });
 
-  // For display: persist edits locally
-  const [displayName, setDisplayName] = useState(user?.nome ?? '');
-  const [displayEmail, setDisplayEmail] = useState(user?.email ?? '');
+  const displayName = user?.nome ?? '';
+  const displayEmail = user?.email ?? '';
 
-  const handleSave = () => {
-    if (!form.nome.trim()) return;
-    setDisplayName(form.nome.trim());
-    setDisplayEmail(form.email.trim());
-    setEditing(false);
+  const handleSave = async () => {
+    if (!form.nome.trim() || !form.email.trim()) return;
+    setSaving(true);
+    try {
+      await atualizarMeuPerfil({ nome: form.nome.trim(), email: form.email.trim(), urlMidiaPerfil: user?.urlMidiaPerfil ?? null });
+      await recarregarPermissoes(); // /me traz os dados novos
+      notify('Perfil atualizado', 'success');
+      setEditing(false);
+    } catch (err) {
+      notify(isApiError(err) ? err.response?.data?.detail ?? 'Erro ao atualizar o perfil' : 'Erro ao atualizar o perfil', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -56,12 +69,9 @@ export default function ProfilePage() {
         bg: '#EFF6FF',
       };
 
-  // Activity stats
-  const userAuditEntries = mockAudit.filter((a) => a.userName === (user?.nome ?? displayName));
-  const myProjects = mockProjects.filter((p) => p.createdBy === (user?.nome ?? displayName));
-
-  // Last 5 activities
-  const recentActivity = mockAudit.slice(0, 5);
+  // Onde o usuário atua (do /me)
+  const organizacoes = user?.organizacoes ?? [];
+  const totalProjetos = organizacoes.reduce((acc, o) => acc + o.projetos.length, 0);
 
   return (
     <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
@@ -145,11 +155,11 @@ export default function ProfilePage() {
                   </Tooltip>
                   <Button
                     variant="contained"
-                    startIcon={<CheckIcon />}
                     size="small"
                     fullWidth
                     onClick={handleSave}
-                    disabled={!form.nome.trim()}
+                    disabled={saving || !form.nome.trim() || !form.email.trim()}
+                    startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <CheckIcon />}
                   >
                     Salvar
                   </Button>
@@ -164,9 +174,9 @@ export default function ProfilePage() {
           {/* Activity stats */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             {[
-              { icon: <BusinessIcon />, label: 'Projetos criados', value: myProjects.length, color: '#3F51B5', bg: '#EEF2FF' },
-              { icon: <AssignmentTurnedInIcon />, label: 'Ações registradas', value: userAuditEntries.length, color: '#16A34A', bg: '#DCFCE7' },
-              { icon: <HistoryIcon />, label: 'Papel atual', value: roleCfg.label, color: roleCfg.color, bg: roleCfg.bg },
+              { icon: <BusinessIcon />, label: 'Organizações', value: organizacoes.length, color: '#3F51B5', bg: '#EEF2FF' },
+              { icon: <FolderOpenIcon />, label: 'Projetos', value: totalProjetos, color: '#16A34A', bg: '#DCFCE7' },
+              { icon: <HistoryIcon />, label: 'Acesso global', value: user?.adminPlataforma ? 'Admin' : '—', color: roleCfg.color, bg: roleCfg.bg },
             ].map((stat) => (
               <Card key={stat.label} sx={{ flex: '1 1 140px' }}>
                 <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
@@ -182,29 +192,49 @@ export default function ProfilePage() {
             ))}
           </Box>
 
-          {/* Recent activity */}
+          {/* Onde você atua */}
           <Card>
             <CardContent sx={{ p: 3 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Atividade Recente</Typography>
+              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Onde você atua</Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                Últimas ações registradas na plataforma
+                Seus papéis em cada organização e projeto
               </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
-                {recentActivity.map((a, idx) => (
-                  <Box key={a.id}>
-                    <Box sx={{ display: 'flex', gap: 2, py: 1.5, alignItems: 'flex-start' }}>
-                      <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'primary.main', mt: 0.75, flexShrink: 0 }} />
-                      <Box>
-                        <Typography variant="body2" sx={{ lineHeight: 1.4 }}>{a.descricao}</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {a.userName} · {new Date(a.data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
-                        </Typography>
-                      </Box>
+              {organizacoes.length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  Você ainda não participa de nenhuma organização. Crie uma ou aceite um convite.
+                </Typography>
+              )}
+              {organizacoes.map((o, idx) => (
+                <Box key={o.id}>
+                  <Box sx={{ py: 1.5 }}>
+                    <Box
+                      sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75, cursor: 'pointer' }}
+                      onClick={() => navigate(`/organizations/${o.id}/projects`)}
+                    >
+                      <BusinessIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.nome}</Typography>
+                      <Chip size="small" label={o.papel ? PAPEL_ORGANIZACAO_LABEL[o.papel] : 'Convidado em projetos'}
+                        sx={{ height: 20, fontSize: 11 }} />
                     </Box>
-                    {idx < recentActivity.length - 1 && <Divider />}
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 3.5 }}>
+                      {o.projetos.map((p) => (
+                        <Box
+                          key={p.id}
+                          sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', '&:hover .nome': { color: 'primary.main' } }}
+                          onClick={() => navigate(`/organizations/${o.id}/projects/${p.id}`)}
+                        >
+                          <FolderOpenIcon sx={{ fontSize: 15, color: 'text.disabled' }} />
+                          <Typography className="nome" variant="caption" sx={{ flex: 1, minWidth: 0 }} noWrap>{p.nome}</Typography>
+                          <Typography variant="caption" color="text.secondary" noWrap>
+                            {p.papeis.map((x) => PAPEL_PROJETO_LABEL[x]).join(' + ')}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
                   </Box>
-                ))}
-              </Box>
+                  {idx < organizacoes.length - 1 && <Divider />}
+                </Box>
+              ))}
             </CardContent>
           </Card>
         </Box>

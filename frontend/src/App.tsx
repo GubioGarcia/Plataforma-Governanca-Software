@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import ProjectShell from './components/layout/ProjectShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import GuardaOrganizacao from './components/layout/GuardaOrganizacao';
 import LoginPage from './pages/LoginPage';
 import OrganizationList from './features/organizations/OrganizationList';
 import OrgDashboard from './features/organizations/OrgDashboard';
@@ -44,8 +45,9 @@ export default function App() {
         <Route path="profile" element={<ProfilePage />} />
         {/* Tela global de usuários: só o Admin da Plataforma */}
         <Route path="users" element={<ProtectedRoute requireAdminPlataforma><UsersPage /></ProtectedRoute>} />
-        <Route path="organizations/:orgId" element={<OrgDashboard />} />
-        <Route path="organizations/:orgId/projects" element={<ProjectList />} />
+        {/* Organização/projeto: só para quem tem vínculo (o ProjectShell checa o projeto) */}
+        <Route path="organizations/:orgId" element={<GuardaOrganizacao><OrgDashboard /></GuardaOrganizacao>} />
+        <Route path="organizations/:orgId/projects" element={<GuardaOrganizacao><ProjectList /></GuardaOrganizacao>} />
         <Route path="organizations/:orgId/projects/:projectId" element={<ProjectShell />}>
           <Route index element={<ProjectDashboard />} />
           <Route path="wiki" element={<WikiPage />} />

@@ -20,16 +20,18 @@ import HistoryIcon from '@mui/icons-material/History';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import InboxIcon from '@mui/icons-material/Inbox';
-import { mockProjects } from '../../mocks/projects';
+import SemAcesso from '../common/SemAcesso';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useAcessoRota } from '../../hooks/useAcessoRota';
 
 const SIDEBAR_WIDTH = 220;
 
 export default function ProjectShell() {
   const { orgId, projectId } = useParams();
   const navigate = useNavigate();
-  const project = mockProjects.find((p) => p.id === Number(projectId));
-  const { pode } = usePermissions();
+  const { pode, projetoAtual } = usePermissions();
+  // Só abre projeto em que o usuário participa (direto ou herdado da organização)
+  const acesso = useAcessoRota(!!projetoAtual, projectId);
   // Tela completa de auditoria: AUDIT_VIEW (Dono/Gestor)
   const isStakeholder = !pode('AUDIT_VIEW');
 
@@ -50,6 +52,8 @@ export default function ProjectShell() {
   ];
 
   const navItems = allNavItems.filter((item) => !item.gestorOnly || !isStakeholder);
+
+  if (acesso !== 'ok') return <SemAcesso situacao={acesso} alvo="projeto" />;
 
   return (
     <Box sx={{ display: 'flex', flexGrow: 1, height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
@@ -92,9 +96,9 @@ export default function ProjectShell() {
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
-            title={project?.name}
+            title={projetoAtual?.nome}
           >
-            {project?.name ?? 'Projeto'}
+            {projetoAtual?.nome ?? 'Projeto'}
           </Typography>
         </Box>
         <Divider />

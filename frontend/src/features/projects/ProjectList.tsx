@@ -28,6 +28,7 @@ import PeopleIcon from '@mui/icons-material/People';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HistoryIcon from '@mui/icons-material/History';
+import BusinessIcon from '@mui/icons-material/Business';
 import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
@@ -264,6 +265,16 @@ export default function ProjectList() {
           <Typography variant="body2">Gerencie os projetos da organização</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
+          {/* Visão da organização: membros, convites e indicadores */}
+          <Button
+            variant="outlined"
+            startIcon={<BusinessIcon />}
+            size="small"
+            color="inherit"
+            onClick={() => navigate(`/organizations/${orgId}`)}
+          >
+            {pode('ORG_VIEW_USERS') ? 'Organização e membros' : 'Visão da organização'}
+          </Button>
           {pode('ORG_CREATE_PROJECT') && (
             <>
               <Button

@@ -19,6 +19,11 @@ export async function listarOrganizacoes(ativo?: boolean): Promise<OrganizacaoAP
   return res.data;
 }
 
+export async function buscarOrganizacaoPorId(id: string): Promise<OrganizacaoAPI> {
+  const res = await api.get<OrganizacaoAPI>(`/organizacao/${id}`);
+  return res.data;
+}
+
 export async function criarOrganizacao(data: CriarOrganizacaoRequest): Promise<OrganizacaoAPI> {
   const res = await api.post<OrganizacaoAPI>('/organizacao', data);
   return res.data;

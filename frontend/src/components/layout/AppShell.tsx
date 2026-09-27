@@ -1,12 +1,13 @@
-import { useState, useMemo } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import AppBar from '@mui/material/AppBar';
+import Badge from '@mui/material/Badge';
 import Avatar from '@mui/material/Avatar';
 import Box from '@mui/material/Box';
 import Chip from '@mui/material/Chip';
 import IconButton from '@mui/material/IconButton';
 import List from '@mui/material/List';
-import ListItem from '@mui/material/ListItem';
+import ListItemButton from '@mui/material/ListItemButton';
 import ListItemText from '@mui/material/ListItemText';
 import Menu from '@mui/material/Menu';
 import MenuItem from '@mui/material/MenuItem';
@@ -22,12 +23,14 @@ import HubIcon from '@mui/icons-material/Hub';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import PendingActionsIcon from '@mui/icons-material/PendingActions';
+import NotificationsIcon from '@mui/icons-material/NotificationsNone';
+import MailIcon from '@mui/icons-material/MarkEmailUnread';
+import HourglassIcon from '@mui/icons-material/HourglassEmpty';
 import { useAuth } from '../../context/useAuth';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useThemeMode } from '../../context/ThemeContext';
-import { mockAudit } from '../../mocks/audit';
-import { mockRequirements } from '../../mocks/requirements';
-import { mockProjects } from '../../mocks/projects';
+import { usePendencias } from '../../hooks/usePendencias';
+import { TIPO_SOLICITACAO_LABEL } from '../../services/acessoService';
 import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../../types/acesso';
 
 export default function AppShell() {
@@ -45,28 +48,13 @@ export default function AppShell() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
 
-  // Pending: requirements in EM_VALIDACAO that the current user hasn't voted on yet
-  const pendingItems = useMemo(() => {
-    if (!user) return [];
-    return mockRequirements
-      .filter((r) => r.status === 'EM_VALIDACAO')
-      .filter((r) => {
-        const myVote = r.votos?.find((v) => v.userId === Number(user.id));
-        return !myVote || myVote.voto === null;
-      })
-      .map((r) => {
-        const proj = mockProjects.find((p) => p.id === r.projetoId);
-        return { id: r.id, message: `"${r.titulo}" aguarda seu voto`, sub: proj?.name ?? 'Projeto', urgent: true };
-      });
-  }, [user]);
+  // Pendências reais: convites recebidos, pedidos a responder e pedidos próprios aguardando
+  const pendencias = usePendencias();
 
-  // Recent activity from audit (up to 5)
-  const recentNotifs = mockAudit.slice(0, 5).map((a) => ({
-    id: `a-${a.id}`,
-    message: a.descricao,
-    sub: new Date(a.data).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }),
-    urgent: false,
-  }));
+  function abrir(caminho: string) {
+    setNotifAnchor(null);
+    navigate(caminho);
+  }
 
   const initials = user?.nome
     .split(' ')
@@ -128,6 +116,15 @@ export default function AppShell() {
               {mode === 'dark'
                 ? <LightModeIcon sx={{ fontSize: 20, color: 'text.secondary' }} />
                 : <DarkModeIcon  sx={{ fontSize: 20, color: 'text.secondary' }} />}
+            </IconButton>
+          </Tooltip>
+
+          {/* Pendências */}
+          <Tooltip title="Pendências">
+            <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); pendencias.recarregar(); }} sx={{ mr: 1 }}>
+              <Badge badgeContent={pendencias.total} color="warning" max={99}>
+                <NotificationsIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+              </Badge>
             </IconButton>
           </Tooltip>
 
@@ -205,50 +202,58 @@ export default function AppShell() {
             slotProps={{ paper: { elevation: 3, sx: { mt: 0.5, width: 360, borderRadius: 2 } } }}
           >
             <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Notificações</Typography>
-              {pendingItems.length > 0 && (
-                <Chip label={`${pendingItems.length} pendente${pendingItems.length > 1 ? 's' : ''}`} size="small" color="warning" sx={{ height: 20, fontSize: '11px' }} />
+              <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Pendências</Typography>
+              {pendencias.total > 0 && (
+                <Chip label={`${pendencias.total} para você`} size="small" color="warning" sx={{ height: 20, fontSize: '11px' }} />
               )}
             </Box>
             <Divider />
-            {pendingItems.length > 0 && (
-              <>
-                <Box sx={{ px: 2, pt: 1 }}>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: 'warning.main', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Aguardando seu voto</Typography>
-                </Box>
-                <List dense sx={{ py: 0 }}>
-                  {pendingItems.map((n, idx) => (
-                    <Box key={n.id}>
-                      <ListItem sx={{ px: 2, py: 1, alignItems: 'flex-start', gap: 1 }}>
-                        <PendingActionsIcon sx={{ fontSize: 16, color: 'warning.main', mt: 0.25, flexShrink: 0 }} />
-                        <ListItemText
-                          primary={<Typography variant="body2" sx={{ fontSize: '13px', lineHeight: 1.4, fontWeight: 500 }}>{n.message}</Typography>}
-                          secondary={<Typography variant="caption" sx={{ color: 'text.secondary' }}>{n.sub}</Typography>}
-                        />
-                      </ListItem>
-                      {idx < pendingItems.length - 1 && <Divider />}
-                    </Box>
-                  ))}
-                </List>
-                <Divider />
-              </>
-            )}
-            <Box sx={{ px: 2, pt: 1 }}>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.disabled', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Atividade recente</Typography>
-            </Box>
-            <List dense sx={{ maxHeight: 240, overflowY: 'auto', py: 0 }}>
-              {recentNotifs.map((n, idx) => (
-                <Box key={n.id}>
-                  <ListItem sx={{ px: 2, py: 1, alignItems: 'flex-start' }}>
-                    <ListItemText
-                      primary={<Typography variant="body2" sx={{ fontSize: '12px', lineHeight: 1.4 }}>{n.message}</Typography>}
-                      secondary={<Typography variant="caption" sx={{ color: 'text.secondary' }}>{n.sub}</Typography>}
+            <Box sx={{ maxHeight: 420, overflowY: 'auto' }}>
+              {pendencias.convites.length > 0 && (
+                <SecaoPendencias titulo="Convites" cor="primary.main">
+                  {pendencias.convites.map((c) => (
+                    <ItemPendencia
+                      key={c.id}
+                      icone={<MailIcon sx={{ fontSize: 16, color: 'primary.main' }} />}
+                      texto={c.projetoNome ? `Projeto ${c.projetoNome}` : `Organização ${c.organizacaoNome}`}
+                      detalhe={`Convidado por ${c.convidadoPorNome ?? '—'} · responda na lista de organizações`}
+                      onClick={() => abrir('/organizations')}
                     />
-                  </ListItem>
-                  {idx < recentNotifs.length - 1 && <Divider />}
-                </Box>
-              ))}
-            </List>
+                  ))}
+                </SecaoPendencias>
+              )}
+              {pendencias.aResponder.length > 0 && (
+                <SecaoPendencias titulo="Solicitações para responder" cor="warning.main">
+                  {pendencias.aResponder.map((sol) => (
+                    <ItemPendencia
+                      key={sol.id}
+                      icone={<PendingActionsIcon sx={{ fontSize: 16, color: 'warning.main' }} />}
+                      texto={`${TIPO_SOLICITACAO_LABEL[sol.tipo]}${sol.alvoDescricao ? ` · ${sol.alvoDescricao}` : ''}`}
+                      detalhe={`${sol.solicitanteNome} · ${sol.projetoNome}`}
+                      onClick={() => abrir(`/organizations/${sol.orgId}/projects/${sol.projetoId}/solicitations`)}
+                    />
+                  ))}
+                </SecaoPendencias>
+              )}
+              {pendencias.minhas.length > 0 && (
+                <SecaoPendencias titulo="Seus pedidos aguardando resposta" cor="text.disabled">
+                  {pendencias.minhas.map((sol) => (
+                    <ItemPendencia
+                      key={sol.id}
+                      icone={<HourglassIcon sx={{ fontSize: 16, color: 'text.disabled' }} />}
+                      texto={`${TIPO_SOLICITACAO_LABEL[sol.tipo]}${sol.alvoDescricao ? ` · ${sol.alvoDescricao}` : ''}`}
+                      detalhe={sol.projetoNome}
+                      onClick={() => abrir(`/organizations/${sol.orgId}/projects/${sol.projetoId}/solicitations`)}
+                    />
+                  ))}
+                </SecaoPendencias>
+              )}
+              {!pendencias.carregando && pendencias.total === 0 && pendencias.minhas.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ px: 2, py: 3, textAlign: 'center' }}>
+                  Nenhuma pendência. Tudo em dia!
+                </Typography>
+              )}
+            </Box>
           </Popover>
         </Toolbar>
       </AppBar>
@@ -258,5 +263,31 @@ export default function AppShell() {
         <Outlet />
       </Box>
     </Box>
+  );
+}
+
+function SecaoPendencias({ titulo, cor, children }: { titulo: string; cor: string; children: ReactNode }) {
+  return (
+    <>
+      <Box sx={{ px: 2, pt: 1 }}>
+        <Typography variant="caption" sx={{ fontWeight: 700, color: cor, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+          {titulo}
+        </Typography>
+      </Box>
+      <List dense sx={{ py: 0 }}>{children}</List>
+      <Divider />
+    </>
+  );
+}
+
+function ItemPendencia({ icone, texto, detalhe, onClick }: { icone: ReactNode; texto: string; detalhe: string; onClick: () => void }) {
+  return (
+    <ListItemButton onClick={onClick} sx={{ px: 2, py: 1, alignItems: 'flex-start', gap: 1 }}>
+      <Box sx={{ mt: 0.25, flexShrink: 0, display: 'flex' }}>{icone}</Box>
+      <ListItemText
+        primary={<Typography variant="body2" sx={{ fontSize: '13px', lineHeight: 1.4, fontWeight: 500 }}>{texto}</Typography>}
+        secondary={<Typography variant="caption" sx={{ color: 'text.secondary' }}>{detalhe}</Typography>}
+      />
+    </ListItemButton>
   );
 }
