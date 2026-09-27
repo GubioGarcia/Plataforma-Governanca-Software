@@ -70,6 +70,9 @@ export default function ImpactAnalysisDrawer({
       anchor="right"
       open={aberto}
       onClose={aoFechar}
+      // A AppBar do AppShell tem seu z-index elevado acima do drawer padrão do MUI
+      // (para ficar sobre outros elementos); sem isso aqui, ela cobre o topo do drawer.
+      sx={{ zIndex: (t) => t.zIndex.drawer + 2 }}
       PaperProps={{ sx: { width: { xs: '100%', sm: 470 }, backgroundImage: 'none' } }}
     >
       <Box sx={{ p: 3 }}>
@@ -90,6 +93,7 @@ export default function ImpactAnalysisDrawer({
         {origem ? (
           <>
             <Box
+              onClick={() => requisitoOrigemId && aoAbrirRequisito?.(requisitoOrigemId)}
               sx={{
                 borderLeft: '2px solid',
                 borderColor: 'primary.main',
@@ -97,6 +101,9 @@ export default function ImpactAnalysisDrawer({
                 px: 2,
                 py: 1.5,
                 mb: 3,
+                cursor: aoAbrirRequisito ? 'pointer' : 'default',
+                transition: 'background-color 0.15s',
+                '&:hover': aoAbrirRequisito ? { bgcolor: alpha(theme.palette.primary.main, 0.09) } : undefined,
               }}
             >
               <Typography

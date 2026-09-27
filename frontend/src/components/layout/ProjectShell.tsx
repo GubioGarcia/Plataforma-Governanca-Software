@@ -48,7 +48,7 @@ export default function ProjectShell() {
   const navItems = allNavItems.filter((item) => !item.gestorOnly || !isStakeholder);
 
   return (
-    <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexGrow: 1, height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
       {/* Sidebar */}
       <Box
         sx={{
