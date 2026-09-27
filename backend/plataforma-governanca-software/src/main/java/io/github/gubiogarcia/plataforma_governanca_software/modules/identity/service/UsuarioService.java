@@ -8,6 +8,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.UsuarioResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminClient;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminException;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakTokenClient;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +29,7 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final KeycloakAdminClient keycloakAdminClient;
+    private final KeycloakTokenClient keycloakTokenClient;
 
     @Transactional
     public UsuarioResponseDTO cadastrar(CadastroUsuarioRequestDTO request) {
@@ -120,16 +122,26 @@ public class UsuarioService {
     }
 
     @Transactional
-    public void alterarSenha(AlterarSenhaRequestDTO request) {
+    public void alterarSenha(Jwt jwt, AlterarSenhaRequestDTO request) {
 
         if (!request.novaSenha().equals(request.confirmacaoSenha())) {
             throw new SenhasNaoConferemException("A nova senha e a confirmação não conferem.");
         }
 
+        if (request.novaSenha().equals(request.senhaAtual())) {
+            throw new SenhasNaoConferemException("A nova senha deve ser diferente da senha atual.");
+        }
+
+        KeycloakUserInfo keycloakInfo = extrairInfoKeycloak(jwt);
+
         Usuario usuario = usuarioRepository
-                .findByEmail(request.email())
+                .findByExternalIdentityId(keycloakInfo.keycloakId())
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
-                        "Nenhum usuário encontrado com o e-mail informado."));
+                        "Usuário não encontrado. Realize o cadastro na plataforma."));
+
+        if (!keycloakTokenClient.credenciaisValidas(usuario.getEmail(), request.senhaAtual())) {
+            throw new SenhaAtualInvalidaException("A senha atual informada está incorreta.");
+        }
 
         try {
             keycloakAdminClient.redefinirSenha(usuario.getExternalIdentityId(), request.novaSenha());
@@ -279,6 +291,12 @@ public class UsuarioService {
 
     public static class SenhasNaoConferemException extends RuntimeException {
         public SenhasNaoConferemException(String message) {
+            super(message);
+        }
+    }
+
+    public static class SenhaAtualInvalidaException extends RuntimeException {
+        public SenhaAtualInvalidaException(String message) {
             super(message);
         }
     }

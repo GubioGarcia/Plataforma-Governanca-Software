@@ -50,7 +50,6 @@ public class SecurityConfig {
                         // Rotas públicas do módulo de identidade
                         .requestMatchers(HttpMethod.POST,  "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/usuario/cadastrar").permitAll()
-                        .requestMatchers(HttpMethod.PATCH, "/api/usuario/alterarSenha").permitAll()
                         // Qualquer outra rota exige autenticação
                         .anyRequest().authenticated()
                 )

@@ -80,6 +80,17 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.CONFLICT, "Usuario ja inativo", ex.getMessage(), "/errors/usuario-ja-inativo");
     }
 
+    @ExceptionHandler(UsuarioService.SenhasNaoConferemException.class)
+    public ProblemDetail handleSenhasNaoConferem(UsuarioService.SenhasNaoConferemException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Senha invalida", ex.getMessage(), "/errors/senhas-nao-conferem");
+    }
+
+    // 400 (e nao 401): um 401 faria o frontend encerrar a sessao do usuario
+    @ExceptionHandler(UsuarioService.SenhaAtualInvalidaException.class)
+    public ProblemDetail handleSenhaAtualInvalida(UsuarioService.SenhaAtualInvalidaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Senha atual incorreta", ex.getMessage(), "/errors/senha-atual-invalida");
+    }
+
     @ExceptionHandler(KeycloakAdminException.class)
     public ProblemDetail handleKeycloakAdmin(KeycloakAdminException ex) {
         log.error("Keycloak Admin API retornou erro {}: {}", ex.getStatusCode(), ex.getMessage());
