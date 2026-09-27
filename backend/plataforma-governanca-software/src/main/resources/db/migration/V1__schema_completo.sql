@@ -131,7 +131,7 @@ CREATE TABLE visao_produto (
 CREATE TABLE requisito (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     projeto_id       UUID        NOT NULL REFERENCES projeto(id),
-    codigo           VARCHAR(20) NOT NULL UNIQUE,
+    codigo           VARCHAR(20) NOT NULL,   -- sequencial por projeto (REQ-001...)
     titulo           VARCHAR(255) NOT NULL,
     descricao        VARCHAR(1000),
     tipo_requisito   VARCHAR(50),
@@ -145,7 +145,8 @@ CREATE TABLE requisito (
     data_criacao     TIMESTAMP,
     data_solicitacao TIMESTAMP,
     data_aprovacao   TIMESTAMP,
-    data_atualizacao TIMESTAMP
+    data_atualizacao TIMESTAMP,
+    CONSTRAINT uk_requisito_projeto_codigo UNIQUE (projeto_id, codigo)
 );
 
 -- =============================================================================

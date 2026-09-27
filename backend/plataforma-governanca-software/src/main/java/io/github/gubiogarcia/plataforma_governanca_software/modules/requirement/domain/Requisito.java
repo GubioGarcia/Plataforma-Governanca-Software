@@ -9,7 +9,9 @@ import java.time.Instant;
 import java.util.UUID;
 
 @Entity
-@Table(name = "requisito")
+// O código (REQ-001...) é sequencial POR PROJETO: único dentro do projeto, não na plataforma inteira
+@Table(name = "requisito", uniqueConstraints = @UniqueConstraint(
+        name = "uk_requisito_projeto_codigo", columnNames = {"projeto_id", "codigo"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -29,7 +31,7 @@ public class Requisito {
      * Código único e imutável do requisito dentro do projeto (ex: REQ-001).
      * Gerado automaticamente na criação e nunca alterado.
      */
-    @Column(unique = true, nullable = false, updatable = false)
+    @Column(nullable = false, updatable = false)
     private String codigo;
 
     private String titulo;
