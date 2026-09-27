@@ -14,7 +14,23 @@
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
       "authorizationServicesEnabled": false,
-      "attributes": {}
+      "attributes": {},
+      "protocolMappers": [
+        {
+          "name": "groups",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-group-membership-mapper",
+          "consentRequired": false,
+          "config": {
+            "full.path": "true",
+            "claim.name": "groups",
+            "access.token.claim": "true",
+            "id.token.claim": "true",
+            "userinfo.token.claim": "true",
+            "introspection.token.claim": "true"
+          }
+        }
+      ]
     },
     {
       "clientId": "plataforma-admin-client",
@@ -36,76 +52,155 @@
   "roles": {
     "realm": [
       {
-        "name": "ORG_OWNER"
+        "name": "ORG_OWNER",
+        "description": "Papel: Dono da organizacao (unico por organizacao). Grupo /org-{id}/_dono.",
+        "composite": true,
+        "composites": {
+          "realm": ["ORG_MANAGER", "ORG_EDIT", "ORG_DELETE", "ORG_REMOVE_USER", "PROJECT_OWNER"]
+        }
       },
       {
-        "name": "ORG_ADMIN"
+        "name": "ORG_MANAGER",
+        "description": "Papel: Gestor da organizacao (antigo ORG_ADMIN). Gestor em todo projeto da organizacao. Grupo /org-{id}/_gestores.",
+        "composite": true,
+        "composites": {
+          "realm": ["ORG_CREATE_PROJECT", "ORG_INVITE_USER", "ORG_VIEW_USERS", "ORG_PROMOTE_USER", "ORG_INATIVAR", "PROJECT_MANAGER"]
+        }
       },
       {
-        "name": "ORG_MEMBER"
+        "name": "ORG_MEMBER",
+        "description": "Papel: Membro da organizacao. Stakeholder Tecnico em todo projeto da organizacao. Grupo /org-{id}/_membros.",
+        "composite": true,
+        "composites": {
+          "realm": ["ORG_VIEW_USERS", "STAKEHOLDER_TECHNICAL"]
+        }
       },
       {
-        "name": "PROJECT_MANAGER"
+        "name": "PROJECT_OWNER",
+        "description": "Papel: Dono do projeto (criador). Grupo /org-{id}/proj-{id}/_dono.",
+        "composite": true,
+        "composites": {
+          "realm": ["PROJECT_MANAGER", "PROJETO_DELETE"]
+        }
       },
       {
-        "name": "STAKEHOLDER_CLIENT"
+        "name": "PROJECT_MANAGER",
+        "description": "Papel: Gestor do projeto. Grupo /org-{id}/proj-{id}/_gestores.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "REQ_CREATE", "REQ_EDIT", "REQ_DELETE", "REQ_APPROVE", "REQ_VIEW", "REQ_COMMENT",
+            "WIKI_VIEW", "WIKI_EDIT", "WIKI_COMMENT", "AUDIT_VIEW", "AUDIT_HISTORICO_VIEW",
+            "PROJETO_EDIT", "PROJETO_INATIVAR", "PROJETO_VIEW_USERS", "PROJETO_INVITE_USER",
+            "PROJETO_PROMOTE_USER", "PROJETO_REMOVE_USER",
+            "EVENTO_VIEW", "EVENTO_CREATE", "EVENTO_EDIT", "EVENTO_DELETE", "EVENTO_APPROVE",
+            "ARQUIVO_VIEW", "ARQUIVO_DOWNLOAD", "ARQUIVO_UPLOAD", "ARQUIVO_DELETE",
+            "ANALYTICS_VIEW", "MER_VIEW", "MER_EDIT", "MER_EXPORT",
+            "RASTREABILIDADE_VIEW", "RASTREABILIDADE_EDIT", "RASTREABILIDADE_EXPORT",
+            "SOLICITACAO_RESPONDER"
+          ]
+        }
       },
       {
-        "name": "STAKEHOLDER_TECHNICAL"
+        "name": "STAKEHOLDER_TECHNICAL",
+        "description": "Papel: Stakeholder Tecnico. Grupo /org-{id}/proj-{id}/_stakeholders_tecnicos.",
+        "composite": true,
+        "composites": {
+          "realm": [
+            "REQ_VIEW", "REQ_COMMENT", "REQ_REQUEST_CHANGE", "REQ_REQUEST_REJECTION",
+            "WIKI_VIEW", "WIKI_COMMENT", "AUDIT_HISTORICO_VIEW",
+            "PROJETO_VIEW_USERS", "EVENTO_VIEW", "EVENTO_REQUEST", "ARQUIVO_VIEW", "ARQUIVO_DOWNLOAD",
+            "ANALYTICS_VIEW", "MER_VIEW", "MER_EXPORT_REQUEST",
+            "RASTREABILIDADE_VIEW", "RASTREABILIDADE_EXPORT_REQUEST"
+          ]
+        }
       },
       {
-        "name": "ORG_CREATE_PROJECT"
+        "name": "STAKEHOLDER_CLIENT",
+        "description": "Papel: Stakeholder Cliente (Tecnico + solicitar aprovacao). Grupo /org-{id}/proj-{id}/_stakeholders_clientes.",
+        "composite": true,
+        "composites": {
+          "realm": ["STAKEHOLDER_TECHNICAL", "REQ_REQUEST_APPROVAL"]
+        }
       },
       {
-        "name": "ORG_EDIT"
+        "name": "PLATFORM_ADMIN",
+        "description": "Papel: Admin da Plataforma, sem vinculo com organizacao/projeto. Grupo /_admin.",
+        "composite": true,
+        "composites": {
+          "realm": ["REF_DATA_EDIT"]
+        }
       },
-      {
-        "name": "ORG_DELETE"
-      },
-      {
-        "name": "ORG_INVITE_USER"
-      },
-      {
-        "name": "ORG_VIEW_USERS"
-      },
-      {
-        "name": "WIKI_VIEW"
-      },
-      {
-        "name": "WIKI_EDIT"
-      },
-      {
-        "name": "WIKI_COMMENT"
-      },
-      {
-        "name": "REQ_CREATE"
-      },
-      {
-        "name": "REQ_EDIT"
-      },
-      {
-        "name": "REQ_DELETE"
-      },
-      {
-        "name": "REQ_APPROVE"
-      },
-      {
-        "name": "REQ_REQUEST_APPROVAL"
-      },
-      {
-        "name": "REQ_REQUEST_REJECTION"
-      },
-      {
-        "name": "REQ_VIEW"
-      },
-      {
-        "name": "REQ_COMMENT"
-      },
-      {
-        "name": "AUDIT_VIEW"
-      }
+
+      { "name": "ORG_CREATE_PROJECT", "description": "Criar projeto na organizacao" },
+      { "name": "ORG_EDIT",           "description": "Editar nome/descricao/plano da organizacao (so Dono)" },
+      { "name": "ORG_INATIVAR",       "description": "Inativar/reativar a organizacao" },
+      { "name": "ORG_DELETE",         "description": "Excluir a organizacao (futuro)" },
+      { "name": "ORG_INVITE_USER",    "description": "Convidar usuario para a organizacao" },
+      { "name": "ORG_VIEW_USERS",     "description": "Ver membros da organizacao" },
+      { "name": "ORG_PROMOTE_USER",   "description": "Elevar Membro a Gestor da organizacao" },
+      { "name": "ORG_REMOVE_USER",    "description": "Remover membro da organizacao (so Dono)" },
+
+      { "name": "PROJETO_EDIT",         "description": "Editar nome/descricao/status do projeto" },
+      { "name": "PROJETO_INATIVAR",     "description": "Inativar/reativar o projeto" },
+      { "name": "PROJETO_DELETE",       "description": "Excluir o projeto (futuro, so Dono, so se inativo)" },
+      { "name": "PROJETO_VIEW_USERS",   "description": "Ver participantes do projeto" },
+      { "name": "PROJETO_INVITE_USER",  "description": "Convidar usuario para o projeto" },
+      { "name": "PROJETO_PROMOTE_USER", "description": "Elevar participante a Gestor do projeto" },
+      { "name": "PROJETO_REMOVE_USER",  "description": "Remover participante do projeto" },
+
+      { "name": "REQ_CREATE",            "description": "Criar requisito" },
+      { "name": "REQ_EDIT",              "description": "Editar requisito" },
+      { "name": "REQ_DELETE",            "description": "Excluir requisito" },
+      { "name": "REQ_VIEW",              "description": "Ver requisitos" },
+      { "name": "REQ_COMMENT",           "description": "Comentar em requisitos" },
+      { "name": "REQ_APPROVE",           "description": "Aprovar/reprovar requisito" },
+      { "name": "REQ_REQUEST_APPROVAL",  "description": "Solicitar aprovacao de requisito (Stakeholder Cliente)" },
+      { "name": "REQ_REQUEST_REJECTION", "description": "Solicitar reprovacao de requisito aprovado" },
+      { "name": "REQ_REQUEST_CHANGE",    "description": "Solicitar alteracao de requisito aprovado" },
+
+      { "name": "WIKI_VIEW",    "description": "Ver a wiki do projeto" },
+      { "name": "WIKI_EDIT",    "description": "Editar a wiki do projeto" },
+      { "name": "WIKI_COMMENT", "description": "Comentar na wiki do projeto" },
+
+      { "name": "EVENTO_VIEW",    "description": "Ver eventos" },
+      { "name": "EVENTO_CREATE",  "description": "Criar evento" },
+      { "name": "EVENTO_EDIT",    "description": "Editar evento" },
+      { "name": "EVENTO_DELETE",  "description": "Excluir evento" },
+      { "name": "EVENTO_APPROVE", "description": "Aprovar evento solicitado" },
+      { "name": "EVENTO_REQUEST", "description": "Solicitar evento" },
+
+      { "name": "ARQUIVO_VIEW",     "description": "Ver arquivos do projeto" },
+      { "name": "ARQUIVO_DOWNLOAD", "description": "Baixar arquivos do projeto" },
+      { "name": "ARQUIVO_UPLOAD",   "description": "Enviar arquivos ao projeto" },
+      { "name": "ARQUIVO_DELETE",   "description": "Excluir arquivos do projeto" },
+
+      { "name": "ANALYTICS_VIEW",       "description": "Ver analytics do projeto" },
+      { "name": "AUDIT_VIEW",           "description": "Ver a tela completa de auditoria do projeto" },
+      { "name": "AUDIT_HISTORICO_VIEW", "description": "Ver o historico de alteracoes de um item" },
+
+      { "name": "MER_VIEW",           "description": "Ver a modelagem de dados" },
+      { "name": "MER_EDIT",           "description": "Editar a modelagem de dados" },
+      { "name": "MER_EXPORT",         "description": "Exportar a modelagem de dados" },
+      { "name": "MER_EXPORT_REQUEST", "description": "Solicitar exportacao da modelagem de dados" },
+
+      { "name": "RASTREABILIDADE_VIEW",           "description": "Ver a matriz de rastreabilidade" },
+      { "name": "RASTREABILIDADE_EDIT",           "description": "Editar a matriz de rastreabilidade" },
+      { "name": "RASTREABILIDADE_EXPORT",         "description": "Exportar a matriz de rastreabilidade" },
+      { "name": "RASTREABILIDADE_EXPORT_REQUEST", "description": "Solicitar exportacao da matriz de rastreabilidade" },
+
+      { "name": "SOLICITACAO_RESPONDER", "description": "Atender/recusar solicitacoes de stakeholders" },
+      { "name": "REF_DATA_EDIT",         "description": "Manter listas globais (status de projeto, status de requisito, prioridade)" }
     ]
   },
+  "groups": [
+    {
+      "name": "_admin",
+      "path": "/_admin",
+      "realmRoles": ["PLATFORM_ADMIN"],
+      "subGroups": []
+    }
+  ],
   "accessTokenLifespan": 1800,
   "accessTokenLifespanForImplicitFlow": 1800,
   "ssoSessionIdleTimeout": 1800,

@@ -58,6 +58,9 @@ services:
     environment:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    volumes:
+      # Mesmo arquivo importado pelo Keycloak: fonte única de roles, mappers e grupos
+      - ./docker/keycloak/realm-export.json:/config/realm-export.json:ro
     depends_on:
       keycloak:
         condition: service_healthy
