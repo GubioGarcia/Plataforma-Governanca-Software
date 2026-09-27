@@ -4,6 +4,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.service.VisaoProdutoService;
@@ -36,6 +37,7 @@ public class ProjetoService {
     private final UsuarioRepository usuarioRepository;
     private final VisaoProdutoService visaoProdutoService;
     private final AuditoriaService auditoriaService;
+    private final GruposAcessoService gruposAcessoService;
 
     private static final String STATUS_INICIAL_NOME = "RASCUNHO";
 
@@ -81,6 +83,11 @@ public class ProjetoService {
                 "PROJETO", projeto.getId(), AcaoAuditoria.CRIACAO,
                 "nome", null, projeto.getNome()
         );
+
+        // Grupos de acesso /org-{id}/proj-{id} por último (criador vira Dono): erros de
+        // banco aparecem antes, e os grupos são revertidos se a transação falhar depois
+        projetoRepository.flush();
+        projeto.setKeycloakGroupId(gruposAcessoService.criarEstruturaProjeto(projeto, usuario));
 
         return mapToResponseDTO(projeto);
     }

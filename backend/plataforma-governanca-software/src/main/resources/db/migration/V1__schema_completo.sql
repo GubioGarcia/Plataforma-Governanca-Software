@@ -50,65 +50,11 @@ CREATE TABLE modulo (
     ativo     BOOLEAN
 );
 
--- =============================================================================
--- PERMISSAO (depende de modulo)
--- =============================================================================
-
-CREATE TABLE permissao (
-    id        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    codigo    VARCHAR(100) NOT NULL UNIQUE,
-    nome      VARCHAR(150),
-    descricao TEXT,
-    modulo_id UUID REFERENCES modulo(id)
-);
-
--- =============================================================================
--- PAPEL_ORGANIZACIONAL (sem dependências)
--- =============================================================================
-
-CREATE TABLE papel_organizacional (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    codigo           VARCHAR(50) NOT NULL UNIQUE,
-    nome             VARCHAR(100),
-    descricao        TEXT,
-    nivel_hierarquia INTEGER,
-    ativo            BOOLEAN
-);
-
--- =============================================================================
--- PAPEL_PROJETO (sem dependências)
--- =============================================================================
-
-CREATE TABLE papel_projeto (
-    id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    codigo           VARCHAR(50) NOT NULL UNIQUE,
-    nome             VARCHAR(100),
-    descricao        TEXT,
-    nivel_hierarquia INTEGER,
-    ativo            BOOLEAN
-);
-
--- =============================================================================
--- PAPEL_ORGANIZACIONAL_PERMISSAO
--- =============================================================================
-
-CREATE TABLE papel_organizacional_permissao (
-    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    papel_organizacional_id UUID NOT NULL REFERENCES papel_organizacional(id),
-    permissao_id            UUID NOT NULL REFERENCES permissao(id),
-    CONSTRAINT uk_papel_perm UNIQUE (papel_organizacional_id, permissao_id)
-);
-
--- =============================================================================
--- PAPEL_PROJETO_PERMISSAO
--- =============================================================================
-
-CREATE TABLE papel_projeto_permissao (
-    id             UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    papel_projeto_id UUID NOT NULL REFERENCES papel_projeto(id),
-    permissao_id     UUID NOT NULL REFERENCES permissao(id),
-    CONSTRAINT uk_papel_projeto_perm UNIQUE (papel_projeto_id, permissao_id)
-);
+-- Papéis e permissões NÃO ficam no banco: o pertencimento (quem é Dono/Gestor/
+-- Membro/Stakeholder de qual organização/projeto) é mantido em grupos do Keycloak
+-- e a matriz papel → permissão é estática no backend. As tabelas permissao,
+-- papel_organizacional, papel_projeto, papel_*_permissao, usuario_organizacao e
+-- usuario_projeto foram removidas (ver autorizacao-organizacao-projeto.md).
 
 -- =============================================================================
 -- USUARIO
@@ -137,22 +83,8 @@ CREATE TABLE organizacao (
     ativo            BOOLEAN     NOT NULL,
     criado_por       UUID        REFERENCES usuario(id),
     data_criacao     TIMESTAMP,
-    data_atualizacao TIMESTAMP
-);
-
--- =============================================================================
--- USUARIO_ORGANIZACAO
--- =============================================================================
-
-CREATE TABLE usuario_organizacao (
-    id                      UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id              UUID    REFERENCES usuario(id),
-    organizacao_id          UUID    REFERENCES organizacao(id),
-    papel_organizacional_id UUID    REFERENCES papel_organizacional(id),
-    ativo                   BOOLEAN,
-    data_entrada            TIMESTAMP,
-    data_atualizacao        TIMESTAMP,
-    CONSTRAINT uk_usuario_organizacao UNIQUE (usuario_id, organizacao_id)
+    data_atualizacao TIMESTAMP,
+    keycloak_group_id UUID       -- grupo /org-{id} no Keycloak
 );
 
 -- =============================================================================
@@ -168,22 +100,8 @@ CREATE TABLE projeto (
     ativo            BOOLEAN     NOT NULL,
     criado_por       UUID        REFERENCES usuario(id),
     data_criacao     TIMESTAMP,
-    data_atualizacao TIMESTAMP
-);
-
--- =============================================================================
--- USUARIO_PROJETO
--- =============================================================================
-
-CREATE TABLE usuario_projeto (
-    id               UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
-    usuario_id       UUID    REFERENCES usuario(id),
-    projeto_id       UUID    REFERENCES projeto(id),
-    papel_projeto_id UUID    REFERENCES papel_projeto(id),
-    ativo            BOOLEAN,
-    data_entrada     TIMESTAMP,
     data_atualizacao TIMESTAMP,
-    CONSTRAINT uk_usuario_projeto UNIQUE (usuario_id, projeto_id)
+    keycloak_group_id UUID       -- grupo /org-{id}/proj-{id} no Keycloak
 );
 
 -- =============================================================================

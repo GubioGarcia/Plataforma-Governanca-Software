@@ -2,6 +2,7 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.organizatio
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.AtualizarOrganizacaoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.CriarOrganizacaoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
@@ -44,11 +45,18 @@ class OrganizacaoServiceTest {
     @MockitoBean
     private JwtDecoder jwtDecoder;
 
+    // Sem Keycloak nos testes: a criação dos grupos de acesso é simulada
+    @MockitoBean
+    private GruposAcessoService gruposAcessoService;
+
     private Jwt jwtMock;
+    private UUID keycloakId;
+    private final UUID grupoOrganizacaoId = UUID.randomUUID();
 
     @BeforeEach
     void setUp() {
-        UUID keycloakId = UUID.randomUUID();
+        keycloakId = UUID.randomUUID();
+        when(gruposAcessoService.criarEstruturaOrganizacao(any(), any())).thenReturn(grupoOrganizacaoId);
 
         usuarioRepository.save(Usuario.builder()
                 .externalIdentityId(keycloakId)
@@ -89,6 +97,32 @@ class OrganizacaoServiceTest {
         assertThat(salva.get().getDescricao()).isEqualTo("Empresa de tecnologia");
         assertThat(salva.get().getAtivo()).isTrue();
         assertThat(salva.get().getCriadoPor()).isNotNull();
+    }
+
+    @Test
+    void criar_deveCriarGruposDeAcessoComCriadorComoDono_eGravarIdDoGrupo() {
+        // When
+        var resultado = organizacaoService.criar(jwtMock, new CriarOrganizacaoRequestDTO("Org Com Grupo", null, null));
+
+        // Then — criador passado ao serviço de grupos e id do grupo gravado
+        verify(gruposAcessoService).criarEstruturaOrganizacao(
+                argThat(o -> o.getId().equals(resultado.id())),
+                argThat(u -> u.getExternalIdentityId().equals(keycloakId)));
+
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(organizacaoRepository.findById(resultado.id()).orElseThrow().getKeycloakGroupId())
+                .isEqualTo(grupoOrganizacaoId);
+    }
+
+    @Test
+    void criar_devePropagarErro_quandoFalhaAoCriarGruposDeAcesso() {
+        when(gruposAcessoService.criarEstruturaOrganizacao(any(), any()))
+                .thenThrow(new GruposAcessoService.EstruturaGruposException("Keycloak fora do ar"));
+
+        assertThatThrownBy(() ->
+                organizacaoService.criar(jwtMock, new CriarOrganizacaoRequestDTO("Org Sem Keycloak", null, null))
+        ).isInstanceOf(GruposAcessoService.EstruturaGruposException.class);
     }
 
     @Test

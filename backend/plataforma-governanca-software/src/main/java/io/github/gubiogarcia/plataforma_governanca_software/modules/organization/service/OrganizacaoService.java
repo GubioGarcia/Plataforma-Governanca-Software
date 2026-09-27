@@ -2,6 +2,7 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.organizatio
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.AtualizarOrganizacaoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.CriarOrganizacaoRequestDTO;
@@ -28,10 +29,11 @@ public class OrganizacaoService {
     private final OrganizacaoRepository organizacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final ProjetoRepository projetoRepository;
+    private final GruposAcessoService gruposAcessoService;
 
     @Transactional
     public OrganizacaoResponseDTO criar(Jwt jwt, CriarOrganizacaoRequestDTO request) {
-        UUID usuarioId = resolverUsuarioId(jwt);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (organizacaoRepository.existsByNome(request.nome())) {
             throw new OrganizacaoNomeJaExisteException(request.nome());
@@ -42,14 +44,18 @@ public class OrganizacaoService {
                 .descricao(request.descricao())
                 .plano(request.plano())
                 .ativo(true)
-                .criadoPor(usuarioId)
+                .criadoPor(usuario.getId())
                 .dataCriacao(Instant.now())
                 .dataAtualizacao(Instant.now())
                 .build();
 
-        organizacao = organizacaoRepository.save(organizacao);
+        // flush antes do Keycloak: erro de banco aparece antes de criar os grupos
+        organizacao = organizacaoRepository.saveAndFlush(organizacao);
 
-        log.info("Organização '{}' criada com sucesso. ID: {}, criada por: {}", organizacao.getNome(), organizacao.getId(), usuarioId);
+        // Grupos de acesso /org-{id} (criador vira Dono); revertidos se a transação falhar
+        organizacao.setKeycloakGroupId(gruposAcessoService.criarEstruturaOrganizacao(organizacao, usuario));
+
+        log.info("Organização '{}' criada com sucesso. ID: {}, criada por: {}", organizacao.getNome(), organizacao.getId(), usuario.getId());
 
         return mapToResponseDTO(organizacao, 0L);
     }
@@ -147,11 +153,10 @@ public class OrganizacaoService {
 
     // Helpers privados
 
-    private UUID resolverUsuarioId(Jwt jwt) {
+    private Usuario resolverUsuario(Jwt jwt) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
-        Usuario usuario = usuarioRepository.findByExternalIdentityId(keycloakId)
+        return usuarioRepository.findByExternalIdentityId(keycloakId)
                 .orElseThrow(() -> new UsuarioNaoAutorizadoException("Usuário autenticado não encontrado na plataforma."));
-        return usuario.getId();
     }
 
     private OrganizacaoResponseDTO mapToResponseDTO(Organizacao o, Long totalProjetosAtivos) {

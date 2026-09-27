@@ -1,6 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.config;
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminException;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.UsuarioService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.service.OrganizacaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.service.VisaoProdutoService;
@@ -97,6 +98,13 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UsuarioService.SenhaAtualInvalidaException.class)
     public ProblemDetail handleSenhaAtualInvalida(UsuarioService.SenhaAtualInvalidaException ex) {
         return problem(HttpStatus.BAD_REQUEST, "Senha atual incorreta", ex.getMessage(), "/errors/senha-atual-invalida");
+    }
+
+    @ExceptionHandler(GruposAcessoService.EstruturaGruposException.class)
+    public ProblemDetail handleEstruturaGrupos(GruposAcessoService.EstruturaGruposException ex) {
+        log.error("Erro ao criar grupos de acesso no Keycloak: {}", ex.getMessage(), ex.getCause());
+        return problem(HttpStatus.BAD_GATEWAY, "Falha no servidor de autenticacao",
+                "Nao foi possivel configurar o acesso no servidor de autenticacao. Tente novamente.", "/errors/grupos-acesso");
     }
 
     @ExceptionHandler(KeycloakAdminException.class)

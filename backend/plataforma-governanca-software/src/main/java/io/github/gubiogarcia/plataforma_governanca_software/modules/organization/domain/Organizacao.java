@@ -34,4 +34,8 @@ public class Organizacao {
 
     @Column(name = "data_atualizacao")
     private Instant dataAtualizacao;
+
+    /** Id do grupo /org-{id} no Keycloak (pertencimento e papéis ficam nos subgrupos). */
+    @Column(name = "keycloak_group_id")
+    private UUID keycloakGroupId;
 }

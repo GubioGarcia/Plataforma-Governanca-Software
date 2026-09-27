@@ -9,9 +9,12 @@ import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
+import java.net.URI;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Slf4j
 @Component
@@ -23,6 +26,12 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
     private final String clientSecret;
 
     private final RestClient restClient;
+
+    private String  tokenAdmin;
+    private Instant tokenAdminExpiraEm = Instant.EPOCH;
+
+    /** Representações das roles de realm (necessárias para mapear role em grupo); não mudam em execução. */
+    private final Map<String, Map<String, Object>> rolesPorNome = new ConcurrentHashMap<>();
 
     public KeycloakAdminClientImpl(
             @Value("${keycloak.admin.server-url}") String serverUrl,
@@ -55,7 +64,14 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
         redefinirSenhaNoKeycloak(adminToken, keycloakId, novaSenha);
     }
 
-    private String obterTokenAdmin() {
+    /**
+     * Token da service account, reaproveitado até 30 s antes de expirar — criar a
+     * estrutura de grupos de uma organização faz várias chamadas seguidas.
+     */
+    private synchronized String obterTokenAdmin() {
+        if (tokenAdmin != null && Instant.now().isBefore(tokenAdminExpiraEm)) {
+            return tokenAdmin;
+        }
         String tokenUrl = serverUrl + "/realms/" + realm + "/protocol/openid-connect/token";
 
         MultiValueMap<String, String> body = new LinkedMultiValueMap<>();
@@ -81,7 +97,10 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
             throw new KeycloakAdminException("Resposta do token admin não contém access_token", 500);
         }
 
-        return (String) response.get("access_token");
+        long expiraEmSegundos = response.get("expires_in") instanceof Number n ? n.longValue() : 60L;
+        tokenAdmin         = (String) response.get("access_token");
+        tokenAdminExpiraEm = Instant.now().plusSeconds(Math.max(expiraEmSegundos - 30, 0));
+        return tokenAdmin;
     }
 
     private UUID criarUsuarioNoKeycloak(String adminToken, String email,
@@ -236,5 +255,145 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
                 .toBodilessEntity();
 
         log.info("Usuário {} desabilitado no Keycloak.", keycloakId);
+    }
+
+    // ── Grupos ────────────────────────────────────────────────────────────────
+
+    @Override
+    public UUID criarGrupo(String nome) {
+        UUID id = criarGrupoEm(adminUrl("/groups"), nome);
+        return id != null ? id : buscarGrupoPorCaminho("/" + nome);
+    }
+
+    @Override
+    public UUID criarSubgrupo(UUID grupoPaiId, String nome) {
+        UUID id = criarGrupoEm(adminUrl("/groups/" + grupoPaiId + "/children"), nome);
+        if (id != null) {
+            return id;
+        }
+        Map<?, ?> pai = restClient.get()
+                .uri(adminUrl("/groups/" + grupoPaiId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Grupo pai não encontrado no Keycloak: " + grupoPaiId, res.getStatusCode().value());
+                })
+                .body(Map.class);
+        return buscarGrupoPorCaminho(pai.get("path") + "/" + nome);
+    }
+
+    @Override
+    public void excluirGrupo(UUID grupoId) {
+        restClient.delete()
+                .uri(adminUrl("/groups/" + grupoId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (req, res) -> {})
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao excluir grupo " + grupoId + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .toBodilessEntity();
+
+        log.info("Grupo {} excluído do Keycloak.", grupoId);
+    }
+
+    @Override
+    public void adicionarMembro(UUID usuarioKeycloakId, UUID grupoId) {
+        restClient.put()
+                .uri(adminUrl("/users/" + usuarioKeycloakId + "/groups/" + grupoId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao adicionar usuário " + usuarioKeycloakId + " ao grupo " + grupoId
+                                    + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .toBodilessEntity();
+
+        log.info("Usuário {} adicionado ao grupo {} no Keycloak.", usuarioKeycloakId, grupoId);
+    }
+
+    @Override
+    public void mapearRoleNoGrupo(UUID grupoId, String nomeRole) {
+        Map<String, Object> role = rolesPorNome.computeIfAbsent(nomeRole, this::buscarRole);
+
+        restClient.post()
+                .uri(adminUrl("/groups/" + grupoId + "/role-mappings/realm"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(List.of(role))
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao mapear role " + nomeRole + " no grupo " + grupoId
+                                    + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .toBodilessEntity();
+    }
+
+    /** POST de criação de grupo; devolve o id (do header Location) ou null se o nome já existe (409). */
+    private UUID criarGrupoEm(String url, String nome) {
+        var resposta = restClient.post()
+                .uri(url)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("name", nome))
+                .retrieve()
+                .onStatus(status -> status.value() == 409, (req, res) -> {})
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao criar grupo '" + nome + "' no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .toBodilessEntity();
+
+        if (resposta.getStatusCode().value() == 409) {
+            log.info("Grupo '{}' já existia no Keycloak; reaproveitando.", nome);
+            return null;
+        }
+
+        URI location = resposta.getHeaders().getLocation();
+        if (location == null) {
+            throw new KeycloakAdminException("Keycloak não retornou o header Location após criar o grupo " + nome, 500);
+        }
+        String path = location.getPath();
+        UUID id = UUID.fromString(path.substring(path.lastIndexOf('/') + 1));
+        log.info("Grupo '{}' criado no Keycloak com ID: {}", nome, id);
+        return id;
+    }
+
+    private UUID buscarGrupoPorCaminho(String caminho) {
+        Map<?, ?> grupo = restClient.get()
+                .uri(adminUrl("/group-by-path" + caminho))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Grupo não encontrado no Keycloak: " + caminho, res.getStatusCode().value());
+                })
+                .body(Map.class);
+        return UUID.fromString((String) grupo.get("id"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private Map<String, Object> buscarRole(String nomeRole) {
+        return restClient.get()
+                .uri(adminUrl("/roles/" + nomeRole))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Role de realm não encontrada no Keycloak: " + nomeRole, res.getStatusCode().value());
+                })
+                .body(Map.class);
+    }
+
+    private String adminUrl(String caminho) {
+        return serverUrl + "/admin/realms/" + realm + caminho;
     }
 }

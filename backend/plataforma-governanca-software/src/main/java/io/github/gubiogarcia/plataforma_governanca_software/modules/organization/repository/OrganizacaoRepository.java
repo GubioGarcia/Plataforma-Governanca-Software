@@ -20,4 +20,7 @@ public interface OrganizacaoRepository extends JpaRepository<Organizacao, UUID> 
     List<Organizacao> findByNomeContainingIgnoreCase(@Param("nome") String nome);
 
     List<Organizacao> findAllByCriadoPor(UUID criadoPor);
+
+    /** Organizações ainda sem grupo de acesso no Keycloak (migração). */
+    List<Organizacao> findAllByKeycloakGroupIdIsNull();
 }

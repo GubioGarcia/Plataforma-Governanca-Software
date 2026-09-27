@@ -29,4 +29,7 @@ public interface ProjetoRepository extends JpaRepository<Projeto, UUID> {
     long countByOrganizacaoIdAndAtivo(UUID organizacaoId, Boolean ativo);
 
     boolean existsByStatusId(UUID statusId);
+
+    /** Projetos ainda sem grupo de acesso no Keycloak (migração). */
+    List<Projeto> findAllByKeycloakGroupIdIsNull();
 }
