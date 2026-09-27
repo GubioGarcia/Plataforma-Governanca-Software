@@ -6,6 +6,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.StatusProjetoResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,10 +21,12 @@ import java.util.UUID;
 public class StatusProjetoService {
 
     private final StatusProjetoRepository statusProjetoRepository;
+    private final AutorizacaoService autorizacao;
     private final ProjetoRepository projetoRepository;
 
     @Transactional
     public StatusProjetoResponseDTO criar(CriarStatusProjetoRequestDTO request) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         if (statusProjetoRepository.existsByNomeIgnoreCase(request.nome())) {
             throw new StatusProjetoNomeJaExisteException(request.nome());
         }
@@ -59,6 +62,7 @@ public class StatusProjetoService {
 
     @Transactional
     public StatusProjetoResponseDTO atualizar(UUID id, AtualizarStatusProjetoRequestDTO request) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         StatusProjeto status = statusProjetoRepository.findById(id)
                 .orElseThrow(() -> new StatusProjetoNaoEncontradoException("Nenhum status encontrado com o id: " + id));
 
@@ -83,6 +87,7 @@ public class StatusProjetoService {
 
     @Transactional
     public void deletar(UUID id) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         if (!statusProjetoRepository.existsById(id)) {
             throw new StatusProjetoNaoEncontradoException("Nenhum status encontrado com o id: " + id);
         }

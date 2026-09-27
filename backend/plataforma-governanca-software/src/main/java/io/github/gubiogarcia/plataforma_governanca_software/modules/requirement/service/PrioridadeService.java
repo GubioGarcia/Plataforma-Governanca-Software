@@ -6,6 +6,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.dto.PrioridadeResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.PrioridadeRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,10 +21,12 @@ import java.util.UUID;
 public class PrioridadeService {
 
     private final PrioridadeRepository prioridadeRepository;
+    private final AutorizacaoService autorizacao;
     private final RequisitoRepository requisitoRepository;
 
     @Transactional
     public PrioridadeResponseDTO criar(CriarPrioridadeRequestDTO request) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         if (prioridadeRepository.existsByCodigoIgnoreCase(request.codigo())) {
             throw new PrioridadeCodigoJaExisteException(request.codigo());
         }
@@ -69,6 +72,7 @@ public class PrioridadeService {
 
     @Transactional
     public PrioridadeResponseDTO atualizar(UUID id, AtualizarPrioridadeRequestDTO request) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         Prioridade prioridade = prioridadeRepository.findById(id)
                 .orElseThrow(() -> new PrioridadeNaoEncontradaException(id));
 
@@ -83,6 +87,7 @@ public class PrioridadeService {
 
     @Transactional
     public void deletar(UUID id) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         if (!prioridadeRepository.existsById(id)) {
             throw new PrioridadeNaoEncontradaException(id);
         }

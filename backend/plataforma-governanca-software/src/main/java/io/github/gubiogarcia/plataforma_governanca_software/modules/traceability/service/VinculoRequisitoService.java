@@ -15,6 +15,10 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.dto.CriarVinculoRequisitoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.dto.VinculoRequisitoResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.repository.VinculoRequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -38,6 +42,8 @@ public class VinculoRequisitoService {
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
+    private final ProjetoRepository projetoRepository;
+    private final AutorizacaoService autorizacao;
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
@@ -57,6 +63,7 @@ public class VinculoRequisitoService {
         if (!origem.getProjeto().getId().equals(destino.getProjeto().getId())) {
             throw new RequisitosDeProjetosDiferentesException();
         }
+        autorizacao.exigir(origem.getProjeto(), Permissao.RASTREABILIDADE_EDIT);
         if (vinculoRequisitoRepository.existsByRequisitoOrigemIdAndRequisitoDestinoIdAndTipo(
                 requisitoOrigemId, request.requisitoDestinoId(), request.tipo())) {
             throw new VinculoRequisitoDuplicadoException();
@@ -93,9 +100,10 @@ public class VinculoRequisitoService {
 
     @Transactional(readOnly = true)
     public List<VinculoRequisitoResponseDTO> listarPorRequisito(UUID requisitoId) {
-        if (!requisitoRepository.existsById(requisitoId)) {
-            throw new RequisitoService.RequisitoNaoEncontradoException(requisitoId);
-        }
+        Requisito requisito = requisitoRepository.findById(requisitoId)
+                .orElseThrow(() -> new RequisitoService.RequisitoNaoEncontradoException(requisitoId));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.RASTREABILIDADE_VIEW);
+
         return vinculoRequisitoRepository
                 .findAllByRequisitoOrigemIdOrRequisitoDestinoId(requisitoId, requisitoId).stream()
                 .map(v -> mapToResponseDTO(v, requisitoId))
@@ -105,6 +113,10 @@ public class VinculoRequisitoService {
     /** Todos os vínculos diretos do projeto — base da matriz de rastreabilidade no frontend. */
     @Transactional(readOnly = true)
     public List<VinculoRequisitoResponseDTO> listarPorProjeto(UUID projetoId) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new RequisitoService.ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.RASTREABILIDADE_VIEW);
+
         return vinculoRequisitoRepository.findAllByProjetoId(projetoId).stream()
                 .map(v -> mapToResponseDTO(v, v.getRequisitoOrigem().getId()))
                 .toList();
@@ -113,6 +125,7 @@ public class VinculoRequisitoService {
     @Transactional(readOnly = true)
     public VinculoRequisitoResponseDTO buscarPorId(UUID id) {
         VinculoRequisito vinculo = carregar(id);
+        autorizacao.exigir(vinculo.getRequisitoOrigem().getProjeto(), Permissao.RASTREABILIDADE_VIEW);
         return mapToResponseDTO(vinculo, vinculo.getRequisitoOrigem().getId());
     }
 
@@ -121,8 +134,9 @@ public class VinculoRequisitoService {
     @Transactional
     public VinculoRequisitoResponseDTO atualizar(Jwt jwt, UUID id, AtualizarVinculoRequisitoRequestDTO request) {
         VinculoRequisito vinculo = carregar(id);
-        Usuario usuario = resolverUsuario(jwt);
         Requisito origem = vinculo.getRequisitoOrigem();
+        autorizacao.exigir(origem.getProjeto(), Permissao.RASTREABILIDADE_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (!request.tipo().equals(vinculo.getTipo())) {
             if (vinculoRequisitoRepository.existsByRequisitoOrigemIdAndRequisitoDestinoIdAndTipo(
@@ -147,8 +161,9 @@ public class VinculoRequisitoService {
     @Transactional
     public void deletar(Jwt jwt, UUID id) {
         VinculoRequisito vinculo = carregar(id);
-        Usuario usuario = resolverUsuario(jwt);
         Requisito origem = vinculo.getRequisitoOrigem();
+        autorizacao.exigir(origem.getProjeto(), Permissao.RASTREABILIDADE_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
         String descricao = origem.getCodigo() + " " + vinculo.getTipo() + " " + vinculo.getRequisitoDestino().getCodigo();
 
         auditoriaService.registrar(

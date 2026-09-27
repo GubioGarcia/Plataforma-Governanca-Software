@@ -17,9 +17,9 @@ public record CriarComentarioRequestDTO(
         @NotNull(message = "O id da entidade é obrigatório.")
         UUID entidadeId,
 
-        @NotNull(message = "O id do projeto é obrigatório.")
+        // Opcionais e ignorados: projeto e organização são derivados da entidade comentada
+        // (evita checar a permissão num projeto informado pelo cliente)
         UUID projetoId,
 
-        @NotNull(message = "O id da organização é obrigatório.")
         UUID organizacaoId
 ) {}

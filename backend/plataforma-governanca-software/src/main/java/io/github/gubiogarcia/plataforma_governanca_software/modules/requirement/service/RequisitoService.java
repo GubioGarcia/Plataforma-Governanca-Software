@@ -20,6 +20,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.PrioridadeRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.StatusRequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -28,6 +30,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Slf4j
@@ -44,17 +47,22 @@ public class RequisitoService {
     private final InteracaoService interacaoService;
     private final VinculoRequisitoRepository vinculoRequisitoRepository;
     private final ImpactoDadosRepository impactoDadosRepository;
+    private final AutorizacaoService autorizacao;
+
+    private static final Set<String> STATUS_DE_APROVACAO = Set.of("APROVADO", "REPROVADO");
 
     @Transactional
     public RequisitoResponseDTO criar(Jwt jwt, UUID projetoId, CriarRequisitoRequestDTO request) {
         Usuario usuario = resolverUsuario(jwt);
         Projeto projeto = projetoRepository.findById(projetoId)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.REQ_CREATE);
 
         StatusRequisito status;
         if (request.statusId() != null) {
             status = statusRequisitoRepository.findById(request.statusId())
                     .orElseThrow(() -> new StatusRequisitoService.StatusRequisitoNaoEncontradoException(request.statusId()));
+            exigirAprovacaoSeNecessario(projeto, status);
         } else {
             status = statusRequisitoRepository.findAll().stream()
                     .min((a, b) -> Integer.compare(a.getOrdem(), b.getOrdem()))
@@ -103,6 +111,10 @@ public class RequisitoService {
 
     @Transactional(readOnly = true)
     public List<RequisitoResponseDTO> listarPorProjeto(UUID projetoId) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.REQ_VIEW);
+
         return requisitoRepository.findAllByProjetoId(projetoId).stream()
                 .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
                 .map(this::mapToResponseDTO)
@@ -113,6 +125,7 @@ public class RequisitoService {
     public RequisitoResponseDTO buscarPorId(UUID id) {
         Requisito requisito = requisitoRepository.findById(id)
                 .orElseThrow(() -> new RequisitoNaoEncontradoException(id));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_VIEW);
         return mapToResponseDTO(requisito);
     }
 
@@ -120,6 +133,7 @@ public class RequisitoService {
     public RequisitoResponseDTO atualizar(Jwt jwt, UUID id, AtualizarRequisitoRequestDTO request) {
         Requisito requisito = requisitoRepository.findById(id)
                 .orElseThrow(() -> new RequisitoNaoEncontradoException(id));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_EDIT);
 
         Usuario usuario = resolverUsuario(jwt);
 
@@ -157,6 +171,7 @@ public class RequisitoService {
                     .orElseThrow(() -> new StatusRequisitoService.StatusRequisitoNaoEncontradoException(request.statusId()));
             String statusAnteriorNome = requisito.getStatus() != null ? requisito.getStatus().getNome() : null;
             if (!request.statusId().equals(requisito.getStatus() != null ? requisito.getStatus().getId() : null)) {
+                exigirAprovacaoSeNecessario(requisito.getProjeto(), novoStatus);
                 auditoriaService.registrar(
                         usuario, null, requisito.getProjeto(),
                         "REQUISITO", id, AcaoAuditoria.EDICAO, "status",
@@ -192,6 +207,7 @@ public class RequisitoService {
     public void deletar(Jwt jwt, UUID id) {
         Requisito requisito = requisitoRepository.findById(id)
                 .orElseThrow(() -> new RequisitoNaoEncontradoException(id));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_DELETE);
 
         Usuario usuario = resolverUsuario(jwt);
 
@@ -207,6 +223,17 @@ public class RequisitoService {
         requisitoRepository.save(requisito);
         interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO, TipoInteracao.EXCLUSAO, id, "Requisito inativado: " + requisito.getTitulo());
         log.info("Requisito {} ({}) inativado.", id, requisito.getCodigo());
+    }
+
+    /**
+     * Levar o requisito a APROVADO/REPROVADO é aprovar (REQ_APPROVE), não só editar.
+     * Enquanto não há endpoints próprios de aprovação (Fase 6), a regra vale no PUT.
+     */
+    private void exigirAprovacaoSeNecessario(Projeto projeto, StatusRequisito novoStatus) {
+        if (novoStatus != null && novoStatus.getNome() != null
+                && STATUS_DE_APROVACAO.contains(novoStatus.getNome().toUpperCase())) {
+            autorizacao.exigir(projeto, Permissao.REQ_APPROVE);
+        }
     }
 
     private Usuario resolverUsuario(Jwt jwt) {

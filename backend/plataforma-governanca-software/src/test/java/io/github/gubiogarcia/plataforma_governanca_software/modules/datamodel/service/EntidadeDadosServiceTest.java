@@ -14,7 +14,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.doma
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.StatusProjeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -74,6 +76,8 @@ class EntidadeDadosServiceTest {
         Organizacao org = organizacaoRepository.save(Organizacao.builder()
                 .nome("Org DataModel").ativo(true).criadoPor(UUID.randomUUID())
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
+        // Usuário do teste é Dono da organização (grupo no token lido pelo AutorizacaoService)
+        AutenticacaoTeste.comoDonoDaOrganizacao(keycloakId, org.getId());
 
         projeto = projetoRepository.save(Projeto.builder()
                 .nome("Projeto DataModel").organizacao(org).status(statusProjeto)
@@ -81,6 +85,11 @@ class EntidadeDadosServiceTest {
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
 
         entityManager.flush();
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     @Test

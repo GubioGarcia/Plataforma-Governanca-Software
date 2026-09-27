@@ -18,6 +18,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -48,6 +51,8 @@ public class RelacionamentoEntidadeService {
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
+    private final ProjetoRepository projetoRepository;
+    private final AutorizacaoService autorizacao;
 
     // ── Sincronização derivada (chamada por AtributoEntidadeService) ───────────
 
@@ -106,8 +111,10 @@ public class RelacionamentoEntidadeService {
         if (!origem.getProjeto().getId().equals(destino.getProjeto().getId())) {
             throw new EntidadesDeProjetosDiferentesException();
         }
+        autorizacao.exigir(origem.getProjeto(), Permissao.MER_EDIT);
 
         AtributoEntidade atributoFk = resolverAtributoFk(request.atributoFkId());
+        garantirMesmoProjeto(atributoFk, origem.getProjeto());
 
         RelacionamentoEntidade rel = RelacionamentoEntidade.builder()
                 .entidadeOrigem(origem)
@@ -136,6 +143,10 @@ public class RelacionamentoEntidadeService {
 
     @Transactional(readOnly = true)
     public List<RelacionamentoEntidadeResponseDTO> listarPorProjeto(UUID projetoId) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new EntidadeDadosService.ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.MER_VIEW);
+
         return relacionamentoEntidadeRepository.findAllByProjetoId(projetoId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -143,9 +154,10 @@ public class RelacionamentoEntidadeService {
 
     @Transactional(readOnly = true)
     public List<RelacionamentoEntidadeResponseDTO> listarPorEntidade(UUID entidadeId) {
-        if (!entidadeDadosRepository.existsById(entidadeId)) {
-            throw new EntidadeDadosService.EntidadeDadosNaoEncontradaException(entidadeId);
-        }
+        EntidadeDados entidade = entidadeDadosRepository.findById(entidadeId)
+                .orElseThrow(() -> new EntidadeDadosService.EntidadeDadosNaoEncontradaException(entidadeId));
+        autorizacao.exigir(entidade.getProjeto(), Permissao.MER_VIEW);
+
         return relacionamentoEntidadeRepository
                 .findAllByEntidadeOrigemIdOrEntidadeDestinoId(entidadeId, entidadeId).stream()
                 .map(this::mapToResponseDTO)
@@ -154,7 +166,9 @@ public class RelacionamentoEntidadeService {
 
     @Transactional(readOnly = true)
     public RelacionamentoEntidadeResponseDTO buscarPorId(UUID id) {
-        return mapToResponseDTO(carregar(id));
+        RelacionamentoEntidade rel = carregar(id);
+        autorizacao.exigir(rel.getEntidadeOrigem().getProjeto(), Permissao.MER_VIEW);
+        return mapToResponseDTO(rel);
     }
 
     // ── Atualizar (manual) ───────────────────────────────────────────────────
@@ -162,8 +176,9 @@ public class RelacionamentoEntidadeService {
     @Transactional
     public RelacionamentoEntidadeResponseDTO atualizar(Jwt jwt, UUID id, AtualizarRelacionamentoEntidadeRequestDTO request) {
         RelacionamentoEntidade rel = carregar(id);
-        Usuario usuario = resolverUsuario(jwt);
         Projeto projeto = rel.getEntidadeOrigem().getProjeto();
+        autorizacao.exigir(projeto, Permissao.MER_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (!request.tipo().equals(rel.getTipo())) {
             auditoriaService.registrar(
@@ -177,6 +192,7 @@ public class RelacionamentoEntidadeService {
         UUID atributoFkAtualId = rel.getAtributoFk() != null ? rel.getAtributoFk().getId() : null;
         if (request.atributoFkId() != null && !request.atributoFkId().equals(atributoFkAtualId)) {
             AtributoEntidade novoAtributoFk = resolverAtributoFk(request.atributoFkId());
+            garantirMesmoProjeto(novoAtributoFk, projeto);
             auditoriaService.registrar(
                     usuario, projeto.getOrganizacao(), projeto,
                     "RELACIONAMENTO_ENTIDADE", id, AcaoAuditoria.EDICAO, "atributo_fk",
@@ -196,8 +212,9 @@ public class RelacionamentoEntidadeService {
     @Transactional
     public void deletar(Jwt jwt, UUID id) {
         RelacionamentoEntidade rel = carregar(id);
-        Usuario usuario = resolverUsuario(jwt);
         Projeto projeto = rel.getEntidadeOrigem().getProjeto();
+        autorizacao.exigir(projeto, Permissao.MER_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
 
         auditoriaService.registrar(
                 usuario, projeto.getOrganizacao(), projeto,
@@ -212,6 +229,13 @@ public class RelacionamentoEntidadeService {
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
+
+    /** O atributo FK informado tem de ser de uma entidade do mesmo projeto do relacionamento. */
+    private void garantirMesmoProjeto(AtributoEntidade atributoFk, Projeto projeto) {
+        if (atributoFk != null && !atributoFk.getEntidade().getProjeto().getId().equals(projeto.getId())) {
+            throw new EntidadesDeProjetosDiferentesException();
+        }
+    }
 
     private RelacionamentoEntidade carregar(UUID id) {
         return relacionamentoEntidadeRepository.findById(id)

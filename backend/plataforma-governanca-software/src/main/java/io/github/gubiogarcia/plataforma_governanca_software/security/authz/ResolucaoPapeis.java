@@ -1,6 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.security.authz;
 
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -53,5 +54,44 @@ public final class ResolucaoPapeis {
 
     public static boolean isAdminPlataforma(Set<String> grupos) {
         return grupos.contains(ADMIN_PLATAFORMA);
+    }
+
+    /**
+     * Organizações com as quais o usuário tem qualquer vínculo: papel na organização
+     * ou participação direta em algum projeto dela (ex.: stakeholder convidado só ao projeto).
+     */
+    public static Set<UUID> organizacoesComVinculo(Set<String> grupos) {
+        Set<UUID> ids = new HashSet<>();
+        for (String grupo : grupos) {
+            String[] partes = grupo.split("/");               // ["", "org-{id}", ...]
+            if (partes.length >= 3 && partes[1].startsWith("org-")) {
+                uuid(partes[1].substring("org-".length())).ifPresent(ids::add);
+            }
+        }
+        return ids;
+    }
+
+    /** Projetos da organização em que o usuário está diretamente (subgrupo do próprio projeto). */
+    public static Set<UUID> projetosComVinculoDireto(Set<String> grupos, UUID organizacaoId) {
+        String prefixo = caminhoOrganizacao(organizacaoId) + "/proj-";
+        Set<UUID> ids = new HashSet<>();
+        for (String grupo : grupos) {
+            if (grupo.startsWith(prefixo)) {
+                String resto = grupo.substring(prefixo.length());
+                int barra = resto.indexOf('/');
+                if (barra > 0) {
+                    uuid(resto.substring(0, barra)).ifPresent(ids::add);
+                }
+            }
+        }
+        return ids;
+    }
+
+    private static Optional<UUID> uuid(String texto) {
+        try {
+            return Optional.of(UUID.fromString(texto));
+        } catch (IllegalArgumentException ex) {
+            return Optional.empty();
+        }
     }
 }

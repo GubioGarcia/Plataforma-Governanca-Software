@@ -12,12 +12,10 @@ import java.util.UUID;
 /**
  * Endpoints de Auditoria.
  *
- * GET  /api/auditoria                                               — lista todas as auditorias
- * GET  /api/auditoria?entidadeTipo=REQUISITO                        — filtra por tipo
- * GET  /api/auditoria?entidadeTipo=REQUISITO&entidadeId={uuid}      — filtra por entidade específica
- * GET  /api/auditoria/projeto/{projetoId}                           — log de um projeto
- * GET  /api/auditoria/projeto/{projetoId}?entidadeTipo=REQUISITO    — log por projeto + tipo
- * GET  /api/auditoria/{id}                                          — busca por id
+ * GET  /api/auditoria?entidadeTipo=REQUISITO&entidadeId={uuid}      — histórico de um registro (AUDIT_HISTORICO_VIEW)
+ * GET  /api/auditoria/projeto/{projetoId}                           — log de um projeto (AUDIT_VIEW)
+ * GET  /api/auditoria/projeto/{projetoId}?entidadeTipo=REQUISITO    — log por projeto + tipo (AUDIT_VIEW)
+ * GET  /api/auditoria/{id}                                          — busca por id (AUDIT_HISTORICO_VIEW)
  *
  * Somente leitura: o log é gravado internamente pelos services via
  * AuditoriaService.registrar e não pode ser criado, alterado nem removido pela API.
@@ -29,19 +27,16 @@ public class AuditoriaController {
 
     private final AuditoriaService auditoriaService;
 
-    /** Lista todas as auditorias ou filtra por entidadeTipo e/ou entidadeId. */
+    /**
+     * Histórico de um registro específico. entidadeTipo e entidadeId são obrigatórios:
+     * listar tudo ou por tipo atravessaria organizações (multi-tenancy).
+     */
     @GetMapping
     public ResponseEntity<List<AuditoriaResponseDTO>> listar(
-            @RequestParam(required = false) String entidadeTipo,
-            @RequestParam(required = false) UUID   entidadeId
+            @RequestParam String entidadeTipo,
+            @RequestParam UUID   entidadeId
     ) {
-        if (entidadeTipo != null && entidadeId != null) {
-            return ResponseEntity.ok(auditoriaService.listarPorEntidade(entidadeTipo, entidadeId));
-        }
-        if (entidadeTipo != null) {
-            return ResponseEntity.ok(auditoriaService.listarPorTipo(entidadeTipo));
-        }
-        return ResponseEntity.ok(auditoriaService.listarTodos());
+        return ResponseEntity.ok(auditoriaService.listarPorEntidade(entidadeTipo, entidadeId));
     }
 
     /** Lista auditorias de um projeto, com filtro opcional por entidadeTipo. */

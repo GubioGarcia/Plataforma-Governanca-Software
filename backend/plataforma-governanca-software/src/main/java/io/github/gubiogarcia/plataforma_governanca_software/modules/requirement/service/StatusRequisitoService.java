@@ -6,6 +6,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.dto.StatusRequisitoResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.StatusRequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -20,10 +21,12 @@ import java.util.UUID;
 public class StatusRequisitoService {
 
     private final StatusRequisitoRepository statusRequisitoRepository;
+    private final AutorizacaoService autorizacao;
     private final RequisitoRepository requisitoRepository;
 
     @Transactional
     public StatusRequisitoResponseDTO criar(CriarStatusRequisitoRequestDTO request) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         if (statusRequisitoRepository.existsByNomeIgnoreCase(request.nome())) {
             throw new StatusRequisitoNomeJaExisteException(request.nome());
         }
@@ -59,6 +62,7 @@ public class StatusRequisitoService {
 
     @Transactional
     public StatusRequisitoResponseDTO atualizar(UUID id, AtualizarStatusRequisitoRequestDTO request) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         StatusRequisito status = statusRequisitoRepository.findById(id)
                 .orElseThrow(() -> new StatusRequisitoNaoEncontradoException(id));
 
@@ -83,6 +87,7 @@ public class StatusRequisitoService {
 
     @Transactional
     public void deletar(UUID id) {
+        autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
         if (!statusRequisitoRepository.existsById(id)) {
             throw new StatusRequisitoNaoEncontradoException(id);
         }

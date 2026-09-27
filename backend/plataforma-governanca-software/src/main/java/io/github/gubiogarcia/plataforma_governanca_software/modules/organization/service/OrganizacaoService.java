@@ -9,6 +9,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.organization
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.OrganizacaoResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -30,6 +32,7 @@ public class OrganizacaoService {
     private final UsuarioRepository usuarioRepository;
     private final ProjetoRepository projetoRepository;
     private final GruposAcessoService gruposAcessoService;
+    private final AutorizacaoService autorizacao;
 
     @Transactional
     public OrganizacaoResponseDTO criar(Jwt jwt, CriarOrganizacaoRequestDTO request) {
@@ -62,9 +65,10 @@ public class OrganizacaoService {
 
     @Transactional(readOnly = true)
     public List<OrganizacaoResponseDTO> listar(Boolean ativo) {
-        List<Organizacao> organizacoes = (ativo == null)
-                ? organizacaoRepository.findAll()
-                : organizacaoRepository.findAllByAtivo(ativo);
+        // Multi-tenancy: só as organizações com as quais o usuário tem vínculo
+        List<Organizacao> organizacoes = organizacaoRepository.findAllById(autorizacao.organizacoesComVinculo()).stream()
+                .filter(o -> ativo == null || ativo.equals(o.getAtivo()))
+                .toList();
 
         List<UUID> ids = organizacoes.stream().map(Organizacao::getId).toList();
 
@@ -85,6 +89,7 @@ public class OrganizacaoService {
     public OrganizacaoResponseDTO buscarPorId(UUID id) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organização encontrada com o id: " + id));
+        autorizacao.exigirVinculo(organizacao);
         long total = projetoRepository.countByOrganizacaoIdAndAtivo(id, true);
         return mapToResponseDTO(organizacao, total);
     }
@@ -93,6 +98,7 @@ public class OrganizacaoService {
     public OrganizacaoResponseDTO atualizar(UUID id, AtualizarOrganizacaoRequestDTO request) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organização encontrada com o id: " + id));
+        autorizacao.exigir(organizacao, Permissao.ORG_EDIT);
 
         if (Boolean.FALSE.equals(organizacao.getAtivo())) {
             throw new OrganizacaoInativaException(id);
@@ -120,6 +126,7 @@ public class OrganizacaoService {
     public void inativar(UUID id) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organização encontrada com o id: " + id));
+        autorizacao.exigir(organizacao, Permissao.ORG_INATIVAR);
 
         if (Boolean.FALSE.equals(organizacao.getAtivo())) {
             throw new OrganizacaoJaInativaException(id);
@@ -136,6 +143,7 @@ public class OrganizacaoService {
     public OrganizacaoResponseDTO ativar(UUID id) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organizacao encontrada com o id: " + id));
+        autorizacao.exigir(organizacao, Permissao.ORG_INATIVAR); // reativar = mesma permissão (D15)
 
         if (Boolean.TRUE.equals(organizacao.getAtivo())) {
             throw new OrganizacaoJaAtivaException(id);

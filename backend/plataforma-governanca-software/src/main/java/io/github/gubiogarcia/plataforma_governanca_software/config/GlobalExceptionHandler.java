@@ -228,6 +228,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Evento nao encontrado", ex.getMessage(), "/errors/evento-nao-encontrado");
     }
 
+    @ExceptionHandler(EventoService.EventoOrganizacaoInconsistenteException.class)
+    public ProblemDetail handleEventoOrganizacaoInconsistente(EventoService.EventoOrganizacaoInconsistenteException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Organizacao do evento invalida", ex.getMessage(), "/errors/evento-organizacao-invalida");
+    }
+
     @ExceptionHandler(EventoService.EventoDataInvalidaException.class)
     public ProblemDetail handleEventoDataInvalida(EventoService.EventoDataInvalidaException ex) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Data do evento invalida", ex.getMessage(), "/errors/evento-data-invalida");
@@ -326,14 +331,14 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Usuário não autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
     }
 
-    @ExceptionHandler(ComentarioService.OrganizacaoNaoEncontradaException.class)
-    public ProblemDetail handleComentarioOrgNaoEncontrada(ComentarioService.OrganizacaoNaoEncontradaException ex) {
-        return problem(HttpStatus.NOT_FOUND, "Organização não encontrada", ex.getMessage(), "/errors/organizacao-nao-encontrada");
+    @ExceptionHandler(ComentarioService.EntidadeComentadaNaoEncontradaException.class)
+    public ProblemDetail handleEntidadeComentadaNaoEncontrada(ComentarioService.EntidadeComentadaNaoEncontradaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Entidade não encontrada", ex.getMessage(), "/errors/entidade-comentada-nao-encontrada");
     }
 
-    @ExceptionHandler(ComentarioService.ProjetoNaoEncontradoException.class)
-    public ProblemDetail handleComentarioProjetoNaoEncontrado(ComentarioService.ProjetoNaoEncontradoException ex) {
-        return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
+    @ExceptionHandler(ComentarioService.TipoEntidadeComentarioInvalidoException.class)
+    public ProblemDetail handleTipoEntidadeComentarioInvalido(ComentarioService.TipoEntidadeComentarioInvalidoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Tipo de entidade inválido", ex.getMessage(), "/errors/tipo-entidade-comentario-invalido");
     }
 
     @ExceptionHandler(ComentarioService.ComentarioComRespostasException.class)
@@ -455,6 +460,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ImpactoDadosService.ImpactoDadosNaoEncontradoException.class)
     public ProblemDetail handleImpactoDadosNaoEncontrado(ImpactoDadosService.ImpactoDadosNaoEncontradoException ex) {
         return problem(HttpStatus.NOT_FOUND, "Impacto em dados não encontrado", ex.getMessage(), "/errors/impacto-dados-nao-encontrado");
+    }
+
+    @ExceptionHandler(ImpactoDadosService.ImpactoEntreProjetosDiferentesException.class)
+    public ProblemDetail handleImpactoEntreProjetosDiferentes(ImpactoDadosService.ImpactoEntreProjetosDiferentesException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Projetos diferentes", ex.getMessage(), "/errors/impacto-projetos-diferentes");
     }
 
     @ExceptionHandler(ImpactoDadosService.AtributoNaoPertenceAEntidadeException.class)

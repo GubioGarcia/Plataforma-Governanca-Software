@@ -16,6 +16,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.EventoResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.EventoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -37,6 +39,7 @@ public class EventoService {
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
+    private final AutorizacaoService autorizacao;
 
     @Transactional
     public EventoResponseDTO criar(Jwt jwt, CriarEventoRequestDTO request) {
@@ -47,6 +50,13 @@ public class EventoService {
 
         Organizacao organizacao = organizacaoRepository.findById(request.organizacaoId())
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException(request.organizacaoId()));
+
+        // A permissão é checada no projeto; a organização informada tem de ser a dele
+        if (!projeto.getOrganizacao().getId().equals(organizacao.getId())) {
+            throw new EventoOrganizacaoInconsistenteException(
+                    "O projeto informado nao pertence a organizacao informada.");
+        }
+        autorizacao.exigir(projeto, Permissao.EVENTO_CREATE);
 
         if (request.dataHoraFim() != null && request.dataHoraFim().isBefore(request.dataHoraInicio())) {
             throw new EventoDataInvalidaException("A data/hora de fim nao pode ser anterior a data/hora de inicio.");
@@ -81,9 +91,10 @@ public class EventoService {
 
     @Transactional(readOnly = true)
     public List<EventoResponseDTO> listarPorProjeto(UUID projetoId) {
-        if (!projetoRepository.existsById(projetoId)) {
-            throw new ProjetoNaoEncontradoException(projetoId);
-        }
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.EVENTO_VIEW);
+
         return eventoRepository.findAllByProjetoId(projetoId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -91,24 +102,30 @@ public class EventoService {
 
     @Transactional(readOnly = true)
     public List<EventoResponseDTO> listarPorOrganizacao(UUID organizacaoId) {
-        if (!organizacaoRepository.existsById(organizacaoId)) {
-            throw new OrganizacaoNaoEncontradaException(organizacaoId);
-        }
+        Organizacao organizacao = organizacaoRepository.findById(organizacaoId)
+                .orElseThrow(() -> new OrganizacaoNaoEncontradaException(organizacaoId));
+        autorizacao.exigirVinculo(organizacao);
+
+        // Só eventos dos projetos que o usuário pode ver (convidado a um projeto vê só os dele)
         return eventoRepository.findAllByOrganizacaoId(organizacaoId).stream()
+                .filter(e -> autorizacao.pode(e.getProjeto(), Permissao.EVENTO_VIEW))
                 .map(this::mapToResponseDTO)
                 .toList();
     }
 
     @Transactional(readOnly = true)
     public EventoResponseDTO buscarPorId(UUID id) {
-        return mapToResponseDTO(eventoRepository.findById(id)
-                .orElseThrow(() -> new EventoNaoEncontradoException(id)));
+        Evento evento = eventoRepository.findById(id)
+                .orElseThrow(() -> new EventoNaoEncontradoException(id));
+        autorizacao.exigir(evento.getProjeto(), Permissao.EVENTO_VIEW);
+        return mapToResponseDTO(evento);
     }
 
     @Transactional
     public EventoResponseDTO atualizar(Jwt jwt, UUID id, AtualizarEventoRequestDTO request) {
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() -> new EventoNaoEncontradoException(id));
+        autorizacao.exigir(evento.getProjeto(), Permissao.EVENTO_EDIT);
 
         if (request.dataHoraFim() != null && request.dataHoraFim().isBefore(request.dataHoraInicio())) {
             throw new EventoDataInvalidaException("A data/hora de fim nao pode ser anterior a data/hora de inicio.");
@@ -150,6 +167,7 @@ public class EventoService {
     public void deletar(Jwt jwt, UUID id) {
         Evento evento = eventoRepository.findById(id)
                 .orElseThrow(() -> new EventoNaoEncontradoException(id));
+        autorizacao.exigir(evento.getProjeto(), Permissao.EVENTO_DELETE);
 
         Usuario usuario = resolverUsuario(jwt);
 
@@ -211,6 +229,10 @@ public class EventoService {
 
     public static class EventoDataInvalidaException extends RuntimeException {
         public EventoDataInvalidaException(String message) { super(message); }
+    }
+
+    public static class EventoOrganizacaoInconsistenteException extends RuntimeException {
+        public EventoOrganizacaoInconsistenteException(String message) { super(message); }
     }
 
     public static class ProjetoNaoEncontradoException extends RuntimeException {

@@ -56,6 +56,25 @@ public class AutorizacaoService {
         return ResolucaoPapeis.isAdminPlataforma(grupos());
     }
 
+    /** Participa do projeto com qualquer papel (direto ou herdado da organização). */
+    public boolean participaDoProjeto(Projeto projeto) {
+        return !papeisNoProjeto(projeto).isEmpty();
+    }
+
+    /** Organizações com qualquer vínculo (papel nela ou participação direta num projeto dela). */
+    public Set<UUID> organizacoesComVinculo() {
+        return ResolucaoPapeis.organizacoesComVinculo(grupos());
+    }
+
+    public boolean temVinculoComOrganizacao(UUID organizacaoId) {
+        return organizacoesComVinculo().contains(organizacaoId);
+    }
+
+    /** Projetos da organização em que o usuário está diretamente, sem papel na organização. */
+    public Set<UUID> projetosComVinculoDireto(UUID organizacaoId) {
+        return ResolucaoPapeis.projetosComVinculoDireto(grupos(), organizacaoId);
+    }
+
     /** Id do usuário no Keycloak (claim "sub") da requisição atual. */
     public UUID keycloakIdAtual() {
         return UUID.fromString(jwtAtual().getSubject());
@@ -72,6 +91,20 @@ public class AutorizacaoService {
     public void exigir(Organizacao organizacao, Permissao permissao) {
         if (!pode(organizacao, permissao)) {
             throw new AcessoNegadoException("Você não tem permissão para esta ação na organização (" + permissao + ").");
+        }
+    }
+
+    /** Ver os dados do projeto: basta participar dele com qualquer papel. */
+    public void exigirParticipacao(Projeto projeto) {
+        if (!participaDoProjeto(projeto)) {
+            throw new AcessoNegadoException("Você não participa deste projeto.");
+        }
+    }
+
+    /** Ver os dados da organização: basta ter qualquer vínculo com ela. */
+    public void exigirVinculo(Organizacao organizacao) {
+        if (!temVinculoComOrganizacao(organizacao.getId())) {
+            throw new AcessoNegadoException("Você não participa desta organização.");
         }
     }
 

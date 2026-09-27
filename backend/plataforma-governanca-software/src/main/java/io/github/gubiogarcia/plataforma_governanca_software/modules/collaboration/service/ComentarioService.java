@@ -8,9 +8,11 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.collaboratio
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.product.repository.VisaoProdutoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -28,18 +30,24 @@ public class ComentarioService {
 
     private final ComentarioRepository comentarioRepository;
     private final UsuarioRepository    usuarioRepository;
-    private final OrganizacaoRepository organizacaoRepository;
-    private final ProjetoRepository    projetoRepository;
+    private final RequisitoRepository  requisitoRepository;
+    private final VisaoProdutoRepository visaoProdutoRepository;
+    private final AutorizacaoService   autorizacao;
 
     // ── Listar ───────────────────────────────────────────────────────────────
 
+    /** Todos os comentários da plataforma (todas as organizações): só Admin da Plataforma. */
     @Transactional(readOnly = true)
     public List<ComentarioResponseDTO> listarTodos() {
+        autorizacao.exigirAdminPlataforma();
         return comentarioRepository.findAll().stream().map(this::mapToDTO).toList();
     }
 
     @Transactional(readOnly = true)
     public List<ComentarioResponseDTO> listarPorEntidade(String entidadeTipo, UUID entidadeId) {
+        Alvo alvo = resolverAlvo(entidadeTipo, entidadeId);
+        autorizacao.exigir(alvo.projeto(), alvo.permissaoVer());
+
         return comentarioRepository
                 .findAtivosByEntidade(entidadeTipo.toUpperCase(), entidadeId)
                 .stream()
@@ -49,11 +57,18 @@ public class ComentarioService {
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
+    /**
+     * O projeto (e a organização) do comentário saem da entidade comentada — não do
+     * corpo da requisição —, para a permissão ser checada no projeto certo.
+     */
     @Transactional
     public ComentarioResponseDTO criar(Jwt jwt, CriarComentarioRequestDTO request) {
+        Alvo       alvo         = resolverAlvo(request.entidadeTipo(), request.entidadeId());
+        autorizacao.exigir(alvo.projeto(), alvo.permissaoComentar());
+
         Usuario    usuario      = resolverUsuario(jwt);
-        Organizacao organizacao = resolverOrganizacao(request.organizacaoId());
-        Projeto    projeto      = resolverProjeto(request.projetoId());
+        Projeto    projeto      = alvo.projeto();
+        Organizacao organizacao = projeto.getOrganizacao();
 
         Comentario comentario = Comentario.builder()
                 .usuario(usuario)
@@ -85,6 +100,7 @@ public class ComentarioService {
     @Transactional
     public ComentarioResponseDTO editar(Jwt jwt, UUID comentarioId, AtualizarComentarioRequestDTO request) {
         Comentario comentario = buscarAtivo(comentarioId);
+        exigirPermissaoDeComentar(comentario);
         Usuario    solicitante = resolverUsuario(jwt);
 
         garantirAutor(comentario, solicitante, "editar");
@@ -111,6 +127,7 @@ public class ComentarioService {
     @Transactional
     public void deletar(Jwt jwt, UUID comentarioId) {
         Comentario comentario  = buscarAtivo(comentarioId);
+        exigirPermissaoDeComentar(comentario);
         Usuario    solicitante = resolverUsuario(jwt);
 
         garantirAutor(comentario, solicitante, "excluir");
@@ -158,14 +175,31 @@ public class ComentarioService {
                         "Usuário autenticado não encontrado na plataforma."));
     }
 
-    private Organizacao resolverOrganizacao(UUID id) {
-        return organizacaoRepository.findById(id)
-                .orElseThrow(() -> new OrganizacaoNaoEncontradaException(id));
+    /** Projeto da entidade comentada + permissões de ver e de comentar naquele tipo de entidade. */
+    private record Alvo(Projeto projeto, Permissao permissaoVer, Permissao permissaoComentar) {}
+
+    private Alvo resolverAlvo(String entidadeTipo, UUID entidadeId) {
+        String tipo = entidadeTipo == null ? "" : entidadeTipo.toUpperCase();
+        if (tipo.equals("REQUISITO")) {
+            Projeto projeto = requisitoRepository.findById(entidadeId)
+                    .orElseThrow(() -> new EntidadeComentadaNaoEncontradaException(tipo, entidadeId))
+                    .getProjeto();
+            return new Alvo(projeto, Permissao.REQ_VIEW, Permissao.REQ_COMMENT);
+        }
+        if (tipo.startsWith("WIKI")) {   // WIKI_DESCRICAO, WIKI_PROBLEMA... → entidadeId é a VisaoProduto
+            Projeto projeto = visaoProdutoRepository.findById(entidadeId)
+                    .orElseThrow(() -> new EntidadeComentadaNaoEncontradaException(tipo, entidadeId))
+                    .getProjeto();
+            return new Alvo(projeto, Permissao.WIKI_VIEW, Permissao.WIKI_COMMENT);
+        }
+        throw new TipoEntidadeComentarioInvalidoException(entidadeTipo);
     }
 
-    private Projeto resolverProjeto(UUID id) {
-        return projetoRepository.findById(id)
-                .orElseThrow(() -> new ProjetoNaoEncontradoException(id));
+    private void exigirPermissaoDeComentar(Comentario comentario) {
+        Permissao permissao = comentario.getEntidadeTipo().startsWith("WIKI")
+                ? Permissao.WIKI_COMMENT
+                : Permissao.REQ_COMMENT;
+        autorizacao.exigir(comentario.getProjeto(), permissao);
     }
 
     private ComentarioResponseDTO mapToDTO(Comentario c) {
@@ -206,15 +240,15 @@ public class ComentarioService {
         public UsuarioNaoAutorizadoException(String msg) { super(msg); }
     }
 
-    public static class OrganizacaoNaoEncontradaException extends RuntimeException {
-        public OrganizacaoNaoEncontradaException(UUID id) {
-            super("Organização não encontrada com o id: " + id);
+    public static class EntidadeComentadaNaoEncontradaException extends RuntimeException {
+        public EntidadeComentadaNaoEncontradaException(String tipo, UUID id) {
+            super("Entidade " + tipo + " não encontrada com o id: " + id);
         }
     }
 
-    public static class ProjetoNaoEncontradoException extends RuntimeException {
-        public ProjetoNaoEncontradoException(UUID id) {
-            super("Projeto não encontrado com o id: " + id);
+    public static class TipoEntidadeComentarioInvalidoException extends RuntimeException {
+        public TipoEntidadeComentarioInvalidoException(String tipo) {
+            super("Tipo de entidade não aceita comentários: " + tipo + ". Use REQUISITO ou WIKI_*.");
         }
     }
 }

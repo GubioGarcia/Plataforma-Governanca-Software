@@ -28,19 +28,6 @@ public interface AuditoriaRepository extends JpaRepository<Auditoria, UUID> {
     );
 
     /**
-     * Lista registros de auditoria filtrando apenas por entidadeTipo,
-     * útil para páginas de log global de um tipo de entidade.
-     */
-    @Query("""
-            SELECT a FROM Auditoria a
-            WHERE a.entidadeTipo = :entidadeTipo
-            ORDER BY a.dataAlteracao DESC
-            """)
-    List<Auditoria> findByEntidadeTipo(
-            @Param("entidadeTipo") String entidadeTipo
-    );
-
-    /**
      * Lista todos os registros de auditoria de um projeto.
      */
     @Query("""

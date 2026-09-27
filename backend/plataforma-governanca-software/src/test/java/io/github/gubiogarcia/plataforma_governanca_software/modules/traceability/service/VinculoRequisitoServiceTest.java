@@ -17,7 +17,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.domain.TipoVinculoRequisito;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.dto.CriarVinculoRequisitoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.repository.VinculoRequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,6 +75,8 @@ class VinculoRequisitoServiceTest {
         Organizacao org = organizacaoRepository.save(Organizacao.builder()
                 .nome("Org Vinc").ativo(true).criadoPor(UUID.randomUUID())
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
+        // Usuário do teste é Dono da organização (grupo no token lido pelo AutorizacaoService)
+        AutenticacaoTeste.comoDonoDaOrganizacao(keycloakId, org.getId());
         projeto = projetoRepository.save(Projeto.builder()
                 .nome("Projeto Vinc").organizacao(org).status(sp).criadoPor(usuario).ativo(true)
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
@@ -83,6 +87,11 @@ class VinculoRequisitoServiceTest {
         reqA = requisitoRepository.save(novoRequisito(projeto, "REQ-001", "A")).getId();
         reqB = requisitoRepository.save(novoRequisito(projeto, "REQ-002", "B")).getId();
         entityManager.flush();
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     private Requisito novoRequisito(Projeto p, String codigo, String titulo) {

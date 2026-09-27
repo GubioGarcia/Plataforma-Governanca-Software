@@ -7,6 +7,10 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.reposi
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.ProjetoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,43 +26,30 @@ import java.util.UUID;
 public class AuditoriaService {
 
     private final AuditoriaRepository auditoriaRepository;
+    private final ProjetoRepository   projetoRepository;
+    private final AutorizacaoService  autorizacao;
 
     // ── Listagens ─────────────────────────────────────────────────────────────
 
-    @Transactional(readOnly = true)
-    public List<AuditoriaResponseDTO> listarTodos() {
-        return auditoriaRepository.findAll()
-                .stream()
-                .sorted((a, b) -> b.getDataAlteracao().compareTo(a.getDataAlteracao()))
-                .map(this::mapToDTO)
-                .toList();
-    }
-
     /**
-     * Lista auditorias filtrando por entidadeTipo e/ou entidadeId.
-     * Se ambos informados: retorna mudanças de um registro específico.
-     * Se apenas entidadeTipo: retorna todas as mudanças daquele tipo.
+     * Histórico de um registro específico (card de auditoria do requisito, da wiki...).
+     * Exige AUDIT_HISTORICO_VIEW no projeto de cada registro retornado.
      */
     @Transactional(readOnly = true)
     public List<AuditoriaResponseDTO> listarPorEntidade(String entidadeTipo, UUID entidadeId) {
-        return auditoriaRepository
-                .findByEntidade(entidadeTipo.toUpperCase(), entidadeId)
-                .stream()
-                .map(this::mapToDTO)
-                .toList();
+        List<Auditoria> registros = auditoriaRepository.findByEntidade(entidadeTipo.toUpperCase(), entidadeId);
+        registros.forEach(this::exigirHistorico);
+        return registros.stream().map(this::mapToDTO).toList();
     }
 
-    @Transactional(readOnly = true)
-    public List<AuditoriaResponseDTO> listarPorTipo(String entidadeTipo) {
-        return auditoriaRepository
-                .findByEntidadeTipo(entidadeTipo.toUpperCase())
-                .stream()
-                .map(this::mapToDTO)
-                .toList();
-    }
-
+    /** Tela completa de auditoria do projeto: AUDIT_VIEW. */
     @Transactional(readOnly = true)
     public List<AuditoriaResponseDTO> listarPorProjeto(UUID projetoId, String entidadeTipo) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new ProjetoService.ProjetoNaoEncontradoException(
+                        "Nenhum projeto encontrado com o id: " + projetoId));
+        autorizacao.exigir(projeto, Permissao.AUDIT_VIEW);
+
         List<Auditoria> result = (entidadeTipo != null && !entidadeTipo.isBlank())
                 ? auditoriaRepository.findByProjetoIdAndEntidadeTipo(projetoId, entidadeTipo.toUpperCase())
                 : auditoriaRepository.findByProjetoId(projetoId);
@@ -69,7 +60,19 @@ public class AuditoriaService {
     public AuditoriaResponseDTO buscarPorId(UUID id) {
         Auditoria auditoria = auditoriaRepository.findById(id)
                 .orElseThrow(() -> new AuditoriaNaoEncontradaException(id));
+        exigirHistorico(auditoria);
         return mapToDTO(auditoria);
+    }
+
+    /** Registro de projeto → AUDIT_HISTORICO_VIEW; só de organização → vínculo; sem nenhum → Admin da Plataforma. */
+    private void exigirHistorico(Auditoria auditoria) {
+        if (auditoria.getProjeto() != null) {
+            autorizacao.exigir(auditoria.getProjeto(), Permissao.AUDIT_HISTORICO_VIEW);
+        } else if (auditoria.getOrganizacao() != null) {
+            autorizacao.exigirVinculo(auditoria.getOrganizacao());
+        } else {
+            autorizacao.exigirAdminPlataforma();
+        }
     }
 
     // ── Registrar ─────────────────────────────────────────────────────────────

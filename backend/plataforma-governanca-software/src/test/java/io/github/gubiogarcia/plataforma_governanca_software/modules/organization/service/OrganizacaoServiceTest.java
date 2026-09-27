@@ -3,6 +3,9 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.organizatio
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
+import org.junit.jupiter.api.AfterEach;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.AtualizarOrganizacaoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.CriarOrganizacaoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
@@ -56,7 +59,15 @@ class OrganizacaoServiceTest {
     @BeforeEach
     void setUp() {
         keycloakId = UUID.randomUUID();
-        when(gruposAcessoService.criarEstruturaOrganizacao(any(), any())).thenReturn(grupoOrganizacaoId);
+
+        // Usuário autenticado sem nenhum grupo; ao criar uma organização vira Dono dela
+        // (simula o backend incluindo-o em /org-{id}/_dono e o token renovado)
+        AutenticacaoTeste.comGrupos(keycloakId);
+        when(gruposAcessoService.criarEstruturaOrganizacao(any(), any())).thenAnswer(inv -> {
+            Organizacao criada = inv.getArgument(0);
+            AutenticacaoTeste.adicionarGrupo(AutenticacaoTeste.grupoDonoOrganizacao(criada.getId()));
+            return grupoOrganizacaoId;
+        });
 
         usuarioRepository.save(Usuario.builder()
                 .externalIdentityId(keycloakId)
@@ -69,6 +80,11 @@ class OrganizacaoServiceTest {
 
         jwtMock = mock(Jwt.class);
         when(jwtMock.getSubject()).thenReturn(keycloakId.toString());
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     // ─── criar ───────────────────────────────────────────────────────────────
@@ -117,8 +133,8 @@ class OrganizacaoServiceTest {
 
     @Test
     void criar_devePropagarErro_quandoFalhaAoCriarGruposDeAcesso() {
-        when(gruposAcessoService.criarEstruturaOrganizacao(any(), any()))
-                .thenThrow(new GruposAcessoService.EstruturaGruposException("Keycloak fora do ar"));
+        doThrow(new GruposAcessoService.EstruturaGruposException("Keycloak fora do ar"))
+                .when(gruposAcessoService).criarEstruturaOrganizacao(any(), any());
 
         assertThatThrownBy(() ->
                 organizacaoService.criar(jwtMock, new CriarOrganizacaoRequestDTO("Org Sem Keycloak", null, null))

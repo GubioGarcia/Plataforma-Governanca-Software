@@ -3,6 +3,8 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.project.ser
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
+import org.junit.jupiter.api.AfterEach;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.repository.VisaoProdutoRepository;
@@ -104,6 +106,14 @@ class ProjetoServiceTest {
                 .build());
 
         entityManager.flush();
+
+        // Usuário do teste é Dono da organização (grupo no token lido pelo AutorizacaoService)
+        AutenticacaoTeste.comoDonoDaOrganizacao(keycloakId, organizacaoAtiva.getId());
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     // ─── criar ───────────────────────────────────────────────────────────────
@@ -201,6 +211,7 @@ class ProjetoServiceTest {
                 .dataAtualizacao(Instant.now())
                 .build());
         entityManager.flush();
+        AutenticacaoTeste.adicionarGrupo(AutenticacaoTeste.grupoDonoOrganizacao(orgInativa.getId()));
 
         var request = new CriarProjetoRequestDTO(orgInativa.getId(), "Projeto Bloqueado", null);
 
