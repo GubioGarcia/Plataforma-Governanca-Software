@@ -1,10 +1,12 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.config.RevogacaoTokenValidator;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.*;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakTokenClient;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.stereotype.Service;
 
 /**
@@ -26,7 +28,7 @@ public class AuthService {
     public SessaoAutenticada login(LoginRequestDTO request) {
         KeycloakTokenClient.Tokens tokens = keycloakTokenClient.autenticar(request.email(), request.senha())
                 .orElseThrow(CredenciaisInvalidasException::new);
-        return montarSessao(tokens);
+        return comTokenValido(tokens);
     }
 
     /** Troca o refresh token (cookie) por um access token novo — já com os grupos atuais. */
@@ -36,7 +38,35 @@ public class AuthService {
         }
         KeycloakTokenClient.Tokens tokens = keycloakTokenClient.renovar(refreshToken)
                 .orElseThrow(SessaoExpiradaException::new);
-        return montarSessao(tokens);
+        return comTokenValido(tokens);
+    }
+
+    /**
+     * Um token emitido no mesmo segundo de uma marca de revogação é recusado pelo validador
+     * ("iat" tem precisão de segundos). Nesse caso espera o segundo virar e renova uma vez —
+     * assim o token entregue ao front sempre passa na validação (no máximo ~1 s de espera,
+     * só logo depois de uma mudança de grupos).
+     */
+    private SessaoAutenticada comTokenValido(KeycloakTokenClient.Tokens tokens) {
+        try {
+            return montarSessao(tokens);
+        } catch (JwtValidationException ex) {
+            if (!RevogacaoTokenValidator.causadoPorRevogacao(ex)) {
+                throw ex;
+            }
+            esperarProximoSegundo();
+            KeycloakTokenClient.Tokens novos = keycloakTokenClient.renovar(tokens.refreshToken())
+                    .orElseThrow(SessaoExpiradaException::new);
+            return montarSessao(novos);
+        }
+    }
+
+    private static void esperarProximoSegundo() {
+        try {
+            Thread.sleep(1000 - (System.currentTimeMillis() % 1000) + 50);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     public void logout(String refreshToken) {

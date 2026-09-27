@@ -14,10 +14,14 @@ import java.util.UUID;
  */
 public class RevogacaoTokenValidator implements OAuth2TokenValidator<Jwt> {
 
-    private static final OAuth2Error TOKEN_REVOGADO = new OAuth2Error(
-            "invalid_token",
-            "As permissões do usuário mudaram; renove a sessão.",
-            null);
+    public static final String DESCRICAO_TOKEN_REVOGADO = "As permissões do usuário mudaram; renove a sessão.";
+
+    private static final OAuth2Error TOKEN_REVOGADO = new OAuth2Error("invalid_token", DESCRICAO_TOKEN_REVOGADO, null);
+
+    /** true se a falha de validação do JWT foi causada pela marca de revogação. */
+    public static boolean causadoPorRevogacao(org.springframework.security.oauth2.jwt.JwtValidationException ex) {
+        return ex.getErrors().stream().anyMatch(e -> DESCRICAO_TOKEN_REVOGADO.equals(e.getDescription()));
+    }
 
     private final RevogacaoTokenService revogacaoTokenService;
 

@@ -20,6 +20,7 @@ import DataModelPage from './features/datamodel/DataModelPage';
 import EventTimeline from './features/events/EventTimeline';
 import FileRepository from './features/files/FileRepository';
 import StakeholderList from './features/stakeholders/StakeholderList';
+import SolicitationList from './features/solicitations/SolicitationList';
 import AuditLog from './features/audit/AuditLog';
 import ProjectAnalytics from './features/analytics/ProjectAnalytics';
 import ProfilePage from './pages/ProfilePage';
@@ -41,7 +42,8 @@ export default function App() {
         <Route index element={<Navigate to="/organizations" replace />} />
         <Route path="organizations" element={<OrganizationList />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="users" element={<UsersPage />} />
+        {/* Tela global de usuários: só o Admin da Plataforma */}
+        <Route path="users" element={<ProtectedRoute requireAdminPlataforma><UsersPage /></ProtectedRoute>} />
         <Route path="organizations/:orgId" element={<OrgDashboard />} />
         <Route path="organizations/:orgId/projects" element={<ProjectList />} />
         <Route path="organizations/:orgId/projects/:projectId" element={<ProjectShell />}>
@@ -59,6 +61,7 @@ export default function App() {
           <Route path="events" element={<EventTimeline />} />
           <Route path="files" element={<FileRepository />} />
           <Route path="stakeholders" element={<StakeholderList />} />
+          <Route path="solicitations" element={<SolicitationList />} />
           <Route path="audit" element={<AuditLog />} />
           <Route path="analytics" element={<ProjectAnalytics />} />
         </Route>

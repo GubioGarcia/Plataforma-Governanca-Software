@@ -18,6 +18,7 @@ import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import { useAuth } from '../context/useAuth';
 import { usePermissions } from '../hooks/usePermissions';
+import ConvitesPendentes from '../components/common/ConvitesPendentes';
 import { mockProjects } from '../mocks/projects';
 import { mockRequirements } from '../mocks/requirements';
 import { mockStakeholders } from '../mocks/stakeholders';
@@ -78,6 +79,8 @@ export default function HomePage() {
   return (
     <Box sx={{ flexGrow: 1, overflowY: 'auto', p: { xs: 2, sm: 4 }, bgcolor: 'background.default' }}>
       <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
+
+        <ConvitesPendentes />
 
         {/* ── Cabeçalho de boas-vindas ── */}
         <Box sx={{ mb: 4 }}>

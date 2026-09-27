@@ -37,6 +37,7 @@ import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuth } from '../../context/useAuth';
+import ConvitesPendentes from '../../components/common/ConvitesPendentes';
 import { isApiError } from '../../services/userService';
 import type { OrganizacaoAPI, PlanoAPI } from '../../types/organizacao';
 import {
@@ -181,6 +182,9 @@ export default function OrganizationList() {
 
   return (
     <Box sx={{ flexGrow: 1, p: 4 }}>
+      {/* Convites recebidos: ao aceitar, a organização passa a aparecer na lista */}
+      <ConvitesPendentes onAceito={fetchOrgs} />
+
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mb: 4 }}>
         <Box>

@@ -449,6 +449,22 @@ const rotas: Rota[] = [
       return null;
     },
   },
+
+  // Participantes do projeto (Fase 6): o primeiro usuário é o Dono, os demais stakeholders convidados
+  {
+    metodo: 'get',
+    padrao: /^\/projeto\/([^/]+)\/participantes$/,
+    responder: () =>
+      estado.usuarios.map((u, i) => ({
+        usuarioId: u.id,
+        nome: u.nome,
+        email: u.email,
+        urlMidiaPerfil: u.urlMidiaPerfil ?? null,
+        vinculos: i === 0
+          ? [{ papel: 'DONO', origem: 'ORGANIZACAO' }]
+          : [{ papel: 'STAKEHOLDER_TECNICO', origem: 'PROJETO' }, { papel: 'STAKEHOLDER_CLIENTE', origem: 'PROJETO' }],
+      })),
+  },
 ];
 
 function resolver(config: AxiosRequestConfig): unknown {

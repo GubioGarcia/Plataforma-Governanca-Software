@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface KeycloakAdminClient {
@@ -30,4 +32,17 @@ public interface KeycloakAdminClient {
 
     /** Mapeia uma role de realm no grupo (todos os membros passam a tê-la no token). */
     void mapearRoleNoGrupo(UUID grupoId, String nomeRole);
+
+    /** Id do grupo pelo caminho completo (ex.: /org-{id}/_membros); vazio se não existir. */
+    Optional<UUID> buscarGrupoPorCaminho(String caminho);
+
+    /** Ids (Keycloak) dos membros diretos do grupo. */
+    List<UUID> listarMembros(UUID grupoId);
+
+    void removerMembro(UUID usuarioKeycloakId, UUID grupoId);
+
+    /** Grupos dos quais o usuário é membro direto (id + caminho completo). */
+    List<GrupoDoUsuario> listarGruposDoUsuario(UUID usuarioKeycloakId);
+
+    record GrupoDoUsuario(UUID id, String caminho) {}
 }

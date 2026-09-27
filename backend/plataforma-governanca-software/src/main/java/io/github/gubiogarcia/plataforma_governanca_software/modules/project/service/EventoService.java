@@ -11,6 +11,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.organization
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Evento;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.StatusEvento;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.AtualizarEventoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.CriarEventoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.EventoResponseDTO;
@@ -71,6 +72,7 @@ public class EventoService {
                 .dataHoraInicio(request.dataHoraInicio())
                 .dataHoraFim(request.dataHoraFim())
                 .dataCriacao(Instant.now())
+                .status(StatusEvento.APROVADO)   // criado por Dono/Gestor (EVENTO_CREATE)
                 .build();
 
         evento = eventoRepository.save(evento);
@@ -216,7 +218,56 @@ public class EventoService {
                 e.getCriadoPor().getNome(),
                 e.getDataHoraInicio(),
                 e.getDataHoraFim(),
-                e.getDataCriacao());
+                e.getDataCriacao(),
+                e.getStatus() != null ? e.getStatus() : StatusEvento.APROVADO);
+    }
+
+    // ── Fluxo de solicitação (usado pelo SolicitacaoService) ──────────────────
+
+    /**
+     * Cria um evento pedido por stakeholder, com status SOLICITADO. A permissão
+     * (EVENTO_REQUEST) já foi checada por quem chama.
+     */
+    @Transactional
+    public Evento criarSolicitado(Usuario solicitante, Projeto projeto, String nome, String descricao,
+                                  Instant inicio, Instant fim) {
+        if (fim != null && inicio != null && fim.isBefore(inicio)) {
+            throw new EventoDataInvalidaException("A data/hora de fim nao pode ser anterior a data/hora de inicio.");
+        }
+        Evento evento = eventoRepository.save(Evento.builder()
+                .nome(nome)
+                .descricao(descricao)
+                .projeto(projeto)
+                .organizacao(projeto.getOrganizacao())
+                .criadoPor(solicitante)
+                .dataHoraInicio(inicio)
+                .dataHoraFim(fim)
+                .dataCriacao(Instant.now())
+                .status(StatusEvento.SOLICITADO)
+                .build());
+        auditoriaService.registrar(solicitante, projeto.getOrganizacao(), projeto,
+                "EVENTO", evento.getId(), AcaoAuditoria.CRIACAO, "status", null, StatusEvento.SOLICITADO.name());
+        return evento;
+    }
+
+    /** Resposta à solicitação de evento (EVENTO_APPROVE já checado por quem chama). */
+    @Transactional
+    public void definirStatus(UUID eventoId, StatusEvento status, Usuario responsavel) {
+        eventoRepository.findById(eventoId).ifPresent(evento -> {
+            String anterior = evento.getStatus() != null ? evento.getStatus().name() : null;
+            evento.setStatus(status);
+            eventoRepository.save(evento);
+            auditoriaService.registrar(responsavel, evento.getOrganizacao(), evento.getProjeto(),
+                    "EVENTO", eventoId, AcaoAuditoria.EDICAO, "status", anterior, status.name());
+        });
+    }
+
+    /** Solicitação de evento cancelada pelo próprio solicitante: o evento pedido deixa de existir. */
+    @Transactional
+    public void excluirSolicitado(UUID eventoId) {
+        eventoRepository.findById(eventoId)
+                .filter(e -> e.getStatus() == StatusEvento.SOLICITADO)
+                .ifPresent(eventoRepository::delete);
     }
 
     // Excecoes de dominio

@@ -10,9 +10,11 @@ import LinearProgress from '@mui/material/LinearProgress';
 import Grid from '@mui/material/Grid';
 import Chip from '@mui/material/Chip';
 import Tooltip from '@mui/material/Tooltip';
+import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import InputAdornment from '@mui/material/InputAdornment';
 import TextField from '@mui/material/TextField';
+import MenuItem from '@mui/material/MenuItem';
 import Dialog from '@mui/material/Dialog';
 import DialogTitle from '@mui/material/DialogTitle';
 import DialogContent from '@mui/material/DialogContent';
@@ -20,13 +22,27 @@ import DialogActions from '@mui/material/DialogActions';
 import SearchIcon from '@mui/icons-material/Search';
 import PeopleIcon from '@mui/icons-material/People';
 import EmailIcon from '@mui/icons-material/Email';
-import AddIcon from '@mui/icons-material/Add';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
+import UpgradeIcon from '@mui/icons-material/Upgrade';
+import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
+import CloseIcon from '@mui/icons-material/Close';
 import EmptyState from '../../components/common/EmptyState';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { buscarResumoPorProjeto } from '../../services/interacaoService';
-import { cadastrarUsuario, listarUsuarios, isApiError } from '../../services/userService';
-import type { UsuarioBackend } from '../../services/userService';
+import { isApiError } from '../../services/userService';
+import {
+  cancelarConvite,
+  convidarParaProjeto,
+  listarConvitesProjeto,
+  listarParticipantesProjeto,
+  promoverNoProjeto,
+  removerDoProjeto,
+  type Convite,
+  type Participante,
+  type PapelConvite,
+} from '../../services/acessoService';
 import type { ResumoInteracaoUsuario } from '../../types/interacao';
+import { PAPEL_PROJETO_LABEL, type PapelNoProjeto } from '../../types/acesso';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -51,6 +67,10 @@ function avatarColor(name: string) {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
   return AVATAR_COLORS[h % AVATAR_COLORS.length];
+}
+
+function mensagemErro(err: unknown, padrao: string) {
+  return isApiError(err) ? err.response?.data?.detail ?? padrao : padrao;
 }
 
 // ─── Stat card ───────────────────────────────────────────────────────────────
@@ -90,153 +110,138 @@ function EngRow({ label, value, max, color }: { label: string; value: number; ma
   );
 }
 
-// ─── Formulário de novo stakeholder ──────────────────────────────────────────
+// ─── Membro = participante + engajamento ─────────────────────────────────────
 
-interface NovoStakeholderForm {
-  nome: string;
-  email: string;
-  senha: string;
-  confirmarSenha: string;
+interface Membro {
+  participante: Participante;
+  interacoes: ResumoInteracaoUsuario | null;
 }
 
-const EMPTY_FORM: NovoStakeholderForm = { nome: '', email: '', senha: '', confirmarSenha: '' };
+const PAPEIS_GESTAO = ['DONO', 'GESTOR'];
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function StakeholderList() {
   const { projectId } = useParams<{ projectId: string }>();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
 
-  const [membros, setMembros]           = useState<ResumoInteracaoUsuario[]>([]);
+  const [membros, setMembros]           = useState<Membro[]>([]);
+  const [convites, setConvites]         = useState<Convite[]>([]);
   const [totalInteracoes, setTotal]     = useState(0);
   const [loading, setLoading]           = useState(true);
   const [search, setSearch]             = useState('');
 
-  // Dialog state
+  // Convite
   const [dialogOpen, setDialogOpen]     = useState(false);
-  const [form, setForm]                 = useState<NovoStakeholderForm>(EMPTY_FORM);
-  const [formErrors, setFormErrors]     = useState<Partial<NovoStakeholderForm>>({});
+  const [email, setEmail]               = useState('');
+  const [papel, setPapel]               = useState<PapelConvite>('STAKEHOLDER');
   const [saving, setSaving]             = useState(false);
   const [apiError, setApiError]         = useState<string | null>(null);
+
+  // Remoção
+  const [removerAlvo, setRemoverAlvo]   = useState<Participante | null>(null);
+
+  const podeConvidar = pode('PROJETO_INVITE_USER');
+  const podePromover = pode('PROJETO_PROMOTE_USER');
+  const podeRemover  = pode('PROJETO_REMOVE_USER');
 
   const load = useCallback(async () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const [resumo, todosUsuarios] = await Promise.all([
-        buscarResumoPorProjeto(projectId),
-        listarUsuarios(),
+      const [participantes, resumo, pendentes] = await Promise.all([
+        listarParticipantesProjeto(projectId),
+        buscarResumoPorProjeto(projectId).catch(() => null),
+        podeConvidar ? listarConvitesProjeto(projectId).catch(() => []) : Promise.resolve([]),
       ]);
-
-      // Usuários com interações já estão no resumo
-      const comInteracao = resumo.porUsuario;
-      const idsComInteracao = new Set(comInteracao.map((u) => u.usuarioId));
-
-      // Montar entradas zeradas para usuários sem nenhuma interação
-      const semInteracao: ResumoInteracaoUsuario[] = todosUsuarios
-        .filter((u: UsuarioBackend) => !idsComInteracao.has(u.id))
-        .map((u: UsuarioBackend) => ({
-          usuarioId: u.id,
-          usuarioNome: u.nome,
-          usuarioEmail: u.email,
-          usuarioUrlFoto: u.urlMidiaPerfil ?? null,
-          totalInteracoes: 0,
-          interacoesWiki: 0,
-          interacoesRequisito: 0,
-          interacoesComentario: 0,
-          interacoesEvento: 0,
-        }));
-
-      setMembros([...comInteracao, ...semInteracao]);
-      setTotal(resumo.totalInteracoes);
-    } catch {
-      // mantém vazio
+      const porUsuario = new Map((resumo?.porUsuario ?? []).map((r) => [r.usuarioId, r]));
+      setMembros(participantes.map((p) => ({ participante: p, interacoes: porUsuario.get(p.usuarioId) ?? null })));
+      setTotal(resumo?.totalInteracoes ?? 0);
+      setConvites(pendentes);
+    } catch (err) {
+      notify(mensagemErro(err, 'Erro ao carregar os participantes do projeto'), 'error');
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, podeConvidar, notify]);
 
   useEffect(() => { load(); }, [load]);
 
-  const filtered = membros.filter((m) => {
+  const filtered = membros.filter(({ participante: p }) => {
     const q = search.toLowerCase();
-    return !q || m.usuarioNome.toLowerCase().includes(q) || m.usuarioEmail.toLowerCase().includes(q);
+    return !q || p.nome.toLowerCase().includes(q) || p.email.toLowerCase().includes(q);
   });
 
   const totalMembros = membros.length;
   const media = totalMembros > 0 ? Math.round(totalInteracoes / totalMembros) : 0;
 
-  const maxWiki = Math.max(...membros.map((m) => m.interacoesWiki), 1);
-  const maxReq  = Math.max(...membros.map((m) => m.interacoesRequisito), 1);
-  const maxCom  = Math.max(...membros.map((m) => m.interacoesComentario), 1);
+  const n = (m: Membro, campo: keyof ResumoInteracaoUsuario) => Number(m.interacoes?.[campo] ?? 0);
+  const maxWiki = Math.max(...membros.map((m) => n(m, 'interacoesWiki')), 1);
+  const maxReq  = Math.max(...membros.map((m) => n(m, 'interacoesRequisito')), 1);
+  const maxCom  = Math.max(...membros.map((m) => n(m, 'interacoesComentario')), 1);
 
-  // ── Dialog helpers ──────────────────────────────────────────────────────────
+  // ── Ações ────────────────────────────────────────────────────────────────────
 
-  function openAdd() {
-    setForm(EMPTY_FORM);
-    setFormErrors({});
+  function openConvite() {
+    setEmail('');
+    setPapel('STAKEHOLDER');
     setApiError(null);
     setDialogOpen(true);
   }
 
-  function closeAdd() {
-    setDialogOpen(false);
-  }
-
-  function validate(): boolean {
-    const errs: Partial<NovoStakeholderForm> = {};
-    if (!form.nome.trim()) errs.nome = 'Nome obrigatório';
-    if (!form.email.trim()) {
-      errs.email = 'E-mail obrigatório';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
-      errs.email = 'E-mail inválido';
+  async function handleConvidar() {
+    if (!projectId) return;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setApiError('Informe um e-mail válido.');
+      return;
     }
-    if (!form.senha) {
-      errs.senha = 'Senha obrigatória';
-    } else if (form.senha.length < 8) {
-      errs.senha = 'Mínimo de 8 caracteres';
-    }
-    if (!form.confirmarSenha) {
-      errs.confirmarSenha = 'Confirmação obrigatória';
-    } else if (form.senha !== form.confirmarSenha) {
-      errs.confirmarSenha = 'As senhas não coincidem';
-    }
-    setFormErrors(errs);
-    return Object.keys(errs).length === 0;
-  }
-
-  async function handleSave() {
-    if (!validate()) return;
     setSaving(true);
     setApiError(null);
     try {
-      await cadastrarUsuario({ nome: form.nome, email: form.email, senha: form.senha });
-      notify('Stakeholder cadastrado com sucesso!', 'success');
-      closeAdd();
-      load(); // recarrega a lista de interações (novo membro aparecerá após interagir)
+      await convidarParaProjeto(projectId, email.trim(), papel);
+      notify('Convite enviado. A pessoa verá o convite ao entrar na plataforma.', 'success');
+      setDialogOpen(false);
+      load();
     } catch (err) {
-      if (isApiError(err)) {
-        setApiError(err.response?.data?.detail ?? 'Erro ao cadastrar usuário.');
-      } else {
-        setApiError('Erro inesperado. Tente novamente.');
-      }
+      setApiError(mensagemErro(err, 'Erro ao enviar o convite.'));
     } finally {
       setSaving(false);
     }
   }
 
-  function field(key: keyof NovoStakeholderForm) {
-    return {
-      value: form[key],
-      onChange: (e: React.ChangeEvent<HTMLInputElement>) => {
-        setForm((f) => ({ ...f, [key]: e.target.value }));
-        setFormErrors((prev) => ({ ...prev, [key]: undefined }));
-        setApiError(null);
-      },
-      error: !!formErrors[key],
-      helperText: formErrors[key],
-    };
+  async function handleCancelarConvite(id: string) {
+    try {
+      await cancelarConvite(id);
+      notify('Convite cancelado', 'info');
+      load();
+    } catch (err) {
+      notify(mensagemErro(err, 'Erro ao cancelar o convite'), 'error');
+    }
+  }
+
+  async function handlePromover(p: Participante) {
+    if (!projectId) return;
+    try {
+      await promoverNoProjeto(projectId, p.usuarioId);
+      notify(`${p.nome} agora é Gestor do projeto`, 'success');
+      load();
+    } catch (err) {
+      notify(mensagemErro(err, 'Erro ao promover participante'), 'error');
+    }
+  }
+
+  async function handleRemover() {
+    if (!projectId || !removerAlvo) return;
+    try {
+      await removerDoProjeto(projectId, removerAlvo.usuarioId);
+      notify(`${removerAlvo.nome} foi removido do projeto`, 'info');
+      load();
+    } catch (err) {
+      notify(mensagemErro(err, 'Erro ao remover participante'), 'error');
+    } finally {
+      setRemoverAlvo(null);
+    }
   }
 
   return (
@@ -246,33 +251,48 @@ export default function StakeholderList() {
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Stakeholders</Typography>
           <Typography variant="body2" color="text.secondary">
-            Membros e participantes do projeto
+            Participantes do projeto e seus papéis
           </Typography>
         </Box>
-        {!isStakeholder && (
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          size="small"
-          onClick={openAdd}
-        >
-          Adicionar Stakeholder
-        </Button>
+        {podeConvidar && (
+          <Button variant="contained" startIcon={<PersonAddIcon />} size="small" onClick={openConvite}>
+            Convidar
+          </Button>
         )}
       </Box>
 
       {/* Summary cards */}
       <Grid container spacing={2} sx={{ mb: 4 }}>
         <Grid size={{ xs: 12, sm: 4 }}>
-          <StatCard value={totalMembros}    label="Total de membros"    color="#3F51B5" />
+          <StatCard value={totalMembros}    label="Participantes"       color="#3F51B5" />
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
           <StatCard value={totalInteracoes} label="Total de interações" color="#059669" />
         </Grid>
         <Grid size={{ xs: 12, sm: 4 }}>
-          <StatCard value={media}           label="Média por membro"    color="#D97706" />
+          <StatCard value={media}           label="Média por participante" color="#D97706" />
         </Grid>
       </Grid>
+
+      {/* Convites pendentes */}
+      {podeConvidar && convites.length > 0 && (
+        <Card elevation={0} sx={{ border: '1px solid #E8EAED', mb: 3 }}>
+          <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>Convites pendentes</Typography>
+            <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+              {convites.map((c) => (
+                <Chip
+                  key={c.id}
+                  label={`${c.email} · ${c.papel === 'GESTOR' ? 'Gestor' : 'Stakeholder'}`}
+                  onDelete={() => handleCancelarConvite(c.id)}
+                  deleteIcon={<Tooltip title="Cancelar convite"><CloseIcon /></Tooltip>}
+                  size="small"
+                />
+              ))}
+            </Box>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Search */}
       <TextField
@@ -293,33 +313,30 @@ export default function StakeholderList() {
         }}
       />
 
-      {/* Loading */}
       {loading && (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
           <CircularProgress />
         </Box>
       )}
 
-      {/* Empty */}
       {!loading && filtered.length === 0 && (
         <EmptyState
           icon={<PeopleIcon sx={{ fontSize: 64 }} />}
-          title="Nenhum membro encontrado"
-          description={
-            membros.length === 0
-              ? 'Ainda não há interações registradas neste projeto.'
-              : 'Nenhum membro corresponde à busca.'
-          }
+          title="Nenhum participante encontrado"
+          description={membros.length === 0 ? 'Este projeto ainda não tem participantes.' : 'Nenhum participante corresponde à busca.'}
         />
       )}
 
-      {/* Grid de cards dos membros */}
       {!loading && filtered.length > 0 && (
         <Grid container spacing={2}>
           {filtered.map((m) => {
-            const color = avatarColor(m.usuarioNome);
+            const p = m.participante;
+            const color = avatarColor(p.nome);
+            const papeis = p.vinculos.map((v) => v.papel);
+            const ehGestao = papeis.some((x) => PAPEIS_GESTAO.includes(x));
+            const diretoNoProjeto = p.vinculos.some((v) => v.origem === 'PROJETO' && v.papel !== 'DONO');
             return (
-              <Grid key={m.usuarioId} size={{ xs: 12, md: 6 }}>
+              <Grid key={p.usuarioId} size={{ xs: 12, md: 6 }}>
                 <Card
                   elevation={0}
                   sx={{
@@ -330,46 +347,66 @@ export default function StakeholderList() {
                   }}
                 >
                   <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-                    {/* Linha de topo: avatar + info + chip de total */}
-                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
-                      {m.usuarioUrlFoto ? (
-                        <Avatar src={m.usuarioUrlFoto} sx={{ width: 44, height: 44 }} />
+                    <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
+                      {p.urlMidiaPerfil ? (
+                        <Avatar src={p.urlMidiaPerfil} sx={{ width: 44, height: 44 }} />
                       ) : (
                         <Avatar sx={{ bgcolor: color, width: 44, height: 44, fontWeight: 700, fontSize: 15 }}>
-                          {initials(m.usuarioNome)}
+                          {initials(p.nome)}
                         </Avatar>
                       )}
 
                       <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.2 }}>
-                          {m.usuarioNome}
-                        </Typography>
+                        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.2 }}>{p.nome}</Typography>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                           <EmailIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
                           <Typography
                             variant="caption"
                             sx={{ color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                           >
-                            {m.usuarioEmail}
+                            {p.email}
                           </Typography>
                         </Box>
                       </Box>
 
-                      <Tooltip title="Total de interações no projeto">
-                        <Chip
-                          label={`${m.totalInteracoes} interações`}
-                          size="small"
-                          sx={{ fontWeight: 600, bgcolor: '#F3F4F6', flexShrink: 0 }}
-                        />
-                      </Tooltip>
+                      {podePromover && !ehGestao && (
+                        <Tooltip title="Elevar a Gestor do projeto">
+                          <IconButton size="small" onClick={() => handlePromover(p)}><UpgradeIcon fontSize="small" /></IconButton>
+                        </Tooltip>
+                      )}
+                      {podeRemover && diretoNoProjeto && (
+                        <Tooltip title="Remover do projeto">
+                          <IconButton size="small" color="error" onClick={() => setRemoverAlvo(p)}>
+                            <PersonRemoveIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </Box>
 
-                    {/* Barras de engajamento */}
+                    {/* Papéis: herdados da organização ou diretos no projeto */}
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
+                      {p.vinculos.map((v) => (
+                        <Tooltip key={`${v.papel}-${v.origem}`} title={v.origem === 'ORGANIZACAO' ? 'Herdado da organização' : 'Direto no projeto'}>
+                          <Chip
+                            size="small"
+                            variant={v.origem === 'ORGANIZACAO' ? 'outlined' : 'filled'}
+                            label={PAPEL_PROJETO_LABEL[v.papel as PapelNoProjeto] ?? v.papel}
+                            sx={{ fontSize: 11, height: 22 }}
+                          />
+                        </Tooltip>
+                      ))}
+                      <Chip
+                        label={`${n(m, 'totalInteracoes')} interações`}
+                        size="small"
+                        sx={{ fontWeight: 600, bgcolor: '#F3F4F6', fontSize: 11, height: 22 }}
+                      />
+                    </Box>
+
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                      <EngRow label="Interações WIKI"        value={m.interacoesWiki}       max={maxWiki} color="#3F51B5" />
-                      <EngRow label="Interações Requisitos"  value={m.interacoesRequisito}  max={maxReq}  color="#7C3AED" />
-                      {m.interacoesComentario > 0 && (
-                        <EngRow label="Interações Comentários" value={m.interacoesComentario} max={maxCom} color="#059669" />
+                      <EngRow label="Interações WIKI"        value={n(m, 'interacoesWiki')}      max={maxWiki} color="#3F51B5" />
+                      <EngRow label="Interações Requisitos"  value={n(m, 'interacoesRequisito')} max={maxReq}  color="#7C3AED" />
+                      {n(m, 'interacoesComentario') > 0 && (
+                        <EngRow label="Interações Comentários" value={n(m, 'interacoesComentario')} max={maxCom} color="#059669" />
                       )}
                     </Box>
                   </CardContent>
@@ -380,83 +417,72 @@ export default function StakeholderList() {
         </Grid>
       )}
 
-      {/* ── Dialog: Adicionar Stakeholder ─────────────────────────────────── */}
-      <Dialog open={dialogOpen} onClose={closeAdd} maxWidth="sm" fullWidth>
+      {/* ── Dialog: Convidar ─────────────────────────────────────────────── */}
+      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <PersonAddIcon sx={{ color: 'primary.main' }} />
-          Adicionar Stakeholder
+          Convidar para o projeto
         </DialogTitle>
 
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
           <Typography variant="body2" color="text.secondary">
-            Preencha os dados para criar um novo usuário na plataforma. O stakeholder poderá acessar o sistema com as credenciais definidas abaixo.
+            A pessoa verá o convite ao entrar na plataforma com este e-mail (quem ainda não tem conta
+            se cadastra com o mesmo e-mail). O acesso vale só para este projeto.
           </Typography>
-
-          <TextField
-            label="Nome completo"
-            size="small"
-            fullWidth
-            autoFocus
-            {...field('nome')}
-          />
 
           <TextField
             label="E-mail"
             type="email"
             size="small"
             fullWidth
-            {...field('email')}
+            autoFocus
+            value={email}
+            onChange={(e) => { setEmail(e.target.value); setApiError(null); }}
           />
 
           <TextField
-            label="Senha"
-            type="password"
+            select
+            label="Papel"
             size="small"
             fullWidth
-            {...field('senha')}
-            helperText={formErrors.senha ?? 'Mínimo de 8 caracteres'}
-          />
-
-          <TextField
-            label="Confirmar senha"
-            type="password"
-            size="small"
-            fullWidth
-            {...field('confirmarSenha')}
-          />
+            value={papel}
+            onChange={(e) => setPapel(e.target.value as PapelConvite)}
+          >
+            <MenuItem value="STAKEHOLDER">Stakeholder (técnico e cliente)</MenuItem>
+            {podePromover && <MenuItem value="GESTOR">Gestor do projeto</MenuItem>}
+          </TextField>
 
           {apiError && (
-            <Box
-              sx={{
-                bgcolor: '#FEE2E2',
-                border: '1px solid #FCA5A5',
-                borderRadius: 1,
-                px: 2,
-                py: 1.5,
-              }}
-            >
-              <Typography variant="caption" sx={{ color: '#DC2626', fontWeight: 500 }}>
-                {apiError}
-              </Typography>
+            <Box sx={{ bgcolor: '#FEE2E2', border: '1px solid #FCA5A5', borderRadius: 1, px: 2, py: 1.5 }}>
+              <Typography variant="caption" sx={{ color: '#DC2626', fontWeight: 500 }}>{apiError}</Typography>
             </Box>
           )}
         </DialogContent>
 
         <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-          <Button onClick={closeAdd} color="inherit" size="small" disabled={saving}>
+          <Button onClick={() => setDialogOpen(false)} color="inherit" size="small" disabled={saving}>
             Cancelar
           </Button>
           <Button
-            onClick={handleSave}
+            onClick={handleConvidar}
             variant="contained"
             size="small"
             disabled={saving}
             startIcon={saving ? <CircularProgress size={14} color="inherit" /> : <PersonAddIcon />}
           >
-            {saving ? 'Cadastrando...' : 'Cadastrar'}
+            {saving ? 'Enviando...' : 'Convidar'}
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ConfirmDialog
+        open={Boolean(removerAlvo)}
+        title="Remover do projeto"
+        message={`Remover ${removerAlvo?.nome ?? ''} deste projeto? Ele perde o acesso na próxima ação.`}
+        confirmLabel="Remover"
+        onConfirm={handleRemover}
+        onCancel={() => setRemoverAlvo(null)}
+      />
     </Box>
   );
 }

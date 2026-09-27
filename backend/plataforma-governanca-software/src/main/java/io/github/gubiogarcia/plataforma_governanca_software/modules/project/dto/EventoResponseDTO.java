@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.StatusEvento;
+
 import java.time.Instant;
 import java.util.UUID;
 
@@ -15,5 +17,6 @@ public record EventoResponseDTO(
         String criadoPorNome,
         Instant dataHoraInicio,
         Instant dataHoraFim,
-        Instant dataCriacao
+        Instant dataCriacao,
+        StatusEvento status
 ) {}

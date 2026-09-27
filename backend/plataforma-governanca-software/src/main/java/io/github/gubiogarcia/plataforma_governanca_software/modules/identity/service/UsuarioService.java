@@ -162,6 +162,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponseDTO> listarTodos(Boolean ativo) {
+        autorizacaoService.exigirAdminPlataforma(); // listagem global: só Admin da Plataforma
         List<Usuario> usuarios = (ativo == null)
                 ? usuarioRepository.findAll()
                 : usuarioRepository.findAllByAtivo(ativo);
@@ -176,11 +177,16 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
                         "Nenhum usuário encontrado com o id: " + id));
+        boolean proprio = autorizacaoService.keycloakIdAtual().equals(usuario.getExternalIdentityId());
+        if (!proprio && !autorizacaoService.isAdminPlataforma()) {
+            throw new AcessoNegadoException("Apenas o próprio usuário ou o administrador da plataforma pode ver esta conta.");
+        }
         return mapToResponseDTO(usuario, Collections.emptyList());
     }
 
     @Transactional(readOnly = true)
     public UsuarioResponseDTO buscarPorEmail(String email) {
+        autorizacaoService.exigirAdminPlataforma();
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
                         "Nenhum usuário encontrado com o e-mail: " + email));
@@ -189,6 +195,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponseDTO> buscarPorNome(String nome) {
+        autorizacaoService.exigirAdminPlataforma();
         List<Usuario> usuarios = usuarioRepository.findByNomeContainingIgnoreCase(nome);
         if (usuarios.isEmpty()) {
             throw new UsuarioNaoEncontradoException(

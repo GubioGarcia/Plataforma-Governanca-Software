@@ -45,4 +45,9 @@ public class Evento {
 
     @Column(name = "data_criacao")
     private Instant dataCriacao;
+
+    /** Nulo em eventos anteriores à Fase 6 — tratado como APROVADO. */
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    private StatusEvento status;
 }

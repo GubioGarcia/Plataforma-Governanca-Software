@@ -226,14 +226,50 @@ public class RequisitoService {
     }
 
     /**
-     * Levar o requisito a APROVADO/REPROVADO é aprovar (REQ_APPROVE), não só editar.
-     * Enquanto não há endpoints próprios de aprovação (Fase 6), a regra vale no PUT.
+     * APROVADO/REPROVADO não se alcança pelo PUT nem na criação: é decisão de aprovação,
+     * feita pelos endpoints /aprovar e /reprovar (REQ_APPROVE), que registram quem aprovou.
      */
     private void exigirAprovacaoSeNecessario(Projeto projeto, StatusRequisito novoStatus) {
         if (novoStatus != null && novoStatus.getNome() != null
                 && STATUS_DE_APROVACAO.contains(novoStatus.getNome().toUpperCase())) {
-            autorizacao.exigir(projeto, Permissao.REQ_APPROVE);
+            throw new StatusSoPorAprovacaoException(novoStatus.getNome());
         }
+    }
+
+    // ── Aprovação (REQ_APPROVE) ──────────────────────────────────────────────
+
+    @Transactional
+    public RequisitoResponseDTO aprovar(Jwt jwt, UUID id) {
+        return decidir(jwt, id, "APROVADO");
+    }
+
+    @Transactional
+    public RequisitoResponseDTO reprovar(Jwt jwt, UUID id) {
+        return decidir(jwt, id, "REPROVADO");
+    }
+
+    private RequisitoResponseDTO decidir(Jwt jwt, UUID id, String nomeStatus) {
+        Requisito requisito = requisitoRepository.findById(id)
+                .orElseThrow(() -> new RequisitoNaoEncontradoException(id));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_APPROVE);
+
+        StatusRequisito novoStatus = statusRequisitoRepository.findByNomeIgnoreCase(nomeStatus)
+                .orElseThrow(() -> new IllegalStateException("Status de requisito '" + nomeStatus + "' não cadastrado."));
+        Usuario usuario = resolverUsuario(jwt);
+
+        String anterior = requisito.getStatus() != null ? requisito.getStatus().getNome() : null;
+        auditoriaService.registrar(usuario, null, requisito.getProjeto(),
+                "REQUISITO", id, AcaoAuditoria.EDICAO, "status", anterior, novoStatus.getNome());
+
+        requisito.setStatus(novoStatus);
+        requisito.setAprovadoPor(usuario);
+        requisito.setDataAprovacao(Instant.now());
+        requisito.setDataAtualizacao(Instant.now());
+        requisito = requisitoRepository.save(requisito);
+        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO, TipoInteracao.EDICAO,
+                id, "Requisito " + novoStatus.getNome().toLowerCase() + ": " + requisito.getTitulo());
+        log.info("Requisito {} ({}) {} por {}.", id, requisito.getCodigo(), novoStatus.getNome(), usuario.getId());
+        return mapToResponseDTO(requisito);
     }
 
     private Usuario resolverUsuario(Jwt jwt) {
@@ -292,6 +328,13 @@ public class RequisitoService {
     public static class UsuarioNaoAutorizadoException extends RuntimeException {
         public UsuarioNaoAutorizadoException(String msg) {
             super(msg);
+        }
+    }
+
+    public static class StatusSoPorAprovacaoException extends RuntimeException {
+        public StatusSoPorAprovacaoException(String status) {
+            super("O status " + status + " só pode ser definido pela aprovação do requisito "
+                    + "(PATCH /api/requisito/{id}/aprovar ou /reprovar).");
         }
     }
 }

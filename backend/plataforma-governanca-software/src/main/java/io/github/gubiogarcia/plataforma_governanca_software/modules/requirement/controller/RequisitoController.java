@@ -55,4 +55,16 @@ public class RequisitoController {
         requisitoService.deletar(jwt, id);
         return ResponseEntity.noContent().build();
     }
+
+    /** REQ_APPROVE — define APROVADO e registra quem aprovou. */
+    @PatchMapping("/{id}/aprovar")
+    public ResponseEntity<RequisitoResponseDTO> aprovar(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return ResponseEntity.ok(requisitoService.aprovar(jwt, id));
+    }
+
+    /** REQ_APPROVE — define REPROVADO e registra quem decidiu. */
+    @PatchMapping("/{id}/reprovar")
+    public ResponseEntity<RequisitoResponseDTO> reprovar(@AuthenticationPrincipal Jwt jwt, @PathVariable UUID id) {
+        return ResponseEntity.ok(requisitoService.reprovar(jwt, id));
+    }
 }

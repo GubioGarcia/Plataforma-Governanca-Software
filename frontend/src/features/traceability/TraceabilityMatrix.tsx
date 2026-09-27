@@ -35,6 +35,7 @@ import MetricBand from '../../components/common/MetricBand';
 import PageHeading from '../../components/common/PageHeading';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import BotaoExportar from '../../components/common/BotaoExportar';
 import { extractApiErrorMessage } from '../../utils/apiError';
 import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import { obterModelo } from '../../services/dataModelService';
@@ -280,6 +281,7 @@ export default function TraceabilityMatrix() {
         descricao="Cada célula é o cruzamento de dois requisitos. Os vínculos diretos você cadastra; as relações indiretas aparecem sozinhas quando dois requisitos manipulam a mesma entidade de dados."
         acoes={
           <>
+            {projectId && <BotaoExportar projetoId={projectId} tipo="rastreabilidade" />}
             <Tooltip title="Recarregar do servidor">
               <span>
                 <IconButton onClick={restaurarCenario} disabled={isStakeholder}>

@@ -21,6 +21,10 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.se
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.RelacionamentoEntidadeService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.service.VinculoRequisitoService;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.ConviteService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.MembrosService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.solicitation.service.SolicitacaoService;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -57,6 +61,64 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AcessoNegadoException.class)
     public ProblemDetail handleAcessoNegadoAutorizacao(AcessoNegadoException ex) {
         return problem(HttpStatus.FORBIDDEN, "Acesso negado", ex.getMessage(), "/errors/acesso-negado");
+    }
+
+    // Corpo ilegível (JSON malformado, enum desconhecido) → 400 em vez do fallback 500
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleCorpoInvalido(HttpMessageNotReadableException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Requisicao invalida",
+                "O corpo da requisicao nao pode ser lido. Verifique os campos e valores enviados.", "/errors/corpo-invalido");
+    }
+
+    // ── Fase 6: membros, convites, solicitações, aprovação ─────────────────
+    @ExceptionHandler(MembrosService.RecursoNaoEncontradoException.class)
+    public ProblemDetail handleRecursoNaoEncontrado(MembrosService.RecursoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Nao encontrado", ex.getMessage(), "/errors/recurso-nao-encontrado");
+    }
+
+    @ExceptionHandler(MembrosService.UsuarioNaoParticipaException.class)
+    public ProblemDetail handleUsuarioNaoParticipa(MembrosService.UsuarioNaoParticipaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Usuario nao participa", ex.getMessage(), "/errors/usuario-nao-participa");
+    }
+
+    @ExceptionHandler(MembrosService.PapelJaAtribuidoException.class)
+    public ProblemDetail handlePapelJaAtribuido(MembrosService.PapelJaAtribuidoException ex) {
+        return problem(HttpStatus.CONFLICT, "Papel ja atribuido", ex.getMessage(), "/errors/papel-ja-atribuido");
+    }
+
+    @ExceptionHandler(MembrosService.OperacaoNaoPermitidaException.class)
+    public ProblemDetail handleOperacaoNaoPermitida(MembrosService.OperacaoNaoPermitidaException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Operacao nao permitida", ex.getMessage(), "/errors/operacao-nao-permitida");
+    }
+
+    @ExceptionHandler(ConviteService.ConviteInvalidoException.class)
+    public ProblemDetail handleConviteInvalido(ConviteService.ConviteInvalidoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Convite invalido", ex.getMessage(), "/errors/convite-invalido");
+    }
+
+    @ExceptionHandler(ConviteService.ConviteDuplicadoException.class)
+    public ProblemDetail handleConviteDuplicado(ConviteService.ConviteDuplicadoException ex) {
+        return problem(HttpStatus.CONFLICT, "Convite duplicado", ex.getMessage(), "/errors/convite-duplicado");
+    }
+
+    @ExceptionHandler(SolicitacaoService.SolicitacaoNaoEncontradaException.class)
+    public ProblemDetail handleSolicitacaoNaoEncontrada(SolicitacaoService.SolicitacaoNaoEncontradaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Nao encontrado", ex.getMessage(), "/errors/solicitacao-nao-encontrada");
+    }
+
+    @ExceptionHandler(SolicitacaoService.SolicitacaoInvalidaException.class)
+    public ProblemDetail handleSolicitacaoInvalida(SolicitacaoService.SolicitacaoInvalidaException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Solicitacao invalida", ex.getMessage(), "/errors/solicitacao-invalida");
+    }
+
+    @ExceptionHandler(SolicitacaoService.SolicitacaoDuplicadaException.class)
+    public ProblemDetail handleSolicitacaoDuplicada(SolicitacaoService.SolicitacaoDuplicadaException ex) {
+        return problem(HttpStatus.CONFLICT, "Solicitacao duplicada", ex.getMessage(), "/errors/solicitacao-duplicada");
+    }
+
+    @ExceptionHandler(RequisitoService.StatusSoPorAprovacaoException.class)
+    public ProblemDetail handleStatusSoPorAprovacao(RequisitoService.StatusSoPorAprovacaoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Status de aprovacao", ex.getMessage(), "/errors/status-so-por-aprovacao");
     }
 
     // Sem este handler o fallback de Exception devolvia 500 para metodo HTTP inexistente

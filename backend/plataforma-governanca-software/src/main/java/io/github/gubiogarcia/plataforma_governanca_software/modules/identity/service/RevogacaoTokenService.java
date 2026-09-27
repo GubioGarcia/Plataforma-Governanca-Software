@@ -57,11 +57,16 @@ public class RevogacaoTokenService {
                 usuarioRepository.findByExternalIdentityId(id).map(Usuario::getTokensRevogadosAntesDe));
     }
 
-    /** true se o token (pelo "iat") foi emitido antes da marca de revogação do usuário. */
+    /**
+     * true se o token (pelo "iat") pode ter sido emitido antes da marca de revogação.
+     * O "iat" só tem precisão de segundos: um token do MESMO segundo da marca é ambíguo
+     * e é recusado (senão um token antigo, sem o grupo novo, passaria e daria 403).
+     * O AuthService garante que o token entregue no login/refresh já é do segundo seguinte.
+     */
     public boolean tokenRevogado(UUID keycloakId, Instant emitidoEm) {
         if (emitidoEm == null) {
             return false;
         }
-        return revogadoAntesDe(keycloakId).map(emitidoEm::isBefore).orElse(false);
+        return revogadoAntesDe(keycloakId).map(marca -> !emitidoEm.isAfter(marca)).orElse(false);
     }
 }

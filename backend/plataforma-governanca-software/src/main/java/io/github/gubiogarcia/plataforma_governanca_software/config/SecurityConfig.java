@@ -30,6 +30,9 @@ import java.util.List;
 @EnableMethodSecurity
 public class SecurityConfig {
 
+    private static final java.util.Set<String> ROTAS_DE_SESSAO =
+            java.util.Set.of("/api/auth/login", "/api/auth/refresh", "/api/auth/logout");
+
     @Value("${spring.security.oauth2.resourceserver.jwt.jwk-set-uri}")
     private String jwkSetUri;
 
@@ -63,6 +66,11 @@ public class SecurityConfig {
                         )
                         .bearerTokenResolver(request -> {
                             if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+                                return null;
+                            }
+                            // Rotas de sessão ignoram o header Authorization: o front o envia junto,
+                            // e um token expirado/revogado barraria (401) justamente o refresh.
+                            if (ROTAS_DE_SESSAO.contains(request.getRequestURI())) {
                                 return null;
                             }
                             return new DefaultBearerTokenResolver().resolve(request);
@@ -101,6 +109,8 @@ public class SecurityConfig {
         config.setAllowedOriginPatterns(List.of("http://localhost:5173"));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
         config.setAllowedHeaders(List.of("*"));
+        // Nome do arquivo nas exportações (CSV) legível pelo front em dev (outra origem)
+        config.setExposedHeaders(List.of("Content-Disposition"));
         config.setAllowCredentials(true);
         config.setMaxAge(3600L);
 

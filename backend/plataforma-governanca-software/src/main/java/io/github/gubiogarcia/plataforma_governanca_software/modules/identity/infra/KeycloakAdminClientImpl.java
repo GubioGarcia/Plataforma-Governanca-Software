@@ -13,6 +13,7 @@ import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -278,7 +279,7 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
     @Override
     public UUID criarGrupo(String nome) {
         UUID id = criarGrupoEm(adminUrl("/groups"), nome);
-        return id != null ? id : buscarGrupoPorCaminho("/" + nome);
+        return id != null ? id : grupoPorCaminhoObrigatorio("/" + nome);
     }
 
     @Override
@@ -296,7 +297,7 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
                             "Grupo pai não encontrado no Keycloak: " + grupoPaiId, res.getStatusCode().value());
                 })
                 .body(Map.class);
-        return buscarGrupoPorCaminho(pai.get("path") + "/" + nome);
+        return grupoPorCaminhoObrigatorio(pai.get("path") + "/" + nome);
     }
 
     @Override
@@ -352,6 +353,78 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
                 .toBodilessEntity();
     }
 
+    @Override
+    public Optional<UUID> buscarGrupoPorCaminho(String caminho) {
+        Map<?, ?> grupo = restClient.get()
+                .uri(adminUrl("/group-by-path" + caminho))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (req, res) -> {})
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao buscar grupo " + caminho + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .body(Map.class);
+        return grupo != null && grupo.get("id") != null
+                ? Optional.of(UUID.fromString((String) grupo.get("id")))
+                : Optional.empty();
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<UUID> listarMembros(UUID grupoId) {
+        List<Map<String, Object>> membros = restClient.get()
+                .uri(adminUrl("/groups/" + grupoId + "/members?first=0&max=1000&briefRepresentation=true"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao listar membros do grupo " + grupoId + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .body(List.class);
+        return membros == null ? List.of()
+                : membros.stream().map(m -> UUID.fromString((String) m.get("id"))).toList();
+    }
+
+    @Override
+    public void removerMembro(UUID usuarioKeycloakId, UUID grupoId) {
+        restClient.delete()
+                .uri(adminUrl("/users/" + usuarioKeycloakId + "/groups/" + grupoId))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> status.value() == 404, (req, res) -> {})
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao remover usuário " + usuarioKeycloakId + " do grupo " + grupoId
+                                    + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .toBodilessEntity();
+
+        log.info("Usuário {} removido do grupo {} no Keycloak.", usuarioKeycloakId, grupoId);
+    }
+
+    @Override
+    @SuppressWarnings("unchecked")
+    public List<GrupoDoUsuario> listarGruposDoUsuario(UUID usuarioKeycloakId) {
+        List<Map<String, Object>> grupos = restClient.get()
+                .uri(adminUrl("/users/" + usuarioKeycloakId + "/groups?first=0&max=1000&briefRepresentation=true"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao listar grupos do usuário " + usuarioKeycloakId + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .body(List.class);
+        return grupos == null ? List.of()
+                : grupos.stream()
+                        .map(g -> new GrupoDoUsuario(UUID.fromString((String) g.get("id")), (String) g.get("path")))
+                        .toList();
+    }
+
     /** POST de criação de grupo; devolve o id (do header Location) ou null se o nome já existe (409). */
     private UUID criarGrupoEm(String url, String nome) {
         var resposta = restClient.post()
@@ -383,7 +456,7 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
         return id;
     }
 
-    private UUID buscarGrupoPorCaminho(String caminho) {
+    private UUID grupoPorCaminhoObrigatorio(String caminho) {
         Map<?, ?> grupo = restClient.get()
                 .uri(adminUrl("/group-by-path" + caminho))
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())

@@ -19,6 +19,7 @@ import GroupIcon from '@mui/icons-material/Group';
 import HistoryIcon from '@mui/icons-material/History';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardIcon from '@mui/icons-material/Dashboard';
+import InboxIcon from '@mui/icons-material/Inbox';
 import { mockProjects } from '../../mocks/projects';
 import { usePermissions } from '../../hooks/usePermissions';
 
@@ -28,7 +29,9 @@ export default function ProjectShell() {
   const { orgId, projectId } = useParams();
   const navigate = useNavigate();
   const project = mockProjects.find((p) => p.id === Number(projectId));
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  // Tela completa de auditoria: AUDIT_VIEW (Dono/Gestor)
+  const isStakeholder = !pode('AUDIT_VIEW');
 
   const base = `/organizations/${orgId}/projects/${projectId}`;
 
@@ -41,6 +44,7 @@ export default function ProjectShell() {
     { label: 'Eventos',      icon: <EventNoteIcon fontSize="small" />,    to: `${base}/events` },
     { label: 'Arquivos',     icon: <FolderOpenIcon fontSize="small" />,   to: `${base}/files` },
     { label: 'Stakeholders', icon: <GroupIcon fontSize="small" />,        to: `${base}/stakeholders` },
+    { label: 'Solicitações', icon: <InboxIcon fontSize="small" />,        to: `${base}/solicitations` },
     { label: 'Analytics',    icon: <BarChartIcon fontSize="small" />,     to: `${base}/analytics` },
     { label: 'Auditoria',    icon: <HistoryIcon fontSize="small" />,      to: `${base}/audit`, gestorOnly: true },
   ];
