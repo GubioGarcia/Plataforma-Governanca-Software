@@ -3,6 +3,7 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.in
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -31,7 +32,11 @@ public class KeycloakTokenClientImpl implements KeycloakTokenClient {
         this.logoutUrl    = tokenUrl.replaceFirst("/token$", "/logout");
         this.clientId     = clientId;
         this.clientSecret = clientSecret;
-        this.restClient   = RestClient.create();
+        // HttpURLConnection em vez do HttpClient do JDK (padrão do RestClient): o token-url
+        // usa o nome do container "idprovider_keycloak", e o HttpClient rejeita host com "_".
+        this.restClient   = RestClient.builder()
+                .requestFactory(new SimpleClientHttpRequestFactory())
+                .build();
     }
 
     @Override

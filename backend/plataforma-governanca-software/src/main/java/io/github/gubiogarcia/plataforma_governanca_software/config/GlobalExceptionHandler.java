@@ -24,6 +24,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -48,6 +49,13 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
         return problem(HttpStatus.FORBIDDEN, "Acesso negado",
                 "Voce nao tem permissao para acessar este recurso.", "/errors/acesso-negado");
+    }
+
+    // Sem este handler o fallback de Exception devolvia 500 para metodo HTTP inexistente
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ProblemDetail handleMetodoNaoSuportado(HttpRequestMethodNotSupportedException ex) {
+        return problem(HttpStatus.METHOD_NOT_ALLOWED, "Metodo nao suportado",
+                "O metodo " + ex.getMethod() + " nao e suportado para este recurso.", "/errors/metodo-nao-suportado");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
