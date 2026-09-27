@@ -39,16 +39,4 @@ INSERT INTO prioridade (id, codigo, nome, descricao, ordem) VALUES
     ('c3000003-0000-0000-0000-000000000002', 'MEDIA',   'Média',   'Requisito com impacto moderado. Importante para a evolução do sistema, mas não bloqueia entregas principais.', 2),
     ('c3000003-0000-0000-0000-000000000003', 'ALTA',    'Alta',    'Requisito com alto impacto no negócio ou na experiência do usuário. Deve ser priorizado no planejamento de desenvolvimento.', 3),
     ('c3000003-0000-0000-0000-000000000004', 'CRITICA', 'Crítica', 'Requisito essencial para o funcionamento do sistema ou atendimento de regras de negócio. Sua ausência pode comprometer o projeto.', 4)
-ON CONFLICT (nome) DO NOTHING;
-
--- ─── MODULOS ─────────────────────────────────────────────────────────────────
-
-INSERT INTO modulo (id, codigo, nome, descricao, ativo) VALUES
-    ('d4000004-0000-0000-0000-000000000001', 'WIKI',      'Wiki / Visão de Produto', 'Módulo de documentação e visão de produto do projeto', TRUE),
-    ('d4000004-0000-0000-0000-000000000002', 'REQUISITO', 'Requisitos',              'Módulo de gestão de requisitos', TRUE),
-    ('d4000004-0000-0000-0000-000000000003', 'COMENTARIO','Comentários',             'Módulo de colaboração via comentários', TRUE),
-    ('d4000004-0000-0000-0000-000000000004', 'EVENTO',    'Eventos',                 'Módulo de agendamento de eventos', TRUE),
-    ('d4000004-0000-0000-0000-000000000005', 'ARQUIVO',   'Arquivos',                'Módulo de gestão de arquivos', TRUE),
-    ('d4000004-0000-0000-0000-000000000006', 'MODELAGEM_DADOS', 'Modelagem de Dados', 'Módulo de modelagem de entidades de dados vinculadas a requisitos', TRUE),
-    ('d4000004-0000-0000-0000-000000000007', 'RASTREABILIDADE', 'Rastreabilidade',    'Módulo de matriz de rastreabilidade e análise de impacto entre requisitos', TRUE)
 ON CONFLICT (codigo) DO NOTHING;

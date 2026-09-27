@@ -1,9 +1,13 @@
 -- =============================================================================
 -- V1 — Schema completo da aplicação
 --
--- Cria todas as tabelas mapeadas pelas entidades JPA.
--- O Flyway executa este script antes de qualquer operação do Hibernate,
--- garantindo que o schema exista quando ddl-auto=validate for usado.
+-- Cria todas as tabelas mapeadas pelas entidades JPA (exceto as de
+-- rastreabilidade/modelagem de dados, que estão no V3).
+--
+-- NOTA: o Flyway está DESABILITADO nesta aplicação (spring.flyway.enabled=false);
+-- o schema real é gerado pelo Hibernate (ddl-auto=update) a partir das entities
+-- JPA e os dados de referência vêm do data.sql. Este arquivo é mantido como
+-- documentação/referência do modelo (MER_V3), espelhando as entities.
 --
 -- Ordem de criação respeita as dependências de FK.
 -- =============================================================================
@@ -38,37 +42,28 @@ CREATE TABLE prioridade (
     ativo     BOOLEAN     NOT NULL DEFAULT TRUE
 );
 
--- =============================================================================
--- MODULO (sem dependências)
--- =============================================================================
-
-CREATE TABLE modulo (
-    id        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    codigo    VARCHAR(50) UNIQUE,
-    nome      VARCHAR(100),
-    descricao TEXT,
-    ativo     BOOLEAN
-);
-
 -- Papéis e permissões NÃO ficam no banco: o pertencimento (quem é Dono/Gestor/
 -- Membro/Stakeholder de qual organização/projeto) é mantido em grupos do Keycloak
--- e a matriz papel → permissão é estática no backend. As tabelas permissao,
--- papel_organizacional, papel_projeto, papel_*_permissao, usuario_organizacao e
--- usuario_projeto foram removidas (ver autorizacao-organizacao-projeto.md).
+-- e a matriz papel → permissão é estática no backend. As tabelas modulo,
+-- permissao, papel_organizacional, papel_projeto, papel_*_permissao,
+-- usuario_organizacao e usuario_projeto foram removidas
+-- (ver autorizacao-organizacao-projeto.md).
 
 -- =============================================================================
 -- USUARIO
 -- =============================================================================
 
 CREATE TABLE usuario (
-    id                   UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    external_identity_id UUID,
-    nome                 VARCHAR(150) NOT NULL,
-    email                VARCHAR(150) NOT NULL UNIQUE,
-    ativo                BOOLEAN     NOT NULL,
-    data_criacao         TIMESTAMP,
-    data_atualizacao     TIMESTAMP,
-    url_midia_perfil     TEXT
+    id                        UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    external_identity_id      UUID        UNIQUE,      -- id do usuário no Keycloak
+    nome                      VARCHAR(150) NOT NULL,
+    email                     VARCHAR(150) NOT NULL UNIQUE,
+    ativo                     BOOLEAN     NOT NULL,
+    data_criacao              TIMESTAMP   NOT NULL,
+    data_atualizacao          TIMESTAMP,
+    url_midia_perfil          TEXT,
+    -- Tokens emitidos até este instante são recusados (grupos mudaram ou conta inativada)
+    tokens_revogados_antes_de TIMESTAMPTZ
 );
 
 -- =============================================================================
@@ -110,7 +105,7 @@ CREATE TABLE projeto (
 
 CREATE TABLE visao_produto (
     id                       UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    projeto_id               UUID NOT NULL REFERENCES projeto(id),
+    projeto_id               UUID NOT NULL UNIQUE REFERENCES projeto(id),   -- uma visão por projeto
     descricao_problema       VARCHAR(1000),
     publico_alvo             VARCHAR(1000),
     objetivo_geral           VARCHAR(1000),
@@ -208,16 +203,18 @@ CREATE INDEX idx_auditoria_projeto  ON auditoria (projeto_id, data_alteracao DES
 -- EVENTOS
 -- =============================================================================
 
-CREATE TABLE eventos (
+CREATE TABLE evento (
     id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-    nome             VARCHAR(150),
+    nome             VARCHAR(255),
     descricao        TEXT,
     criado_por       UUID        REFERENCES usuario(id),
-    organizacao_id   UUID        REFERENCES organizacao(id),
+    organizacao_id   UUID        REFERENCES organizacao(id),   -- a organização do projeto
     projeto_id       UUID        REFERENCES projeto(id),
     data_hora_inicio TIMESTAMP,
     data_hora_fim    TIMESTAMP,
-    data_criacao     TIMESTAMP
+    data_criacao     TIMESTAMP,
+    -- SOLICITADO (pedido de stakeholder) | APROVADO | REJEITADO; nulo em dados antigos = APROVADO
+    status           VARCHAR(20) CHECK (status IN ('SOLICITADO', 'APROVADO', 'REJEITADO'))
 );
 
 -- =============================================================================
@@ -258,3 +255,42 @@ CREATE TABLE interacao (
 
 CREATE INDEX idx_interacao_projeto         ON interacao (projeto_id);
 CREATE INDEX idx_interacao_usuario_projeto ON interacao (usuario_id, projeto_id);
+
+-- =============================================================================
+-- CONVITE — convite por e-mail para organização (GESTOR/MEMBRO) ou projeto
+-- (GESTOR/STAKEHOLDER). Ao aceitar, o backend põe o usuário nos grupos do Keycloak.
+-- =============================================================================
+
+CREATE TABLE convite (
+    id             UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    email          VARCHAR(255) NOT NULL,
+    organizacao_id UUID         NOT NULL REFERENCES organizacao(id),
+    projeto_id     UUID         REFERENCES projeto(id),         -- nulo = convite para a organização
+    papel          VARCHAR(20)  NOT NULL CHECK (papel IN ('GESTOR', 'MEMBRO', 'STAKEHOLDER')),
+    status         VARCHAR(20)  NOT NULL CHECK (status IN ('PENDENTE', 'ACEITO', 'RECUSADO', 'CANCELADO', 'EXPIRADO')),
+    convidado_por  UUID         REFERENCES usuario(id),
+    data_criacao   TIMESTAMPTZ  NOT NULL,
+    expira_em      TIMESTAMPTZ  NOT NULL,                      -- validade de 7 dias
+    data_resposta  TIMESTAMPTZ
+);
+
+-- =============================================================================
+-- SOLICITACAO — pedido de stakeholder ao Dono/Gestor do projeto.
+-- alvo_id: requisito (tipos *_REQUISITO) ou evento (EVENTO); nulo nas exportações.
+-- Sem FK física em alvo_id porque a tabela de destino depende do tipo.
+-- =============================================================================
+
+CREATE TABLE solicitacao (
+    id             UUID          PRIMARY KEY DEFAULT gen_random_uuid(),
+    projeto_id     UUID          NOT NULL REFERENCES projeto(id),
+    tipo           VARCHAR(30)   NOT NULL CHECK (tipo IN ('APROVACAO_REQUISITO', 'ALTERACAO_REQUISITO', 'REPROVACAO_REQUISITO',
+                                                         'EVENTO', 'EXPORT_MER', 'EXPORT_RASTREABILIDADE')),
+    alvo_id        UUID,
+    status         VARCHAR(20)   NOT NULL CHECK (status IN ('PENDENTE', 'ATENDIDA', 'RECUSADA', 'CANCELADA')),
+    solicitante_id UUID          NOT NULL REFERENCES usuario(id),
+    justificativa  VARCHAR(2000),
+    respondido_por UUID          REFERENCES usuario(id),
+    resposta       VARCHAR(2000),
+    data_criacao   TIMESTAMPTZ   NOT NULL,
+    data_resposta  TIMESTAMPTZ
+);

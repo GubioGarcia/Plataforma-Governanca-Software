@@ -3,7 +3,7 @@
 --
 -- Implementa os Pontos 1B (matriz de rastreabilidade direta + indireta) e
 -- 2B (cadastro de entidades/atributos com diff antes/depois), conforme
--- MER_V2 / DER_V4.
+-- MER_V3 (a FK estruturada em atributo_entidade/relacionamento_entidade é de 2026-09-17).
 --
 -- NOTA: o Flyway está DESABILITADO nesta aplicação (spring.flyway.enabled=false);
 -- o schema real é gerado pelo Hibernate (ddl-auto=update) a partir das entities
@@ -45,7 +45,7 @@ CREATE TABLE atributo_entidade (
     nome                     VARCHAR(100) NOT NULL,
     tipo                     VARCHAR(50)  NOT NULL,
     obrigatorio              BOOLEAN      NOT NULL DEFAULT FALSE,
-    chave_primaria           BOOLEAN      NOT NULL DEFAULT FALSE,
+    chaveprimaria            BOOLEAN      NOT NULL DEFAULT FALSE,   -- sem "_": nome gerado pelo Hibernate; no máximo uma PK por entidade (backend)
     ordem                    INTEGER,
     chave_estrangeira        BOOLEAN      NOT NULL DEFAULT FALSE,
     entidade_referenciada_id UUID         REFERENCES entidade_dados(id),
