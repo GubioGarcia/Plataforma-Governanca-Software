@@ -1,6 +1,5 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service;
 
-import io.github.gubiogarcia.plataforma_governanca_software.config.JwtDecoderProvider;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -8,6 +7,7 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
@@ -22,6 +22,7 @@ public class AuthService {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final UsuarioService usuarioService;
+    private final JwtDecoder jwtDecoder;
 
     @Value("${keycloak.token-url}")
     private String tokenUrl;
@@ -58,8 +59,8 @@ public class AuthService {
 
         String accessToken = (String) response.getBody().get("access_token");
 
-        // Decodifica JWT
-        Jwt jwt = JwtDecoderProvider.decode(accessToken);
+        // Decodifica e valida o JWT com o mesmo decoder do resource server (assinatura + issuer)
+        Jwt jwt = jwtDecoder.decode(accessToken);
 
         // Reutiliza seu service atual
         UsuarioResponseDTO usuario = usuarioService.resolverUsuario(jwt);

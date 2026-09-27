@@ -80,11 +80,14 @@ public class SecurityConfig {
         return decoder;
     }
 
+    /**
+     * Conversor padrão: as roles de realm do token NÃO viram authorities. A decisão
+     * de acesso é feita pelo AutorizacaoService a partir do claim "groups" — a lista
+     * plana realm_access.roles vazaria permissão de um projeto para outro.
+     */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        var converter = new JwtAuthenticationConverter();
-        converter.setJwtGrantedAuthoritiesConverter(new KeycloakRolesConverter());
-        return converter;
+        return new JwtAuthenticationConverter();
     }
 
     @Bean

@@ -19,6 +19,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.se
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.ImpactoDadosService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.RelacionamentoEntidadeService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.service.VinculoRequisitoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -50,6 +51,11 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
         return problem(HttpStatus.FORBIDDEN, "Acesso negado",
                 "Voce nao tem permissao para acessar este recurso.", "/errors/acesso-negado");
+    }
+
+    @ExceptionHandler(AcessoNegadoException.class)
+    public ProblemDetail handleAcessoNegadoAutorizacao(AcessoNegadoException ex) {
+        return problem(HttpStatus.FORBIDDEN, "Acesso negado", ex.getMessage(), "/errors/acesso-negado");
     }
 
     // Sem este handler o fallback de Exception devolvia 500 para metodo HTTP inexistente

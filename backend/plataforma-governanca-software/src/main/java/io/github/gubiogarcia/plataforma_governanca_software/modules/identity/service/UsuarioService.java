@@ -10,6 +10,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.inf
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminException;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakTokenClient;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -30,6 +32,7 @@ public class UsuarioService {
     private final UsuarioRepository usuarioRepository;
     private final KeycloakAdminClient keycloakAdminClient;
     private final KeycloakTokenClient keycloakTokenClient;
+    private final AutorizacaoService autorizacaoService;
 
     @Transactional
     public UsuarioResponseDTO cadastrar(CadastroUsuarioRequestDTO request) {
@@ -195,11 +198,17 @@ public class UsuarioService {
                 .toList();
     }
 
+    /** Só o próprio usuário ou o Admin da Plataforma podem inativar uma conta. */
     @Transactional
     public void inativar(UUID id) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
                         "Nenhum usuário encontrado com o id: " + id));
+
+        boolean proprioUsuario = autorizacaoService.keycloakIdAtual().equals(usuario.getExternalIdentityId());
+        if (!proprioUsuario && !autorizacaoService.isAdminPlataforma()) {
+            throw new AcessoNegadoException("Apenas o próprio usuário ou o administrador da plataforma pode inativar esta conta.");
+        }
 
         if (Boolean.FALSE.equals(usuario.getAtivo())) {
             throw new UsuarioJaInativoException(id);
