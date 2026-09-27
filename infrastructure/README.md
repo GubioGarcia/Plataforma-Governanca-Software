@@ -8,10 +8,12 @@ A infraestrutura utiliza **Docker e Docker Compose** para orquestrar os serviço
 
 Os principais serviços são:
 
-* Backend (Spring Boot)
+* Nginx (proxy reverso — ponto de entrada da aplicação)
 * Frontend (React)
-* Banco de dados PostgreSQL
-* Keycloak (Autenticação e autorização)
+* Backend (Spring Boot)
+* Banco de dados PostgreSQL (bancos `plataforma` e `keycloak`)
+* Keycloak (identidade, sessão e grupos de acesso)
+* keycloak-init (sincroniza o realm a cada subida)
 
 ---
 
@@ -21,32 +23,40 @@ Os principais serviços são:
 infrastructure/
 
 docker/
- ├── keycloak
- ├── postgres
- └── nginx
+ ├── keycloak          # realm-export.json (fonte única do realm)
+ ├── keycloak-init     # init.sh + sync_realm.py
+ ├── postgres          # init.sql (cria o banco do Keycloak)
+ └── nginx             # nginx.conf
 
 docker-compose.yml
+.env
 ```
 
 Descrição:
 
-| Diretório          | Função                             |
-| ------------------ | ---------------------------------- |
-| docker/keycloak    | Configuração e importação de realm |
-| docker/postgres    | Scripts de inicialização do banco  |
-| docker/nginx       | Configuração de proxy reverso      |
-| docker-compose.yml | Orquestração dos containers        |
+| Diretório            | Função                                                        |
+| -------------------- | ------------------------------------------------------------- |
+| docker/keycloak      | Definição do realm `plataforma_discovery` (roles, clients, mapper, grupo `/_admin`) |
+| docker/keycloak-init | Aplica o `realm-export.json` no realm existente a cada subida  |
+| docker/postgres      | Script de inicialização do PostgreSQL                         |
+| docker/nginx         | Proxy reverso (`/` → frontend, `/api` → backend)              |
+| docker-compose.yml   | Orquestração dos containers                                   |
+| .env                 | Variáveis do ambiente de desenvolvimento                      |
 
 ---
 
 # Serviços
 
-| Serviço  | Porta | Descrição                |
-| -------- | ----- | ------------------------ |
-| frontend | 3000  | Interface web            |
-| backend  | 8080  | API da aplicação         |
-| keycloak | 8081  | Servidor de autenticação |
-| postgres | 5432  | Banco de dados           |
+| Serviço       | Porta no host | Descrição                                                  |
+| ------------- | ------------- | ---------------------------------------------------------- |
+| nginx         | 80            | Entrada da aplicação: http://localhost (frontend + `/api`) |
+| frontend      | —             | Interface web (servida pelo nginx)                         |
+| backend       | 8081          | API da aplicação (Swagger em `/swagger-ui.html`)           |
+| keycloak      | 8080          | Servidor de identidade (console em `/admin`)               |
+| keycloak-init | —             | Executa e termina: sincroniza o realm                      |
+| postgres      | 5432          | Banco de dados                                             |
+
+As portas vêm do `.env` (`NGINX_PORT`, `BACKEND_PORT`, `KEYCLOAK_PORT`, `POSTGRES_PORT`).
 
 ---
 
@@ -66,11 +76,34 @@ docker compose up -d
 
 ---
 
+Para reconstruir só um serviço depois de mudar o código:
+
+```
+docker compose up -d --build backend
+docker compose build frontend && docker compose up -d --no-deps frontend
+```
+
+> O frontend depende do backend no Compose: sem `--no-deps`, reconstruir o frontend reinicia também o backend.
+
+---
+
 # Parar os containers
 
 ```
 docker compose down
 ```
+
+---
+
+# Recriar o ambiente de desenvolvimento
+
+Para apagar os dados da aplicação e carregar o projeto de demonstração (banco + usuários e grupos no Keycloak), use o script da raiz do repositório:
+
+```
+py scripts/recriar_ambiente_dev.py --confirmar
+```
+
+Ele preserva o realm (roles, clients, mapper, `/_admin`) e apaga apenas usuários e grupos de organização. Detalhes e contas criadas no README principal.
 
 ---
 
@@ -106,7 +139,7 @@ docker compose exec postgres psql -U <POSTGRES_USER> -d postgres -c "DROP DATABA
 docker compose up -d keycloak keycloak-init
 ```
 
-Atenção: isso apaga todos os usuários do Keycloak. Os registros da tabela `usuario` do backend ficam órfãos (o `external_identity_id` deixa de existir).
+Atenção: isso apaga todos os usuários do Keycloak. Os registros da tabela `usuario` do backend ficam órfãos (o `external_identity_id` deixa de existir) — rode em seguida o `scripts/recriar_ambiente_dev.py` para deixar banco e Keycloak consistentes.
 
 ---
 
