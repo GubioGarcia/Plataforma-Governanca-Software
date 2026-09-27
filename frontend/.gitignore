@@ -24,3 +24,7 @@ dist-ssr
 *.sw?
 
 .env
+
+# Playwright (testes e2e da interface)
+e2e-report
+e2e-results

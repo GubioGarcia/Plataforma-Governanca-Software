@@ -40,7 +40,7 @@ export default function AppShell() {
 
   // Papel mais alto no projeto da rota; senão o da organização; senão Admin da Plataforma
   const papelLabel = projetoAtual?.papeis.length
-    ? PAPEL_PROJETO_LABEL[projetoAtual.papeis[0]]
+    ? projetoAtual.papeis.map((p) => PAPEL_PROJETO_LABEL[p]).join(' + ')
     : organizacaoAtual?.papel
       ? PAPEL_ORGANIZACAO_LABEL[organizacaoAtual.papel]
       : adminPlataforma ? 'Admin da Plataforma' : null;

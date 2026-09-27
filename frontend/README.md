@@ -114,6 +114,31 @@ Também é possível utilizar plugins adicionais:
 
 ---
 
+## Testes ponta a ponta da interface (Playwright)
+
+A pasta `e2e/` testa a interface num navegador real (Chromium) contra o ambiente Docker, cobrindo as regras de autorização: sessão, organização e membros, o que cada papel vê dentro do projeto, solicitações, convites, participantes e perfil.
+
+Cada arquivo de teste cria pela API um cenário descartável (organização, dois projetos e as pessoas Dono, Gestor, Membro, convidado e estranho) e apaga tudo no fim (Keycloak e banco). Por isso os arquivos rodam em paralelo e não mexem nos dados da demo.
+
+Pré-requisitos: ambiente no ar (`docker compose up -d` em `infrastructure/`) e o navegador instalado uma vez:
+
+```bash
+npx playwright install chromium
+```
+
+Executar:
+
+```bash
+npm run test:e2e          # todos, sem janela
+npx playwright test --headed          # vendo o navegador
+npm run test:e2e:ui       # modo interativo
+npx playwright show-report e2e-report # relatório (com trace e captura das falhas)
+```
+
+Variáveis de ambiente opcionais: `E2E_BASE_URL` (padrão `http://localhost`), `E2E_API_URL`, `E2E_KEYCLOAK_URL`, `E2E_KC_ADMIN_USER`/`E2E_KC_ADMIN_PASS`, `E2E_PG_CONTAINER`.
+
+---
+
 ## Executar com Docker
 
 O frontend pode ser executado via Docker Compose (definido na pasta infrastructure):

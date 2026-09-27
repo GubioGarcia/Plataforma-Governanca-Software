@@ -36,6 +36,7 @@ import StatusChip from '../../components/common/StatusChip';
 import EmptyState from '../../components/common/EmptyState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { PAPEL_PROJETO_LABEL } from '../../types/acesso';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuth } from '../../context/useAuth';
 import { isApiError } from '../../services/userService';
@@ -56,7 +57,9 @@ export default function ProjectList() {
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
   const { notify } = useSnackbar();
-  const { pode, podeNoProjeto } = usePermissions();
+  const { pode, podeNoProjeto, organizacaoAtual } = usePermissions();
+  const papeisNoProjeto = (id: string) =>
+    organizacaoAtual?.projetos.find((p) => p.id === id)?.papeis.map((x) => PAPEL_PROJETO_LABEL[x]).join(' + ') ?? '—';
   const { recarregarPermissoes } = useAuth();
 
   const [projects, setProjects] = useState<ProjetoAPI[]>([]);
@@ -426,7 +429,7 @@ export default function ProjectList() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 1, flexWrap: 'wrap' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <PeopleIcon sx={{ fontSize: 15, color: 'text.secondary' }} />
-                          <Typography variant="caption">0 stakeholders</Typography>
+                          <Typography variant="caption">Você: {papeisNoProjeto(project.id)}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <ListAltIcon sx={{ fontSize: 15, color: 'text.secondary' }} />

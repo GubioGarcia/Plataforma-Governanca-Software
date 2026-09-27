@@ -183,7 +183,7 @@ export default function OrgMembers({ orgId, onMudou }: { orgId: string; onMudou?
               const cor = PAPEL_COR[papelOrg];
               const ehVoce = p.usuarioId === user?.id;
               return (
-                <Box key={p.usuarioId}>
+                <Box key={p.usuarioId} data-membro={p.email}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25 }}>
                     <Avatar src={p.urlMidiaPerfil ?? undefined} sx={{ width: 32, height: 32, fontSize: 12, fontWeight: 700, bgcolor: cor.color }}>
                       {initials(p.nome)}

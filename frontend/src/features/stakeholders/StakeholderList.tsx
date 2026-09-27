@@ -336,7 +336,7 @@ export default function StakeholderList() {
             const ehGestao = papeis.some((x) => PAPEIS_GESTAO.includes(x));
             const diretoNoProjeto = p.vinculos.some((v) => v.origem === 'PROJETO' && v.papel !== 'DONO');
             return (
-              <Grid key={p.usuarioId} size={{ xs: 12, md: 6 }}>
+              <Grid key={p.usuarioId} size={{ xs: 12, md: 6 }} data-participante={p.email}>
                 <Card
                   elevation={0}
                   sx={{
@@ -385,16 +385,23 @@ export default function StakeholderList() {
 
                     {/* Papéis: herdados da organização ou diretos no projeto */}
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 2 }}>
-                      {p.vinculos.map((v) => (
-                        <Tooltip key={`${v.papel}-${v.origem}`} title={v.origem === 'ORGANIZACAO' ? 'Herdado da organização' : 'Direto no projeto'}>
-                          <Chip
-                            size="small"
-                            variant={v.origem === 'ORGANIZACAO' ? 'outlined' : 'filled'}
-                            label={PAPEL_PROJETO_LABEL[v.papel as PapelNoProjeto] ?? v.papel}
-                            sx={{ fontSize: 11, height: 22 }}
-                          />
-                        </Tooltip>
-                      ))}
+                      {[...new Set(p.vinculos.map((v) => v.papel))].map((papelV) => {
+                        const origens = p.vinculos.filter((v) => v.papel === papelV).map((v) => v.origem);
+                        const direto = origens.includes('PROJETO');
+                        const dica = origens.length > 1
+                          ? 'Direto no projeto e herdado da organização'
+                          : direto ? 'Direto no projeto' : 'Herdado da organização';
+                        return (
+                          <Tooltip key={papelV} title={dica}>
+                            <Chip
+                              size="small"
+                              variant={direto ? 'filled' : 'outlined'}
+                              label={PAPEL_PROJETO_LABEL[papelV as PapelNoProjeto] ?? papelV}
+                              sx={{ fontSize: 11, height: 22 }}
+                            />
+                          </Tooltip>
+                        );
+                      })}
                       <Chip
                         label={`${n(m, 'totalInteracoes')} interações`}
                         size="small"

@@ -35,6 +35,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import StatusChip from '../../components/common/StatusChip';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { PAPEL_ORGANIZACAO_LABEL } from '../../types/acesso';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAuth } from '../../context/useAuth';
 import ConvitesPendentes from '../../components/common/ConvitesPendentes';
@@ -52,7 +53,12 @@ export default function OrganizationList() {
   const navigate = useNavigate();
   const { notify } = useSnackbar();
   // Criar organização: qualquer usuário autenticado. Ações de cada item: permissões daquela organização.
-  const { podeNaOrganizacao } = usePermissions();
+  const { podeNaOrganizacao, user } = usePermissions();
+  // Papel na organização; quem só participa de projetos dela aparece como convidado
+  const papelNaOrganizacao = (id: string) => {
+    const o = user?.organizacoes.find((x) => x.id === id);
+    return o?.papel ? PAPEL_ORGANIZACAO_LABEL[o.papel] : 'Convidado em projetos';
+  };
   const { recarregarPermissoes } = useAuth();
   const [orgs, setOrgs] = useState<OrganizacaoAPI[]>([]);
   const [loading, setLoading] = useState(true);
@@ -265,7 +271,7 @@ export default function OrganizationList() {
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                       <PeopleIcon sx={{ fontSize: 15, color: 'text.secondary' }} />
-                      <Typography variant="caption">0 membros</Typography>
+                      <Typography variant="caption">Você: {papelNaOrganizacao(org.id)}</Typography>
                     </Box>
                   </Box>
                   <Button endIcon={<ArrowForwardIcon />} size="small" variant="outlined" fullWidth sx={{ borderRadius: 2 }}>

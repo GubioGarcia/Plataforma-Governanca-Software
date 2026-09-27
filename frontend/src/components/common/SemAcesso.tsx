@@ -12,6 +12,7 @@ import type { SituacaoAcesso } from '../../hooks/useAcessoRota';
  */
 export default function SemAcesso({ situacao, alvo }: { situacao: Exclude<SituacaoAcesso, 'ok'>; alvo: 'organização' | 'projeto' }) {
   const navigate = useNavigate();
+  const [esta, ela] = alvo === 'projeto' ? ['este', 'Ele'] : ['esta', 'Ela'];
 
   if (situacao === 'verificando') {
     return (
@@ -24,10 +25,10 @@ export default function SemAcesso({ situacao, alvo }: { situacao: Exclude<Situac
   return (
     <Box sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2, p: 4, textAlign: 'center' }}>
       <LockIcon sx={{ fontSize: 56, color: 'text.disabled' }} />
-      <Typography variant="h4">Você não tem acesso a esta {alvo}</Typography>
+      <Typography variant="h4">Você não tem acesso a {esta} {alvo}</Typography>
       <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 460 }}>
-        Ela não existe ou você não participa dela. Se você foi removido recentemente,
-        peça um novo convite a quem administra a {alvo}.
+        {ela} não existe ou você não participa. Se você foi removido recentemente,
+        peça um novo convite a quem administra {esta} {alvo}.
       </Typography>
       <Button variant="contained" onClick={() => navigate('/organizations')}>
         Ir para minhas organizações

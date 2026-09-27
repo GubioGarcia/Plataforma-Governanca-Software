@@ -164,7 +164,9 @@ export async function cancelarSolicitacao(id: string): Promise<Solicitacao> {
 export async function baixarExportacao(projetoId: string, tipo: 'mer' | 'rastreabilidade'): Promise<void> {
   const res = await api.get<Blob>(`/projeto/${projetoId}/exportar/${tipo}`, { responseType: 'blob' });
   const disposicao = String(res.headers['content-disposition'] ?? '');
-  const nome = /filename="?([^";]+)"?/.exec(disposicao)?.[1] ?? `${tipo}.csv`;
+  // Prefere filename*=UTF-8''... (RFC 5987); o filename= simples vem codificado em MIME (=?UTF-8?Q?...?=)
+  const estendido = /filename\*=UTF-8''([^;]+)/i.exec(disposicao)?.[1];
+  const nome = estendido ? decodeURIComponent(estendido) : /filename="?([^";]+)"?/.exec(disposicao)?.[1] ?? `${tipo}.csv`;
   const url = URL.createObjectURL(res.data);
   const link = document.createElement('a');
   link.href = url;
