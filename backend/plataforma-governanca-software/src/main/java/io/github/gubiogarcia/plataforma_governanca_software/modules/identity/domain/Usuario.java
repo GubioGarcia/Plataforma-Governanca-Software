@@ -37,4 +37,11 @@ public class Usuario {
 
     @Column(name = "url_midia_perfil")
     private String urlMidiaPerfil;
+
+    /**
+     * Tokens emitidos antes deste instante são recusados (401) — gravado sempre que os
+     * grupos do usuário mudam, para que a próxima requisição force a renovação da sessão.
+     */
+    @Column(name = "tokens_revogados_antes_de")
+    private Instant tokensRevogadosAntesDe;
 }

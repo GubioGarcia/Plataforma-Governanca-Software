@@ -1,5 +1,6 @@
 package io.github.gubiogarcia.plataforma_governanca_software.config;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.RevogacaoTokenService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -36,7 +37,7 @@ public class SecurityConfig {
     private String keycloakIssuer;
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http, JwtDecoder jwtDecoder) throws Exception {
         http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .csrf(csrf -> csrf.disable())
@@ -49,13 +50,15 @@ public class SecurityConfig {
                         .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         // Rotas públicas do módulo de identidade
                         .requestMatchers(HttpMethod.POST,  "/api/auth/login").permitAll()
+                        // Sessão pelo cookie HttpOnly do refresh token (não pelo access token)
+                        .requestMatchers(HttpMethod.POST,  "/api/auth/refresh", "/api/auth/logout").permitAll()
                         .requestMatchers(HttpMethod.POST,  "/api/usuario/cadastrar").permitAll()
                         // Qualquer outra rota exige autenticação
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
-                                .decoder(jwtDecoder())
+                                .decoder(jwtDecoder)
                                 .jwtAuthenticationConverter(jwtAuthenticationConverter())
                         )
                         .bearerTokenResolver(request -> {
@@ -70,11 +73,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public JwtDecoder jwtDecoder() {
+    public JwtDecoder jwtDecoder(RevogacaoTokenService revogacaoTokenService) {
         NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
         OAuth2TokenValidator<Jwt> validators = new DelegatingOAuth2TokenValidator<>(List.of(
                 new JwtTimestampValidator(),
-                new JwtIssuerValidator(keycloakIssuer)
+                new JwtIssuerValidator(keycloakIssuer),
+                // Token emitido antes de uma mudança de grupos do usuário → 401 (front renova a sessão)
+                new RevogacaoTokenValidator(revogacaoTokenService)
         ));
         decoder.setJwtValidator(validators);
         return decoder;

@@ -12,6 +12,9 @@ public interface KeycloakAdminClient {
 
     void desabilitarUsuario(UUID keycloakId);
 
+    /** Encerra todas as sessões do usuário no Keycloak (o refresh token deixa de valer). */
+    void encerrarSessoes(UUID keycloakId);
+
     // ── Grupos ────────────────────────────────────────────────────────────────
 
     /** Cria um grupo de topo. Se já existir um com o mesmo nome, devolve o id dele. */

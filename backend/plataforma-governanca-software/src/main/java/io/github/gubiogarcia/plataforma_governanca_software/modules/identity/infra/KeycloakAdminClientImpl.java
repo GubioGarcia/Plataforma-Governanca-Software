@@ -257,6 +257,22 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
         log.info("Usuário {} desabilitado no Keycloak.", keycloakId);
     }
 
+    @Override
+    public void encerrarSessoes(UUID keycloakId) {
+        restClient.post()
+                .uri(adminUrl("/users/" + keycloakId + "/logout"))
+                .header(HttpHeaders.AUTHORIZATION, "Bearer " + obterTokenAdmin())
+                .retrieve()
+                .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
+                    throw new KeycloakAdminException(
+                            "Falha ao encerrar sessões do usuário " + keycloakId + " no Keycloak: HTTP " + res.getStatusCode(),
+                            res.getStatusCode().value());
+                })
+                .toBodilessEntity();
+
+        log.info("Sessões do usuário {} encerradas no Keycloak.", keycloakId);
+    }
+
     // ── Grupos ────────────────────────────────────────────────────────────────
 
     @Override

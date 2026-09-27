@@ -29,6 +29,7 @@ import java.util.function.Supplier;
 public class GruposAcessoService {
 
     private final KeycloakAdminClient keycloakAdminClient;
+    private final RevogacaoTokenService revogacaoTokenService;
 
     /** Cria /org-{id} com _dono, _gestores e _membros. Devolve o id do grupo /org-{id}. */
     public UUID criarEstruturaOrganizacao(Organizacao organizacao, Usuario criador) {
@@ -70,6 +71,8 @@ public class GruposAcessoService {
                 keycloakAdminClient.mapearRoleNoGrupo(subgrupoId, subgrupo.getValue());
                 if (EstruturaGrupos.DONO.equals(subgrupo.getKey()) && criadorKeycloakId != null) {
                     keycloakAdminClient.adicionarMembro(criadorKeycloakId, subgrupoId);
+                    // Grupos do criador mudaram: o próximo request dele força a renovação do token
+                    revogacaoTokenService.revogarTokensDoUsuario(criador);
                 }
             }
         } catch (RuntimeException ex) {

@@ -1,6 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.config;
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminException;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.AuthService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.UsuarioService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.service.OrganizacaoService;
@@ -93,6 +94,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UsuarioService.UsuarioJaInativoException.class)
     public ProblemDetail handleUsuarioJaInativo(UsuarioService.UsuarioJaInativoException ex) {
         return problem(HttpStatus.CONFLICT, "Usuario ja inativo", ex.getMessage(), "/errors/usuario-ja-inativo");
+    }
+
+    // 401 no login (antes: RuntimeException generica → 500)
+    @ExceptionHandler(AuthService.CredenciaisInvalidasException.class)
+    public ProblemDetail handleCredenciaisInvalidas(AuthService.CredenciaisInvalidasException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Credenciais invalidas", ex.getMessage(), "/errors/credenciais-invalidas");
     }
 
     @ExceptionHandler(UsuarioService.SenhasNaoConferemException.class)

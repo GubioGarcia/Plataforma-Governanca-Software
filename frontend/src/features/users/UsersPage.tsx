@@ -217,7 +217,8 @@ const INIT_PERFIS: PerfilSistema[] = [
 // ── Componente Principal ──────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const { isGestor } = usePermissions();
+  // Tela global de usuários: ações de gestão só para o Admin da Plataforma (grupo /_admin)
+  const { adminPlataforma: isGestor } = usePermissions();
   const { notify } = useSnackbar();
 
   // view: 'list' | 'user' | 'profiles' | 'profile'

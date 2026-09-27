@@ -33,6 +33,7 @@ public class UsuarioService {
     private final KeycloakAdminClient keycloakAdminClient;
     private final KeycloakTokenClient keycloakTokenClient;
     private final AutorizacaoService autorizacaoService;
+    private final RevogacaoTokenService revogacaoTokenService;
 
     @Transactional
     public UsuarioResponseDTO cadastrar(CadastroUsuarioRequestDTO request) {
@@ -216,6 +217,8 @@ public class UsuarioService {
 
         try {
             keycloakAdminClient.desabilitarUsuario(usuario.getExternalIdentityId());
+            // Sem isto o refresh token continuaria renovando a sessão até expirar
+            keycloakAdminClient.encerrarSessoes(usuario.getExternalIdentityId());
         } catch (KeycloakAdminException ex) {
             log.error("Falha ao desabilitar usuário {} no Keycloak: {}", id, ex.getMessage());
             throw new AtualizacaoKeycloakException(
@@ -225,6 +228,8 @@ public class UsuarioService {
         usuario.setAtivo(false);
         usuario.setDataAtualizacao(Instant.now());
         usuarioRepository.save(usuario);
+        // O access token atual também deixa de valer na hora (401 na próxima requisição)
+        revogacaoTokenService.revogarTokensDoUsuario(usuario);
 
         log.info("Usuário {} inativado com sucesso.", id);
     }

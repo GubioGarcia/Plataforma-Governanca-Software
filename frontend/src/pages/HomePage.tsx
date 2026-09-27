@@ -72,12 +72,8 @@ export default function HomePage() {
   const hora = new Date().getHours();
   const saudacao = hora < 12 ? 'Bom dia' : hora < 18 ? 'Boa tarde' : 'Boa noite';
 
-  const ROLE_STYLE: Record<string, { bg: string; color: string }> = {
-    GESTOR:      { bg: '#EDE9FE', color: '#7C3AED' },
-    ANALISTA:    { bg: '#D1FAE5', color: '#059669' },
-    STAKEHOLDER: { bg: '#DBEAFE', color: '#2563EB' },
-  };
-  const roleStyle = ROLE_STYLE[user?.role ?? 'GESTOR'];
+  // Fora de uma organização/projeto não há papel; só o Admin da Plataforma é global
+  const papelGlobal = user?.adminPlataforma ? 'Admin da Plataforma' : null;
 
   return (
     <Box sx={{ flexGrow: 1, overflowY: 'auto', p: { xs: 2, sm: 4 }, bgcolor: 'background.default' }}>
@@ -89,11 +85,13 @@ export default function HomePage() {
             <Typography variant="h2">
               {saudacao}, {user?.nome.split(' ')[0]}!
             </Typography>
-            <Chip
-              label={user?.role}
-              size="small"
-              sx={{ bgcolor: roleStyle.bg, color: roleStyle.color, fontWeight: 700, fontSize: '11px' }}
-            />
+            {papelGlobal && (
+              <Chip
+                label={papelGlobal}
+                size="small"
+                sx={{ bgcolor: '#EDE9FE', color: '#7C3AED', fontWeight: 700, fontSize: '11px' }}
+              />
+            )}
           </Box>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Aqui está um resumo do que está acontecendo na plataforma.

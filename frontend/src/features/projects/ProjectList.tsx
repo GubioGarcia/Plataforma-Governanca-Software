@@ -36,6 +36,8 @@ import EmptyState from '../../components/common/EmptyState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useAuth } from '../../context/useAuth';
+import { isApiError } from '../../services/userService';
 import type { ProjetoAPI, StatusProjetoAPI } from '../../types/projeto';
 import {
   listarProjetosPorOrg,
@@ -53,7 +55,8 @@ export default function ProjectList() {
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode, podeNoProjeto } = usePermissions();
+  const { recarregarPermissoes } = useAuth();
 
   const [projects, setProjects] = useState<ProjetoAPI[]>([]);
   const [statusOptions, setStatusOptions] = useState<StatusProjetoAPI[]>([]);
@@ -204,9 +207,11 @@ export default function ProjectList() {
       setForm({ nome: '', descricao: '' });
       setDialogOpen(false);
       notify('Projeto criado com sucesso');
+      // O criador virou Dono do projeto: atualiza papéis/permissões antes de listar
+      await recarregarPermissoes();
       fetchProjects();
-    } catch {
-      notify('Erro ao criar projeto', 'error');
+    } catch (err) {
+      notify(isApiError(err) ? err.response?.data?.detail ?? 'Erro ao criar projeto' : 'Erro ao criar projeto', 'error');
     }
   };
 
@@ -259,7 +264,7 @@ export default function ProjectList() {
           <Typography variant="body2">Gerencie os projetos da organização</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          {!isStakeholder && (
+          {pode('ORG_CREATE_PROJECT') && (
             <>
               <Button
                 variant="outlined"
@@ -429,7 +434,7 @@ export default function ProjectList() {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
-                      {!isStakeholder && (
+                      {(podeNoProjeto(project.id, 'PROJETO_EDIT') || podeNoProjeto(project.id, 'PROJETO_INATIVAR')) && (
                       <Tooltip title="Mais opções">
                         <IconButton
                           size="small"
@@ -480,12 +485,16 @@ export default function ProjectList() {
         >
           Ver Projeto
         </MenuItem>
-        <MenuItem onClick={openEditProject}>
-          <EditIcon fontSize="small" sx={{ mr: 1, fontSize: 16 }} />
-          Editar
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleDeleteProject} sx={{ color: 'error.main' }}>Inativar</MenuItem>
+        {menuProjectId && podeNoProjeto(menuProjectId, 'PROJETO_EDIT') && (
+          <MenuItem onClick={openEditProject}>
+            <EditIcon fontSize="small" sx={{ mr: 1, fontSize: 16 }} />
+            Editar
+          </MenuItem>
+        )}
+        {menuProjectId && podeNoProjeto(menuProjectId, 'PROJETO_INATIVAR') && <Divider />}
+        {menuProjectId && podeNoProjeto(menuProjectId, 'PROJETO_INATIVAR') && (
+          <MenuItem onClick={handleDeleteProject} sx={{ color: 'error.main' }}>Inativar</MenuItem>
+        )}
       </Menu>
 
       {/* Reactivate confirm */}
@@ -540,16 +549,18 @@ export default function ProjectList() {
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{proj.descricao}</Typography>
                     )}
                   </Box>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<CheckCircleIcon />}
-                    color="success"
-                    onClick={() => setReactivateTarget(proj)}
-                    sx={{ whiteSpace: 'nowrap', ml: 2 }}
-                  >
-                    Reativar
-                  </Button>
+                  {podeNoProjeto(proj.id, 'PROJETO_INATIVAR') && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<CheckCircleIcon />}
+                      color="success"
+                      onClick={() => setReactivateTarget(proj)}
+                      sx={{ whiteSpace: 'nowrap', ml: 2 }}
+                    >
+                      Reativar
+                    </Button>
+                  )}
                 </Box>
               ))}
             </Box>

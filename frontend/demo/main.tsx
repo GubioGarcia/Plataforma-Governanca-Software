@@ -19,45 +19,96 @@ import { useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 import Box from '@mui/material/Box';
+import Chip from '@mui/material/Chip';
 import App from '../src/App';
 import { AppThemeProvider } from '../src/context/ThemeContext';
 import { SnackbarProvider } from '../src/context/SnackbarContext';
 import { AuthContext, type AuthUser } from '../src/context/AuthContext';
-import type { PapelProjeto } from '../src/types/stakeholder';
+import { PERMISSOES, type Permissao } from '../src/types/acesso';
 import { instalarApiDemo } from './api';
-import { ORG_ID } from './dados';
+import { ORG_ID, organizacoes, projetos } from './dados';
 
 instalarApiDemo();
 
-const USUARIO_DEMO: AuthUser = {
-  id: 'u1',
-  nome: 'Thiago Falcone',
-  email: 'thiago@discovery.dev',
-  ativo: true,
-  roles: ['GESTOR'],
-  urlMidiaPerfil: null,
-  role: 'GESTOR',
-};
+type PerfilDemo = 'GESTOR' | 'STAKEHOLDER';
+
+// Permissões do Stakeholder (Técnico + Cliente) segundo a matriz do backend (MatrizPermissoes)
+const PERMISSOES_STAKEHOLDER: Permissao[] = [
+  'REQ_VIEW', 'REQ_COMMENT', 'REQ_REQUEST_CHANGE', 'REQ_REQUEST_REJECTION', 'REQ_REQUEST_APPROVAL',
+  'WIKI_VIEW', 'WIKI_COMMENT', 'AUDIT_HISTORICO_VIEW',
+  'PROJETO_VIEW_USERS', 'EVENTO_VIEW', 'EVENTO_REQUEST', 'ARQUIVO_VIEW', 'ARQUIVO_DOWNLOAD',
+  'ANALYTICS_VIEW', 'MER_VIEW', 'MER_EXPORT_REQUEST', 'RASTREABILIDADE_VIEW', 'RASTREABILIDADE_EXPORT_REQUEST',
+];
+
+/** Usuário simulado: Dono de todas as organizações da demonstração, ou stakeholder convidado aos projetos. */
+function usuarioDemo(perfil: PerfilDemo): AuthUser {
+  const gestor = perfil === 'GESTOR';
+  return {
+    id: 'u1',
+    externalIdentityId: 'u1',
+    nome: 'Thiago Falcone',
+    email: 'thiago@discovery.dev',
+    ativo: true,
+    dataCriacao: new Date().toISOString(),
+    urlMidiaPerfil: null,
+    adminPlataforma: gestor,
+    organizacoes: organizacoes.map((o) => ({
+      id: o.id,
+      nome: o.nome,
+      ativo: o.ativo ?? true,
+      papel: gestor ? 'DONO' : null,
+      permissoes: gestor ? PERMISSOES.filter((p) => p.startsWith('ORG_')) : [],
+      projetos: projetos
+        .filter((p) => p.organizacaoId === o.id)
+        .map((p) => ({
+          id: p.id,
+          nome: p.nome,
+          ativo: p.ativo ?? true,
+          papeis: gestor ? ['DONO'] : ['STAKEHOLDER_TECNICO', 'STAKEHOLDER_CLIENTE'],
+          permissoes: gestor ? PERMISSOES.filter((x) => !x.startsWith('ORG_')) : PERMISSOES_STAKEHOLDER,
+        })),
+    })),
+  };
+}
 
 /**
  * Entra no lugar do AuthProvider real: já devolve alguém autenticado, para
  * que a demonstração comece dentro do sistema em vez da tela de login.
+ * O seletor de perfil (canto inferior esquerdo) alterna a visão Gestor/Stakeholder.
  */
 function AuthDemoProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser>(USUARIO_DEMO);
+  const [perfil, setPerfil] = useState<PerfilDemo>('GESTOR');
 
   return (
     <AuthContext.Provider
       value={{
-        user,
+        user: usuarioDemo(perfil),
         isAuthenticated: true,
+        carregando: false,
         login: async () => {},
-        logout: () => {},
-        switchRole: (role: PapelProjeto) => setUser((atual) => ({ ...atual, role })),
+        logout: async () => {},
+        recarregarPermissoes: async () => {},
       }}
     >
       {children}
+      <SeletorPerfilDemo perfil={perfil} onTrocar={setPerfil} />
     </AuthContext.Provider>
+  );
+}
+
+function SeletorPerfilDemo({ perfil, onTrocar }: { perfil: PerfilDemo; onTrocar: (p: PerfilDemo) => void }) {
+  return (
+    <Box sx={{ position: 'fixed', left: 12, bottom: 44, zIndex: 2000, display: 'flex', gap: 0.5 }}>
+      {(['GESTOR', 'STAKEHOLDER'] as PerfilDemo[]).map((p) => (
+        <Chip
+          key={p}
+          size="small"
+          label={p === 'GESTOR' ? 'Gestor' : 'Stakeholder'}
+          color={perfil === p ? 'primary' : 'default'}
+          onClick={() => onTrocar(p)}
+        />
+      ))}
+    </Box>
   );
 }
 

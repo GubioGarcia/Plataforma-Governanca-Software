@@ -23,11 +23,6 @@ import { useAuth } from '../context/useAuth';
 import { mockAudit } from '../mocks/audit';
 import { mockProjects } from '../mocks/projects';
 
-const ROLE_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  GESTOR:        { label: 'Gestor',        color: '#7C3AED', bg: '#EDE9FE' },
-  STAKEHOLDER:   { label: 'Stakeholder',   color: '#3B82F6', bg: '#EFF6FF' },
-  ANALISTA:      { label: 'Analista',      color: '#0891B2', bg: '#E0F2FE' },
-};
 
 export default function ProfilePage() {
   const { user } = useAuth();
@@ -51,7 +46,15 @@ export default function ProfilePage() {
   };
 
   const initials = displayName.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase();
-  const roleCfg = ROLE_LABELS[user?.role ?? 'GESTOR'] ?? ROLE_LABELS.GESTOR;
+  // Não há papel global: o papel é por organização/projeto. No perfil mostra o resumo.
+  const totalOrganizacoes = user?.organizacoes.length ?? 0;
+  const roleCfg = user?.adminPlataforma
+    ? { label: 'Admin da Plataforma', color: '#7C3AED', bg: '#EDE9FE' }
+    : {
+        label: `${totalOrganizacoes} organizaç${totalOrganizacoes === 1 ? 'ão' : 'ões'}`,
+        color: '#3B82F6',
+        bg: '#EFF6FF',
+      };
 
   // Activity stats
   const userAuditEntries = mockAudit.filter((a) => a.userName === (user?.nome ?? displayName));

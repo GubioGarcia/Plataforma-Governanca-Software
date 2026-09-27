@@ -37,7 +37,7 @@ class GruposAcessoServiceTest {
     @BeforeEach
     void setUp() {
         keycloak = mock(KeycloakAdminClient.class);
-        service  = new GruposAcessoService(keycloak);
+        service  = new GruposAcessoService(keycloak, mock(RevogacaoTokenService.class));
 
         organizacao = Organizacao.builder().id(UUID.randomUUID()).build();
         criador     = Usuario.builder().id(UUID.randomUUID()).externalIdentityId(UUID.randomUUID()).build();

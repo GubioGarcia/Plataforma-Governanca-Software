@@ -36,6 +36,8 @@ import StatusChip from '../../components/common/StatusChip';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useAuth } from '../../context/useAuth';
+import { isApiError } from '../../services/userService';
 import type { OrganizacaoAPI, PlanoAPI } from '../../types/organizacao';
 import {
   listarOrganizacoes,
@@ -48,7 +50,9 @@ import {
 export default function OrganizationList() {
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  // Criar organização: qualquer usuário autenticado. Ações de cada item: permissões daquela organização.
+  const { podeNaOrganizacao } = usePermissions();
+  const { recarregarPermissoes } = useAuth();
   const [orgs, setOrgs] = useState<OrganizacaoAPI[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -167,9 +171,11 @@ export default function OrganizationList() {
       setForm({ nome: '', descricao: '', plano: 'BASICO' });
       setDialogOpen(false);
       notify('Organização criada com sucesso');
+      // O criador virou Dono: atualiza papéis/permissões antes de listar
+      await recarregarPermissoes();
       fetchOrgs();
-    } catch {
-      notify('Erro ao criar organização', 'error');
+    } catch (err) {
+      notify(isApiError(err) ? err.response?.data?.detail ?? 'Erro ao criar organização' : 'Erro ao criar organização', 'error');
     }
   };
 
@@ -182,7 +188,8 @@ export default function OrganizationList() {
           <Typography variant="body2">Selecione uma organização para acessar seus projetos e configurações.</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          {!isStakeholder && (
+          {/* Qualquer usuário autenticado pode criar organização (vira o Dono) */}
+          {(
             <>
               <Button
                 variant="outlined"
@@ -230,7 +237,7 @@ export default function OrganizationList() {
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <StatusChip status={org.plano} />
-                      {!isStakeholder && (
+                      {(podeNaOrganizacao(org.id, 'ORG_EDIT') || podeNaOrganizacao(org.id, 'ORG_INATIVAR')) && (
                         <Tooltip title="Mais opções">
                           <IconButton
                             size="small"
@@ -265,8 +272,8 @@ export default function OrganizationList() {
             </Grid>
           ))}
 
-          {/* Create new org card — gestor only */}
-          {!isStakeholder && (
+          {/* Create new org card — qualquer usuário autenticado */}
+          {(
           <Grid size={{ xs: 12, sm: 6, md: 4 }}>
             <Card
               onClick={() => setDialogOpen(true)}
@@ -301,15 +308,20 @@ export default function OrganizationList() {
         onClick={(e) => e.stopPropagation()}
         slotProps={{ paper: { elevation: 3, sx: { minWidth: 160 } } }}
       >
-        <MenuItem onClick={() => { const org = orgs.find((o) => o.id === menuOrgId); if (org) openEdit(org); }}>
-          <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
-          Editar
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={() => setDeleteConfirmOpen(true)} sx={{ color: 'error.main' }}>
-          <ListItemIcon><DeleteIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
-          Inativar
-        </MenuItem>
+        {/* Editar: só o Dono (ORG_EDIT). Inativar: Dono ou Gestor (ORG_INATIVAR) */}
+        {menuOrgId && podeNaOrganizacao(menuOrgId, 'ORG_EDIT') && (
+          <MenuItem onClick={() => { const org = orgs.find((o) => o.id === menuOrgId); if (org) openEdit(org); }}>
+            <ListItemIcon><EditIcon fontSize="small" /></ListItemIcon>
+            Editar
+          </MenuItem>
+        )}
+        {menuOrgId && podeNaOrganizacao(menuOrgId, 'ORG_EDIT') && podeNaOrganizacao(menuOrgId, 'ORG_INATIVAR') && <Divider />}
+        {menuOrgId && podeNaOrganizacao(menuOrgId, 'ORG_INATIVAR') && (
+          <MenuItem onClick={() => setDeleteConfirmOpen(true)} sx={{ color: 'error.main' }}>
+            <ListItemIcon><DeleteIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
+            Inativar
+          </MenuItem>
+        )}
       </Menu>
 
       {/* Delete confirm */}
@@ -380,16 +392,18 @@ export default function OrganizationList() {
                       )}
                     </Box>
                   </Box>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<CheckCircleIcon />}
-                    color="success"
-                    onClick={() => setReactivateTarget(org)}
-                    sx={{ whiteSpace: 'nowrap', ml: 2 }}
-                  >
-                    Reativar
-                  </Button>
+                  {podeNaOrganizacao(org.id, 'ORG_INATIVAR') && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<CheckCircleIcon />}
+                      color="success"
+                      onClick={() => setReactivateTarget(org)}
+                      sx={{ whiteSpace: 'nowrap', ml: 2 }}
+                    >
+                      Reativar
+                    </Button>
+                  )}
                 </Box>
               ))}
             </Box>

@@ -1,27 +1,23 @@
 import api from '../config/axios';
+import type { MeResponse } from '../types/acesso';
 
-const API_LOGIN_URL = '/auth/login';
-const API_ME_URL    = '/auth/me';
+const API_LOGIN_URL   = '/auth/login';
+const API_REFRESH_URL = '/auth/refresh';
+const API_LOGOUT_URL  = '/auth/logout';
+const API_ME_URL      = '/auth/me';
 
 export interface LoginRequest {
   email: string;
   senha: string;
 }
 
-export interface AuthMeResponse {
-  id: string;
-  externalIdentityId: string;
-  nome: string;
-  email: string;
-  ativo: boolean;
-  dataCriacao: string;
-  urlMidiaPerfil: string | null;
-  roles: string[];
-}
-
-export interface LoginResponse {
+/**
+ * Resposta de login/refresh. O refresh token NÃO vem aqui: o backend o grava num
+ * cookie HttpOnly (o JavaScript não tem acesso). expiresIn = validade do token em segundos.
+ */
+export interface SessaoResponse {
   token: string;
-  user: AuthMeResponse;
+  expiresIn: number;
 }
 
 const ERRO_GENERICO =
@@ -30,30 +26,21 @@ const ERRO_GENERICO =
 /**
  * Autentica o usuário via backend.
  */
-export async function loginWithCredentials(
-  email: string,
-  senha: string,
-): Promise<LoginResponse> {
+export async function loginWithCredentials(email: string, senha: string): Promise<SessaoResponse> {
   try {
-    const response = await api.post<LoginResponse>(API_LOGIN_URL, {
+    const response = await api.post<SessaoResponse>(API_LOGIN_URL, {
       email: email.trim().toLowerCase(),
       senha,
     } satisfies LoginRequest);
 
-    const { token, user } = response.data;
-
-    if (!token || !user) {
+    const { token, expiresIn } = response.data;
+    if (!token) {
       throw new Error('Resposta de login inválida do servidor.');
     }
-
-    return { token, user };
+    return { token, expiresIn };
   } catch (error: unknown) {
     // Erros HTTP com corpo de resposta (4xx/5xx do backend)
-    if (
-      error !== null &&
-      typeof error === 'object' &&
-      'response' in error
-    ) {
+    if (error !== null && typeof error === 'object' && 'response' in error) {
       const axiosError = error as { response?: { status?: number; data?: { detail?: string } } };
       const status = axiosError.response?.status;
 
@@ -77,11 +64,22 @@ export async function loginWithCredentials(
   }
 }
 
+/** Troca o cookie de refresh por um access token novo (já com os grupos atuais). */
+export async function refreshSession(): Promise<SessaoResponse> {
+  const response = await api.post<SessaoResponse>(API_REFRESH_URL);
+  return { token: response.data.token, expiresIn: response.data.expiresIn };
+}
+
+/** Encerra a sessão no servidor e apaga o cookie de refresh. */
+export async function logoutSession(): Promise<void> {
+  await api.post(API_LOGOUT_URL);
+}
+
 /**
- * Busca os dados do usuário autenticado.
+ * Usuário autenticado + organizações/projetos com papéis e permissões.
  * O token já está no interceptor do Axios — não precisa ser passado aqui.
  */
-export async function fetchAuthenticatedUser(): Promise<AuthMeResponse> {
-  const response = await api.get<AuthMeResponse>(API_ME_URL);
+export async function fetchMe(): Promise<MeResponse> {
+  const response = await api.get<MeResponse>(API_ME_URL);
   return response.data;
 }

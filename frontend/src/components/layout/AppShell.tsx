@@ -18,7 +18,6 @@ import Divider from '@mui/material/Divider';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import LogoutIcon from '@mui/icons-material/Logout';
 import PersonIcon from '@mui/icons-material/Person';
-import SwapHorizIcon from '@mui/icons-material/SwapHoriz';
 import HubIcon from '@mui/icons-material/Hub';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
@@ -29,17 +28,19 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { mockAudit } from '../../mocks/audit';
 import { mockRequirements } from '../../mocks/requirements';
 import { mockProjects } from '../../mocks/projects';
-import type { PapelProjeto } from '../../types/stakeholder';
-
-const ROLES: { value: PapelProjeto; label: string }[] = [
-  { value: 'GESTOR', label: 'Gestor' },
-  { value: 'STAKEHOLDER', label: 'Stakeholder' },
-];
+import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../../types/acesso';
 
 export default function AppShell() {
   const navigate = useNavigate();
-  const { user, logout, switchRole } = useAuth();
-  const { isGestor } = usePermissions();
+  const { user, logout } = useAuth();
+  const { isGestor, projetoAtual, organizacaoAtual, adminPlataforma } = usePermissions();
+
+  // Papel mais alto no projeto da rota; senão o da organização; senão Admin da Plataforma
+  const papelLabel = projetoAtual?.papeis.length
+    ? PAPEL_PROJETO_LABEL[projetoAtual.papeis[0]]
+    : organizacaoAtual?.papel
+      ? PAPEL_ORGANIZACAO_LABEL[organizacaoAtual.papel]
+      : adminPlataforma ? 'Admin da Plataforma' : null;
   const { mode, toggleMode } = useThemeMode();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notifAnchor, setNotifAnchor] = useState<null | HTMLElement>(null);
@@ -130,25 +131,24 @@ export default function AppShell() {
             </IconButton>
           </Tooltip>
 
-          {/* Demo role switcher */}
-          <Tooltip title="Trocar papel (demonstração)">
-            <Chip
-              icon={<SwapHorizIcon sx={{ fontSize: '14px !important' }} />}
-              label={user?.role ?? 'GESTOR'}
-              size="small"
-              onClick={(e) => setAnchorEl(e.currentTarget)}
-              sx={{
-                mr: 1.5,
-                bgcolor: isGestor ? '#EDE9FE' : '#EFF6FF',
-                color: isGestor ? '#7C3AED' : '#3B82F6',
-                fontWeight: 600,
-                fontSize: '11px',
-                cursor: 'pointer',
-                border: '1px solid',
-                borderColor: isGestor ? '#DDD6FE' : '#BFDBFE',
-              }}
-            />
-          </Tooltip>
+          {/* Papel real do usuário no contexto atual (projeto, senão organização) */}
+          {papelLabel && (
+            <Tooltip title="Seu papel aqui">
+              <Chip
+                label={papelLabel}
+                size="small"
+                sx={{
+                  mr: 1.5,
+                  bgcolor: isGestor ? '#EDE9FE' : '#EFF6FF',
+                  color: isGestor ? '#7C3AED' : '#3B82F6',
+                  fontWeight: 600,
+                  fontSize: '11px',
+                  border: '1px solid',
+                  borderColor: isGestor ? '#DDD6FE' : '#BFDBFE',
+                }}
+              />
+            </Tooltip>
+          )}
 
           {/* User avatar */}
           <Tooltip title={user?.nome ?? ''}>
@@ -182,30 +182,12 @@ export default function AppShell() {
             </Box>
             <Divider />
 
-            {/* Role switcher items */}
-            <Box sx={{ px: 2, pt: 1 }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', fontSize: '10px', letterSpacing: '0.08em' }}>
-                Simular papel
-              </Typography>
-            </Box>
-            {ROLES.map((r) => (
-              <MenuItem
-                key={r.value}
-                onClick={() => { switchRole(r.value); setAnchorEl(null); }}
-                selected={user?.role === r.value}
-                sx={{ fontSize: '13px' }}
-              >
-                {r.label}
-              </MenuItem>
-            ))}
-
-            <Divider sx={{ my: 1 }} />
-            <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }} sx={{ fontSize: '13px' }}>
+            <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }} sx={{ fontSize: '13px', mt: 1 }}>
               <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
               Meu Perfil
             </MenuItem>
             <MenuItem
-              onClick={() => { logout(); navigate('/login'); setAnchorEl(null); }}
+              onClick={() => { setAnchorEl(null); logout().finally(() => navigate('/login')); }}
               sx={{ fontSize: '13px', color: 'error.main' }}
             >
               <ListItemIcon><LogoutIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
