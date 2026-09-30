@@ -4,7 +4,8 @@ import { entrar, esperarAviso, rota } from './support/ui';
 
 /**
  * Organização: o que cada papel vê na lista de organizações e na tela da
- * organização (membros, convites, promover, remover) e o bloqueio de quem não participa.
+ * organização, que é a própria lista de projetos com dados e membros no topo
+ * (membros, convites, promover, remover), e o bloqueio de quem não participa.
  */
 test.describe('Organização e membros', () => {
   let c: Cenario;
@@ -15,6 +16,11 @@ test.describe('Organização e membros', () => {
   // Cartão da organização na lista (não o de convites, que também cita o nome)
   const cartaoDaOrg = (page: Page) => page.locator('.MuiCard-root', { hasText: c.org.nome }).filter({ hasText: 'Acessar' });
   const linhaDoMembro = (page: Page, email: string) => page.locator(`[data-membro="${email}"]`);
+  // O card de membros começa recolhido; espera a animação terminar para o clique seguinte não se perder
+  const abrirMembros = async (page: Page) => {
+    await page.getByRole('button', { name: 'Mostrar membros' }).click();
+    await expect(page.locator('.MuiCollapse-entered')).toBeVisible();
+  };
 
   test('lista de organizações mostra o papel e só as ações permitidas', async ({ page }) => {
     await entrar(page, c.dono);
@@ -45,7 +51,7 @@ test.describe('Organização e membros', () => {
     await expect(page.getByText('Suas Organizações')).toBeVisible();
     await expect(cartaoDaOrg(page)).toHaveCount(0);
 
-    await page.goto(rota.organizacao(c));
+    await page.goto(rota.organizacao(c)); // rota antiga redireciona para a lista de projetos
     await expect(page.getByText('Você não tem acesso a esta organização')).toBeVisible();
     await page.goto(rota.projetos(c));
     await expect(page.getByText('Você não tem acesso a esta organização')).toBeVisible();
@@ -54,8 +60,8 @@ test.describe('Organização e membros', () => {
   test('Dono vê membros, convida e cancela convite', async ({ page }) => {
     await entrar(page, c.dono);
     await page.goto(rota.projetos(c));
-    await page.getByRole('button', { name: 'Organização e membros' }).click();
-    await expect(page).toHaveURL(new RegExp(`${rota.organizacao(c)}$`));
+    await expect(page.getByRole('heading', { name: c.org.nome })).toBeVisible();
+    await abrirMembros(page);
 
     for (const p of [c.dono, c.gestor, c.membro]) await expect(linhaDoMembro(page, p.email)).toBeVisible();
     await expect(linhaDoMembro(page, c.convidado.email)).toHaveCount(0); // convidado é só do projeto
@@ -80,13 +86,15 @@ test.describe('Organização e membros', () => {
 
   test('Gestor convida e promove, mas não remove; Membro só vê', async ({ page }) => {
     await entrar(page, c.gestor);
-    await page.goto(rota.organizacao(c));
+    await page.goto(rota.projetos(c));
     await expect(page.getByRole('button', { name: 'Convidar' })).toBeVisible();
+    await abrirMembros(page);
     await expect(linhaDoMembro(page, c.membro.email).getByRole('button', { name: 'Elevar a Gestor da organização' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Remover da organização' })).toHaveCount(0);
 
     await entrar(page, c.membro);
-    await page.goto(rota.organizacao(c));
+    await page.goto(rota.projetos(c));
+    await abrirMembros(page);
     await expect(linhaDoMembro(page, c.dono.email)).toBeVisible();
     await expect(page.getByRole('button', { name: 'Convidar' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Elevar a Gestor da organização' })).toHaveCount(0);
@@ -95,8 +103,9 @@ test.describe('Organização e membros', () => {
 
   test('convidado vê só o próprio projeto e não vê os membros', async ({ page }) => {
     await entrar(page, c.convidado);
-    await page.goto(rota.organizacao(c));
+    await page.goto(rota.projetos(c));
     await expect(page.getByText('Seus projetos nesta organização')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Mostrar membros' })).toHaveCount(0);
     await expect(page.getByText(c.projetoA.nome)).toBeVisible();
     await expect(page.getByText(c.projetoB.nome)).toHaveCount(0);
     await expect(page.getByRole('heading', { name: 'Membros' })).toHaveCount(0);
@@ -107,7 +116,8 @@ test.describe('Organização e membros', () => {
 
   test('Gestor eleva o Membro; Dono remove e a pessoa perde o acesso', async ({ page, browser }) => {
     await entrar(page, c.gestor);
-    await page.goto(rota.organizacao(c));
+    await page.goto(rota.projetos(c));
+    await abrirMembros(page);
     await linhaDoMembro(page, c.membro.email).getByRole('button', { name: 'Elevar a Gestor da organização' }).click();
     await esperarAviso(page, 'agora é Gestor da organização');
     await expect(linhaDoMembro(page, c.membro.email)).toContainText('Gestor');
@@ -119,7 +129,8 @@ test.describe('Organização e membros', () => {
     await expect(pagMembro.locator('.MuiCard-root', { hasText: c.org.nome })).toContainText('Você: Gestor');
 
     await entrar(page, c.dono);
-    await page.goto(rota.organizacao(c));
+    await page.goto(rota.projetos(c));
+    await abrirMembros(page);
     await linhaDoMembro(page, c.membro.email).getByRole('button', { name: 'Remover da organização' }).click();
     await page.getByRole('dialog').getByRole('button', { name: 'Remover' }).click();
     await esperarAviso(page, 'foi removido da organização');

@@ -28,13 +28,13 @@ import PeopleIcon from '@mui/icons-material/People';
 import ListAltIcon from '@mui/icons-material/ListAlt';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HistoryIcon from '@mui/icons-material/History';
-import BusinessIcon from '@mui/icons-material/Business';
 import Select from '@mui/material/Select';
 import FormControl from '@mui/material/FormControl';
 import InputLabel from '@mui/material/InputLabel';
 import StatusChip from '../../components/common/StatusChip';
 import EmptyState from '../../components/common/EmptyState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import OrgResumo from '../organizations/OrgResumo';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { PAPEL_PROJETO_LABEL } from '../../types/acesso';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -237,6 +237,11 @@ export default function ProjectList() {
     return STATUS_CARD_STYLES[key] ?? STATUS_CARD_STYLES.TOTAL;
   }
 
+  // Indicadores da organização, a partir dos resumos já carregados para os cards
+  const resumosCarregados = !loading && !fetchError && projects.every((p) => reqResumos[p.id]);
+  const totalRequisitos = Object.values(reqResumos).reduce((acc, r) => acc + r.total, 0);
+  const totalAprovados = Object.values(reqResumos).reduce((acc, r) => acc + r.aprovados, 0);
+
   const summaryCards = [
     { label: 'Total', value: projects.length, filterId: 'TODOS', ...getStatusStyle('TOTAL') },
     ...statusOptions.map((s) => ({
@@ -248,7 +253,7 @@ export default function ProjectList() {
   ];
 
   return (
-    <Box sx={{ flexGrow: 1, p: 4 }}>
+    <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
       {/* Botão Voltar */}
       <Box sx={{ mb: 1 }}>
         <Button
@@ -261,23 +266,27 @@ export default function ProjectList() {
         </Button>
       </Box>
 
+      {/* Organização: dados, indicadores e membros (conforme o papel) */}
+      {orgId && (
+        <OrgResumo
+          orgId={orgId}
+          totalProjetos={loading || fetchError ? null : projects.length}
+          totalRequisitos={resumosCarregados ? totalRequisitos : null}
+          totalAprovados={resumosCarregados ? totalAprovados : null}
+        />
+      )}
+
+      <Divider sx={{ my: 4 }} />
+
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mb: 4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="h2" sx={{ mb: 0.5 }}>Projetos</Typography>
-          <Typography variant="body2">Gerencie os projetos da organização</Typography>
+          <Typography variant="h3" sx={{ mb: 0.5 }}>Projetos</Typography>
+          <Typography variant="body2">
+            {organizacaoAtual?.papel ? 'Gerencie os projetos da organização' : 'Seus projetos nesta organização'}
+          </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          {/* Visão da organização: membros, convites e indicadores */}
-          <Button
-            variant="outlined"
-            startIcon={<BusinessIcon />}
-            size="small"
-            color="inherit"
-            onClick={() => navigate(`/organizations/${orgId}`)}
-          >
-            {pode('ORG_VIEW_USERS') ? 'Organização e membros' : 'Visão da organização'}
-          </Button>
           {pode('ORG_CREATE_PROJECT') && (
             <>
               <Button

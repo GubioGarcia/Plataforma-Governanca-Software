@@ -5,7 +5,6 @@ import ProtectedRoute from './components/layout/ProtectedRoute';
 import GuardaOrganizacao from './components/layout/GuardaOrganizacao';
 import LoginPage from './pages/LoginPage';
 import OrganizationList from './features/organizations/OrganizationList';
-import OrgDashboard from './features/organizations/OrgDashboard';
 import ProjectList from './features/projects/ProjectList';
 import ProjectDashboard from './features/projects/ProjectDashboard';
 import WikiPage from './features/wiki/WikiPage';
@@ -46,7 +45,8 @@ export default function App() {
         {/* Tela global de usuários: só o Admin da Plataforma */}
         <Route path="users" element={<ProtectedRoute requireAdminPlataforma><UsersPage /></ProtectedRoute>} />
         {/* Organização/projeto: só para quem tem vínculo (o ProjectShell checa o projeto) */}
-        <Route path="organizations/:orgId" element={<GuardaOrganizacao><OrgDashboard /></GuardaOrganizacao>} />
+        {/* A tela da organização é a própria lista de projetos (dados e membros no topo) */}
+        <Route path="organizations/:orgId" element={<Navigate to="projects" replace />} />
         <Route path="organizations/:orgId/projects" element={<GuardaOrganizacao><ProjectList /></GuardaOrganizacao>} />
         <Route path="organizations/:orgId/projects/:projectId" element={<ProjectShell />}>
           <Route index element={<ProjectDashboard />} />

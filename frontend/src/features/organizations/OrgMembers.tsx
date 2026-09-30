@@ -4,6 +4,7 @@ import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
+import Collapse from '@mui/material/Collapse';
 import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
@@ -16,6 +17,7 @@ import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import CloseIcon from '@mui/icons-material/Close';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import PersonAddIcon from '@mui/icons-material/PersonAdd';
 import PersonRemoveIcon from '@mui/icons-material/PersonRemove';
 import UpgradeIcon from '@mui/icons-material/Upgrade';
@@ -79,6 +81,7 @@ export default function OrgMembers({ orgId, onMudou }: { orgId: string; onMudou?
   const [saving, setSaving] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [removerAlvo, setRemoverAlvo] = useState<Participante | null>(null);
+  const [aberto, setAberto] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -121,6 +124,7 @@ export default function OrgMembers({ orgId, onMudou }: { orgId: string; onMudou?
       await convidarParaOrganizacao(orgId, email.trim(), papel);
       notify('Convite enviado. A pessoa verá o convite ao entrar na plataforma.', 'success');
       setDialogOpen(false);
+      setAberto(true); // mostra o convite recém-criado na lista de pendentes
       load();
     } catch (err) {
       setApiError(mensagemErro(err, 'Erro ao enviar o convite.'));
@@ -164,84 +168,111 @@ export default function OrgMembers({ orgId, onMudou }: { orgId: string; onMudou?
 
   return (
     <>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="h5" sx={{ fontWeight: 700 }}>Membros</Typography>
-        {podeConvidar && (
-          <Button size="small" variant="outlined" startIcon={<PersonAddIcon />} onClick={openConvite}>
-            Convidar
-          </Button>
-        )}
-      </Box>
-
       <Paper variant="outlined" sx={{ borderRadius: 2 }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={28} /></Box>
-        ) : (
-          <>
-            {membros.map((p, i) => {
-              const papelOrg = papelNaOrganizacao(p);
-              const cor = PAPEL_COR[papelOrg];
-              const ehVoce = p.usuarioId === user?.id;
-              return (
-                <Box key={p.usuarioId} data-membro={p.email}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25 }}>
-                    <Avatar src={p.urlMidiaPerfil ?? undefined} sx={{ width: 32, height: 32, fontSize: 12, fontWeight: 700, bgcolor: cor.color }}>
-                      {initials(p.nome)}
-                    </Avatar>
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.nome}{ehVoce && <Typography component="span" variant="caption" color="text.secondary"> (você)</Typography>}
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {p.email}
-                      </Typography>
-                    </Box>
-                    <Chip label={PAPEL_ORGANIZACAO_LABEL[papelOrg]} size="small"
-                      sx={{ bgcolor: cor.bg, color: cor.color, fontWeight: 600, fontSize: 11, height: 22 }} />
-                    {podePromover && papelOrg === 'MEMBRO' && (
-                      <Tooltip title="Elevar a Gestor da organização">
-                        <IconButton size="small" onClick={() => handlePromover(p)}><UpgradeIcon fontSize="small" /></IconButton>
-                      </Tooltip>
-                    )}
-                    {podeRemover && papelOrg !== 'DONO' && (
-                      <Tooltip title="Remover da organização">
-                        <IconButton size="small" color="error" onClick={() => setRemoverAlvo(p)}>
-                          <PersonRemoveIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
-                  </Box>
-                  {i < membros.length - 1 && <Divider />}
-                </Box>
-              );
-            })}
-            {membros.length === 0 && (
-              <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
-                Nenhum membro.
+        {/* Cabeçalho sempre visível; a lista abre e fecha para não empurrar os projetos */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.5 }}>
+          <Box
+            onClick={() => setAberto((a) => !a)}
+            sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1, minWidth: 0, cursor: 'pointer' }}
+          >
+            <Typography variant="h5" sx={{ fontWeight: 700 }}>Membros</Typography>
+            {!loading && (
+              <Chip label={membros.length} size="small" sx={{ fontWeight: 700, fontSize: 11, height: 22 }} />
+            )}
+            {podeConvidar && convites.length > 0 && (
+              <Typography variant="caption" color="text.secondary">
+                {convites.length} convite{convites.length !== 1 ? 's' : ''} pendente{convites.length !== 1 ? 's' : ''}
               </Typography>
             )}
-          </>
-        )}
-      </Paper>
-
-      {podeConvidar && convites.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Convites pendentes
-          </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
-            {convites.map((c) => (
-              <Chip
-                key={c.id}
-                size="small"
-                label={`${c.email} · ${c.projetoNome ? `projeto ${c.projetoNome}` : c.papel === 'GESTOR' ? 'Gestor' : 'Membro'}`}
-                onDelete={() => handleCancelarConvite(c.id)}
-                deleteIcon={<Tooltip title="Cancelar convite"><CloseIcon /></Tooltip>}
-              />
-            ))}
           </Box>
+          {podeConvidar && (
+            <Button size="small" variant="outlined" startIcon={<PersonAddIcon />} onClick={openConvite}>
+              Convidar
+            </Button>
+          )}
+          <Tooltip title={aberto ? 'Ocultar membros' : 'Mostrar membros'}>
+            <IconButton
+              size="small"
+              aria-label={aberto ? 'Ocultar membros' : 'Mostrar membros'}
+              aria-expanded={aberto}
+              onClick={() => setAberto((a) => !a)}
+            >
+              <ExpandMoreIcon sx={{ transition: 'transform 0.2s', transform: aberto ? 'rotate(180deg)' : 'none' }} />
+            </IconButton>
+          </Tooltip>
         </Box>
-      )}
+
+        <Collapse in={aberto} unmountOnExit>
+          <Divider />
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress size={28} /></Box>
+          ) : (
+            <>
+              {membros.map((p, i) => {
+                const papelOrg = papelNaOrganizacao(p);
+                const cor = PAPEL_COR[papelOrg];
+                const ehVoce = p.usuarioId === user?.id;
+                return (
+                  <Box key={p.usuarioId} data-membro={p.email}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.25 }}>
+                      <Avatar src={p.urlMidiaPerfil ?? undefined} sx={{ width: 32, height: 32, fontSize: 12, fontWeight: 700, bgcolor: cor.color }}>
+                        {initials(p.nome)}
+                      </Avatar>
+                      <Box sx={{ flex: 1, minWidth: 0 }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.nome}{ehVoce && <Typography component="span" variant="caption" color="text.secondary"> (você)</Typography>}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {p.email}
+                        </Typography>
+                      </Box>
+                      <Chip label={PAPEL_ORGANIZACAO_LABEL[papelOrg]} size="small"
+                        sx={{ bgcolor: cor.bg, color: cor.color, fontWeight: 600, fontSize: 11, height: 22 }} />
+                      {podePromover && papelOrg === 'MEMBRO' && (
+                        <Tooltip title="Elevar a Gestor da organização">
+                          <IconButton size="small" onClick={() => handlePromover(p)}><UpgradeIcon fontSize="small" /></IconButton>
+                        </Tooltip>
+                      )}
+                      {podeRemover && papelOrg !== 'DONO' && (
+                        <Tooltip title="Remover da organização">
+                          <IconButton size="small" color="error" onClick={() => setRemoverAlvo(p)}>
+                            <PersonRemoveIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Box>
+                    {i < membros.length - 1 && <Divider />}
+                  </Box>
+                );
+              })}
+              {membros.length === 0 && (
+                <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', py: 3 }}>
+                  Nenhum membro.
+                </Typography>
+              )}
+            </>
+          )}
+
+          {podeConvidar && convites.length > 0 && (
+            <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Convites pendentes
+              </Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                {convites.map((c) => (
+                  <Chip
+                    key={c.id}
+                    size="small"
+                    label={`${c.email} · ${c.projetoNome ? `projeto ${c.projetoNome}` : c.papel === 'GESTOR' ? 'Gestor' : 'Membro'}`}
+                    onDelete={() => handleCancelarConvite(c.id)}
+                    deleteIcon={<Tooltip title="Cancelar convite"><CloseIcon /></Tooltip>}
+                  />
+                ))}
+              </Box>
+            </Box>
+          )}
+        </Collapse>
+      </Paper>
 
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
