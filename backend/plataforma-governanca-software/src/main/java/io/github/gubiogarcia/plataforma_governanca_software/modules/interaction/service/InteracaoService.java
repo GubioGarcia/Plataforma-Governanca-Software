@@ -11,6 +11,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.repository.InteracaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.ProjetoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -28,6 +31,7 @@ public class InteracaoService {
     private final InteracaoRepository interacaoRepository;
     private final UsuarioRepository   usuarioRepository;
     private final ProjetoRepository   projetoRepository;
+    private final AutorizacaoService  autorizacao;
 
     // ─── API interna (chamada pelos outros Services) ──────────────────────────
 
@@ -66,8 +70,16 @@ public class InteracaoService {
 
     // ─── Listagens ────────────────────────────────────────────────────────────
 
+    private void exigirAnalytics(UUID projetoId) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new ProjetoService.ProjetoNaoEncontradoException(
+                        "Nenhum projeto encontrado com o id: " + projetoId));
+        autorizacao.exigir(projeto, Permissao.ANALYTICS_VIEW);
+    }
+
     @Transactional(readOnly = true)
     public List<InteracaoResponseDTO> listarPorProjeto(UUID projetoId) {
+        exigirAnalytics(projetoId);
         return interacaoRepository.findAllByProjetoId(projetoId)
                 .stream()
                 .sorted(Comparator.comparing(Interacao::getDataInteracao).reversed())
@@ -77,6 +89,7 @@ public class InteracaoService {
 
     @Transactional(readOnly = true)
     public List<InteracaoResponseDTO> listarPorUsuarioNoProjeto(UUID projetoId, UUID usuarioId) {
+        exigirAnalytics(projetoId);
         return interacaoRepository.findAllByProjetoIdAndUsuarioId(projetoId, usuarioId)
                 .stream()
                 .sorted(Comparator.comparing(Interacao::getDataInteracao).reversed())
@@ -95,6 +108,8 @@ public class InteracaoService {
      */
     @Transactional(readOnly = true)
     public ResumoInteracaoProjetoDTO resumoPorProjeto(UUID projetoId) {
+        exigirAnalytics(projetoId);
+
         // Total geral
         long total = interacaoRepository.countByProjetoId(projetoId);
 

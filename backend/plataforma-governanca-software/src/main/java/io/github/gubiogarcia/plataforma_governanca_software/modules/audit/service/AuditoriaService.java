@@ -2,19 +2,17 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.audit.servi
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.Auditoria;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.dto.AtualizarAuditoriaRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.dto.AuditoriaResponseDTO;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.dto.CriarAuditoriaRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.repository.AuditoriaRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.ProjetoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,46 +26,30 @@ import java.util.UUID;
 public class AuditoriaService {
 
     private final AuditoriaRepository auditoriaRepository;
-    private final UsuarioRepository    usuarioRepository;
-    private final OrganizacaoRepository organizacaoRepository;
-    private final ProjetoRepository    projetoRepository;
+    private final ProjetoRepository   projetoRepository;
+    private final AutorizacaoService  autorizacao;
 
     // ── Listagens ─────────────────────────────────────────────────────────────
 
-    @Transactional(readOnly = true)
-    public List<AuditoriaResponseDTO> listarTodos() {
-        return auditoriaRepository.findAll()
-                .stream()
-                .sorted((a, b) -> b.getDataAlteracao().compareTo(a.getDataAlteracao()))
-                .map(this::mapToDTO)
-                .toList();
-    }
-
     /**
-     * Lista auditorias filtrando por entidadeTipo e/ou entidadeId.
-     * Se ambos informados: retorna mudanças de um registro específico.
-     * Se apenas entidadeTipo: retorna todas as mudanças daquele tipo.
+     * Histórico de um registro específico (card de auditoria do requisito, da wiki...).
+     * Exige AUDIT_HISTORICO_VIEW no projeto de cada registro retornado.
      */
     @Transactional(readOnly = true)
     public List<AuditoriaResponseDTO> listarPorEntidade(String entidadeTipo, UUID entidadeId) {
-        return auditoriaRepository
-                .findByEntidade(entidadeTipo.toUpperCase(), entidadeId)
-                .stream()
-                .map(this::mapToDTO)
-                .toList();
+        List<Auditoria> registros = auditoriaRepository.findByEntidade(entidadeTipo.toUpperCase(), entidadeId);
+        registros.forEach(this::exigirHistorico);
+        return registros.stream().map(this::mapToDTO).toList();
     }
 
-    @Transactional(readOnly = true)
-    public List<AuditoriaResponseDTO> listarPorTipo(String entidadeTipo) {
-        return auditoriaRepository
-                .findByEntidadeTipo(entidadeTipo.toUpperCase())
-                .stream()
-                .map(this::mapToDTO)
-                .toList();
-    }
-
+    /** Tela completa de auditoria do projeto: AUDIT_VIEW. */
     @Transactional(readOnly = true)
     public List<AuditoriaResponseDTO> listarPorProjeto(UUID projetoId, String entidadeTipo) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new ProjetoService.ProjetoNaoEncontradoException(
+                        "Nenhum projeto encontrado com o id: " + projetoId));
+        autorizacao.exigir(projeto, Permissao.AUDIT_VIEW);
+
         List<Auditoria> result = (entidadeTipo != null && !entidadeTipo.isBlank())
                 ? auditoriaRepository.findByProjetoIdAndEntidadeTipo(projetoId, entidadeTipo.toUpperCase())
                 : auditoriaRepository.findByProjetoId(projetoId);
@@ -78,44 +60,22 @@ public class AuditoriaService {
     public AuditoriaResponseDTO buscarPorId(UUID id) {
         Auditoria auditoria = auditoriaRepository.findById(id)
                 .orElseThrow(() -> new AuditoriaNaoEncontradaException(id));
+        exigirHistorico(auditoria);
         return mapToDTO(auditoria);
     }
 
-    // ── Criar ─────────────────────────────────────────────────────────────────
-
-    @Transactional
-    public AuditoriaResponseDTO criar(Jwt jwt, CriarAuditoriaRequestDTO request) {
-        Usuario usuario = resolverUsuario(jwt);
-
-        Organizacao organizacao = null;
-        if (request.organizacaoId() != null) {
-            organizacao = organizacaoRepository.findById(request.organizacaoId()).orElse(null);
+    /** Registro de projeto → AUDIT_HISTORICO_VIEW; só de organização → vínculo; sem nenhum → Admin da Plataforma. */
+    private void exigirHistorico(Auditoria auditoria) {
+        if (auditoria.getProjeto() != null) {
+            autorizacao.exigir(auditoria.getProjeto(), Permissao.AUDIT_HISTORICO_VIEW);
+        } else if (auditoria.getOrganizacao() != null) {
+            autorizacao.exigirVinculo(auditoria.getOrganizacao());
+        } else {
+            autorizacao.exigirAdminPlataforma();
         }
-
-        Projeto projeto = null;
-        if (request.projetoId() != null) {
-            projeto = projetoRepository.findById(request.projetoId()).orElse(null);
-        }
-
-        Auditoria auditoria = Auditoria.builder()
-                .organizacao(organizacao)
-                .projeto(projeto)
-                .entidadeTipo(request.entidadeTipo().toUpperCase())
-                .entidadeId(request.entidadeId())
-                .acao(request.acao())
-                .campoAlterado(request.campoAlterado())
-                .valorAnterior(request.valorAnterior())
-                .valorNovo(request.valorNovo())
-                .usuario(usuario)
-                .dataAlteracao(Instant.now())
-                .build();
-
-        Auditoria salva = auditoriaRepository.save(auditoria);
-        log.info("Auditoria registrada: entidade={}/{} acao={} campo={} usuario={}",
-                salva.getEntidadeTipo(), salva.getEntidadeId(),
-                salva.getAcao(), salva.getCampoAlterado(), usuario.getNome());
-        return mapToDTO(salva);
     }
+
+    // ── Registrar ─────────────────────────────────────────────────────────────
 
     /**
      * Método interno — chamado pelos Services de domínio para registrar
@@ -158,40 +118,7 @@ public class AuditoriaService {
                 entidadeTipo, entidadeId, acao, campoAlterado, valorAnterior, valorNovo);
     }
 
-    // ── Atualizar ─────────────────────────────────────────────────────────────
-
-    @Transactional
-    public AuditoriaResponseDTO atualizar(UUID id, AtualizarAuditoriaRequestDTO request) {
-        Auditoria auditoria = auditoriaRepository.findById(id)
-                .orElseThrow(() -> new AuditoriaNaoEncontradaException(id));
-
-        if (request.campoAlterado() != null) auditoria.setCampoAlterado(request.campoAlterado());
-        if (request.valorAnterior() != null) auditoria.setValorAnterior(request.valorAnterior());
-        if (request.valorNovo()     != null) auditoria.setValorNovo(request.valorNovo());
-
-        Auditoria salva = auditoriaRepository.save(auditoria);
-        log.info("Auditoria {} atualizada.", id);
-        return mapToDTO(salva);
-    }
-
-    // ── Deletar ───────────────────────────────────────────────────────────────
-
-    @Transactional
-    public void deletar(UUID id) {
-        Auditoria auditoria = auditoriaRepository.findById(id)
-                .orElseThrow(() -> new AuditoriaNaoEncontradaException(id));
-        auditoriaRepository.delete(auditoria);
-        log.info("Auditoria {} removida.", id);
-    }
-
     // ── Helpers ───────────────────────────────────────────────────────────────
-
-    private Usuario resolverUsuario(Jwt jwt) {
-        UUID keycloakId = UUID.fromString(jwt.getSubject());
-        return usuarioRepository.findByExternalIdentityId(keycloakId)
-                .orElseThrow(() -> new UsuarioNaoAutorizadoException(
-                        "Usuário autenticado não encontrado na plataforma."));
-    }
 
     private AuditoriaResponseDTO mapToDTO(Auditoria a) {
         return new AuditoriaResponseDTO(
@@ -217,9 +144,5 @@ public class AuditoriaService {
         public AuditoriaNaoEncontradaException(UUID id) {
             super("Auditoria não encontrada com o id: " + id);
         }
-    }
-
-    public static class UsuarioNaoAutorizadoException extends RuntimeException {
-        public UsuarioNaoAutorizadoException(String msg) { super(msg); }
     }
 }

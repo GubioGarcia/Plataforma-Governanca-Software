@@ -13,6 +13,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.product.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.repository.VisaoProdutoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -32,6 +34,7 @@ public class VisaoProdutoService {
     private final AuditoriaService auditoriaService;
     private final UsuarioRepository usuarioRepository;
     private final InteracaoService interacaoService;
+    private final AutorizacaoService autorizacao;
 
     @Transactional
     public VisaoProduto inicializarParaProjeto(Projeto projeto) {
@@ -50,6 +53,7 @@ public class VisaoProdutoService {
     public VisaoProdutoResponseDTO buscarPorProjetoId(UUID projetoId) {
         Projeto projeto = projetoRepository.findById(projetoId)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.WIKI_VIEW);
         VisaoProduto visao = visaoProdutoRepository.findByProjetoId(projetoId)
                 .orElseThrow(() -> new VisaoProdutoNaoEncontradaException(projetoId));
         return mapToResponseDTO(visao, projeto);
@@ -59,6 +63,7 @@ public class VisaoProdutoService {
     public VisaoProdutoResponseDTO buscarPorId(UUID id) {
         VisaoProduto visao = visaoProdutoRepository.findById(id)
                 .orElseThrow(() -> new VisaoProdutoNaoEncontradaException(id));
+        autorizacao.exigir(visao.getProjeto(), Permissao.WIKI_VIEW);
         return mapToResponseDTO(visao, visao.getProjeto());
     }
 
@@ -66,6 +71,7 @@ public class VisaoProdutoService {
     public VisaoProdutoResponseDTO atualizar(Jwt jwt, UUID projetoId, AtualizarVisaoProdutoRequestDTO request) {
         Projeto projeto = projetoRepository.findById(projetoId)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.WIKI_EDIT);
 
         if (Boolean.FALSE.equals(projeto.getAtivo())) {
             throw new ProjetoInativoException(projetoId);

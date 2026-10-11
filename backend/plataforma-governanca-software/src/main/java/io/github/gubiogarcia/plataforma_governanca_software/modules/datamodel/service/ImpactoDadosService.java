@@ -20,6 +20,10 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.domain.Requisito;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.RequisitoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -50,6 +54,8 @@ public class ImpactoDadosService {
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
+    private final ProjetoRepository projetoRepository;
+    private final AutorizacaoService autorizacao;
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +66,12 @@ public class ImpactoDadosService {
                 .orElseThrow(() -> new RequisitoService.RequisitoNaoEncontradoException(requisitoId));
         EntidadeDados entidade = entidadeDadosRepository.findById(request.entidadeId())
                 .orElseThrow(() -> new EntidadeDadosService.EntidadeDadosNaoEncontradaException(request.entidadeId()));
+
+        // A permissão vale para o projeto do requisito; a entidade tem de ser do mesmo projeto
+        if (!requisito.getProjeto().getId().equals(entidade.getProjeto().getId())) {
+            throw new ImpactoEntreProjetosDiferentesException();
+        }
+        autorizacao.exigir(requisito.getProjeto(), Permissao.MER_EDIT);
 
         AtributoEntidade atributo = resolverAtributo(request.atributoId(), entidade.getId());
 
@@ -102,9 +114,7 @@ public class ImpactoDadosService {
 
     @Transactional(readOnly = true)
     public List<ImpactoDadosResponseDTO> listarPorRequisito(UUID requisitoId) {
-        if (!requisitoRepository.existsById(requisitoId)) {
-            throw new RequisitoService.RequisitoNaoEncontradoException(requisitoId);
-        }
+        exigirNoRequisito(requisitoId);
         return impactoDadosRepository.findAllByRequisitoIdOrderByEntidadeNomeAscDataCriacaoAsc(requisitoId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -116,9 +126,7 @@ public class ImpactoDadosService {
      */
     @Transactional(readOnly = true)
     public List<ImpactoDadosPorEntidadeDTO> listarPorRequisitoAgrupado(UUID requisitoId) {
-        if (!requisitoRepository.existsById(requisitoId)) {
-            throw new RequisitoService.RequisitoNaoEncontradoException(requisitoId);
-        }
+        exigirNoRequisito(requisitoId);
         Map<UUID, List<ImpactoDadosResponseDTO>> porEntidade = new LinkedHashMap<>();
         Map<UUID, String> nomeEntidade = new LinkedHashMap<>();
         for (ImpactoDados i : impactoDadosRepository.findAllByRequisitoIdOrderByEntidadeNomeAscDataCriacaoAsc(requisitoId)) {
@@ -135,6 +143,10 @@ public class ImpactoDadosService {
     /** Todos os impactos do projeto — o frontend deriva daqui o diff e a rastreabilidade indireta. */
     @Transactional(readOnly = true)
     public List<ImpactoDadosResponseDTO> listarPorProjeto(UUID projetoId) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new EntidadeDadosService.ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.MER_VIEW);
+
         return impactoDadosRepository.findAllByProjetoId(projetoId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -142,9 +154,10 @@ public class ImpactoDadosService {
 
     @Transactional(readOnly = true)
     public List<ImpactoDadosResponseDTO> listarPorEntidade(UUID entidadeId) {
-        if (!entidadeDadosRepository.existsById(entidadeId)) {
-            throw new EntidadeDadosService.EntidadeDadosNaoEncontradaException(entidadeId);
-        }
+        EntidadeDados entidade = entidadeDadosRepository.findById(entidadeId)
+                .orElseThrow(() -> new EntidadeDadosService.EntidadeDadosNaoEncontradaException(entidadeId));
+        autorizacao.exigir(entidade.getProjeto(), Permissao.MER_VIEW);
+
         return impactoDadosRepository.findAllByEntidadeId(entidadeId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -152,7 +165,16 @@ public class ImpactoDadosService {
 
     @Transactional(readOnly = true)
     public ImpactoDadosResponseDTO buscarPorId(UUID id) {
-        return mapToResponseDTO(carregar(id));
+        ImpactoDados impacto = carregar(id);
+        autorizacao.exigir(impacto.getRequisito().getProjeto(), Permissao.MER_VIEW);
+        return mapToResponseDTO(impacto);
+    }
+
+    /** Leitura dos impactos de um requisito: faz parte da modelagem de dados (MER_VIEW). */
+    private void exigirNoRequisito(UUID requisitoId) {
+        Requisito requisito = requisitoRepository.findById(requisitoId)
+                .orElseThrow(() -> new RequisitoService.RequisitoNaoEncontradoException(requisitoId));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.MER_VIEW);
     }
 
     // ── Atualizar ─────────────────────────────────────────────────────────────
@@ -160,6 +182,7 @@ public class ImpactoDadosService {
     @Transactional
     public ImpactoDadosResponseDTO atualizar(Jwt jwt, UUID id, AtualizarImpactoDadosRequestDTO request) {
         ImpactoDados impacto = carregar(id);
+        autorizacao.exigir(impacto.getRequisito().getProjeto(), Permissao.MER_EDIT);
         Usuario usuario = resolverUsuario(jwt);
         Requisito requisito = impacto.getRequisito();
 
@@ -188,6 +211,7 @@ public class ImpactoDadosService {
     @Transactional
     public void deletar(Jwt jwt, UUID id) {
         ImpactoDados impacto = carregar(id);
+        autorizacao.exigir(impacto.getRequisito().getProjeto(), Permissao.MER_EDIT);
         Usuario usuario = resolverUsuario(jwt);
         Requisito requisito = impacto.getRequisito();
         String alvo = impacto.getAtributo() != null
@@ -258,6 +282,12 @@ public class ImpactoDadosService {
     public static class AtributoNaoPertenceAEntidadeException extends RuntimeException {
         public AtributoNaoPertenceAEntidadeException(UUID atributoId, UUID entidadeId) {
             super("O atributo " + atributoId + " não pertence à entidade " + entidadeId + ".");
+        }
+    }
+
+    public static class ImpactoEntreProjetosDiferentesException extends RuntimeException {
+        public ImpactoEntreProjetosDiferentesException() {
+            super("O requisito e a entidade de dados pertencem a projetos diferentes.");
         }
     }
 }

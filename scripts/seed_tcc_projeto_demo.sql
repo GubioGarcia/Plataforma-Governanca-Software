@@ -16,14 +16,20 @@
 --   (status_projeto, status_requisito e prioridade, com os UUIDs
 --    'a1000001-...', 'b2000002-...', 'c3000003-...').
 --
--- Escopo: NÃO cria vínculos de papel/permissão (papel_organizacional,
---   papel_projeto, permissao, modulo, usuario_organizacao, usuario_projeto e
---   tabelas de junção) — esse controle de acesso é feito via Keycloak.
+-- Escopo: só dados da aplicação. Quem é quem (Dono, Gestor, Stakeholder...) NÃO
+--   fica no banco: é pertencimento a grupos do Keycloak. Por isso este script
+--   não é rodado sozinho — use scripts/recriar_ambiente_dev.py, que:
+--     1) cria as contas no Keycloak e preenche usuario.external_identity_id;
+--     2) reinicia o backend, cuja migração de grupos cria /org-{id} e
+--        /org-{id}/proj-{id} e põe o criador (Gubio) no _dono;
+--     3) põe os demais nos grupos (Luiz/Thiago gestores da org, Plínio
+--        stakeholder técnico + cliente do projeto, Gubio em /_admin).
+--
+-- Códigos: REQ-001..REQ-027, no formato gerado pelo backend (sequencial por
+--   projeto). O identificador do documento de requisitos (RF01..RF15,
+--   RNF01..RNF12) fica no início do título.
 --
 -- Idempotente: todo INSERT usa ON CONFLICT (id) DO NOTHING e UUIDs fixos.
--- Observação: 'requisito.codigo' é UNIQUE global. Se o banco já tiver requisitos
---   com os códigos RF01..RNF12, remova-os antes ou ajuste o prefixo abaixo.
---
 -- Para reexecutar do zero, descomente o bloco LIMPEZA e rode antes do restante.
 -- =============================================================================
 
@@ -32,6 +38,7 @@ BEGIN;
 -- =============================================================================
 -- LIMPEZA (opcional) — apaga apenas os dados criados por este script
 -- =============================================================================
+-- DELETE FROM solicitacao            WHERE id::text LIKE 'd0000000-0000-0000-0000-%';
 -- DELETE FROM impacto_dados          WHERE id::text LIKE '80000000-0000-0000-0000-%';
 -- DELETE FROM vinculo_requisito      WHERE id::text LIKE '70000000-0000-0000-0000-%';
 -- DELETE FROM relacionamento_entidade WHERE id::text LIKE '62000000-0000-0000-0000-%';
@@ -134,164 +141,164 @@ INSERT INTO requisito (
     data_criacao, data_solicitacao, data_aprovacao, data_atualizacao
 ) VALUES
 -- ─── FUNCIONAIS ─────────────────────────────────────────────────────────────
-('4f000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','RF01','Cadastro de Organização',
+('4f000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','REQ-001','RF01 — Cadastro de Organização',
  'O sistema deve permitir o cadastro de organizações contendo informações básicas como nome, descrição e plano. Cada organização poderá possuir múltiplos usuários vinculados com diferentes papéis organizacionais.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 10:00:00','2026-03-05 10:00:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','RF02','Cadastro de Usuários',
+('4f000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','REQ-002','RF02 — Cadastro de Usuários',
  'O sistema deve permitir o cadastro e o gerenciamento de usuários contendo nome, e-mail e status de atividade. Os usuários poderão ser vinculados a organizações e projetos.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 10:05:00','2026-03-05 10:05:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','RF03','Gerenciamento de Papéis Organizacionais',
+('4f000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','REQ-003','RF03 — Gerenciamento de Papéis Organizacionais',
  'O sistema deve permitir definir papéis organizacionais com níveis hierárquicos e permissões associadas para controle de acesso dentro das organizações.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000001',NULL,'11111111-0000-0000-0000-000000000001',TRUE,
  '2026-03-05 10:10:00','2026-03-05 10:10:00',NULL,'2026-03-08 11:00:00'),
 
-('4f000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','RF04','Cadastro de Projetos',
+('4f000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','REQ-004','RF04 — Cadastro de Projetos',
  'O sistema deve permitir o cadastro de projetos contendo nome, descrição, organização associada e status do projeto.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000003','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 10:15:00','2026-03-05 10:15:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','RF05','Gerenciamento de Stakeholders no Projeto',
+('4f000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','REQ-005','RF05 — Gerenciamento de Stakeholders no Projeto',
  'O sistema deve permitir associar usuários a projetos definindo papéis específicos dentro do projeto, permitindo a participação de diferentes stakeholders.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000003','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 10:20:00','2026-03-05 10:20:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001','RF06','Registro da Visão do Produto',
+('4f000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001','REQ-006','RF06 — Registro da Visão do Produto',
  'O sistema deve permitir registrar a visão do produto contendo problema a ser resolvido, público-alvo, objetivo geral, objetivos específicos, KPIs e restrições do projeto.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 10:25:00','2026-03-05 10:25:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000007','20000000-0000-0000-0000-000000000001','RF07','Cadastro de Requisitos',
+('4f000000-0000-0000-0000-000000000007','20000000-0000-0000-0000-000000000001','REQ-007','RF07 — Cadastro de Requisitos',
  'O sistema deve permitir o cadastro de requisitos vinculados a um projeto contendo título, descrição, tipo de requisito, versão e status.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',2,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001',TRUE,
  '2026-03-05 10:30:00','2026-03-05 10:30:00','2026-03-06 15:00:00','2026-03-08 16:00:00'),
 
-('4f000000-0000-0000-0000-000000000008','20000000-0000-0000-0000-000000000001','RF08','Discussão de Requisitos',
+('4f000000-0000-0000-0000-000000000008','20000000-0000-0000-0000-000000000001','REQ-008','RF08 — Discussão de Requisitos',
  'O sistema deve permitir que usuários adicionem comentários e participem de discussões vinculadas aos requisitos registrados no projeto.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000003','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 10:35:00','2026-03-05 10:35:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000009','20000000-0000-0000-0000-000000000001','RF09','Aprovação de Requisitos',
+('4f000000-0000-0000-0000-000000000009','20000000-0000-0000-0000-000000000001','REQ-009','RF09 — Aprovação de Requisitos',
  'O sistema deve permitir que stakeholders aprovem ou rejeitem requisitos registrados no sistema antes da validação final pelo responsável do projeto.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000003','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 10:40:00','2026-03-05 10:40:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000010','20000000-0000-0000-0000-000000000001','RF10','Controle de Status de Requisitos',
+('4f000000-0000-0000-0000-000000000010','20000000-0000-0000-0000-000000000001','REQ-010','RF10 — Controle de Status de Requisitos',
  'O sistema deve permitir alterar o status de um requisito entre estados como: proposto, em análise, em validação, aprovado, rejeitado ou alterado.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',2,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 10:45:00','2026-03-05 10:45:00','2026-03-06 15:00:00','2026-03-08 16:00:00'),
 
-('4f000000-0000-0000-0000-000000000011','20000000-0000-0000-0000-000000000001','RF11','Registro de Eventos do Projeto',
+('4f000000-0000-0000-0000-000000000011','20000000-0000-0000-0000-000000000001','REQ-011','RF11 — Registro de Eventos do Projeto',
  'O sistema deve permitir o registro de eventos relacionados ao projeto, como reuniões, workshops de discovery e entregas de artefatos.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000001',NULL,'11111111-0000-0000-0000-000000000001',TRUE,
  '2026-03-05 10:50:00','2026-03-05 10:50:00',NULL,'2026-03-08 11:00:00'),
 
-('4f000000-0000-0000-0000-000000000012','20000000-0000-0000-0000-000000000001','RF12','Auditoria de Alterações',
+('4f000000-0000-0000-0000-000000000012','20000000-0000-0000-0000-000000000001','REQ-012','RF12 — Auditoria de Alterações',
  'O sistema deve registrar automaticamente o histórico de alterações realizadas nas entidades do sistema, incluindo usuário responsável, data e valores alterados.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000003',NULL,'11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 10:55:00','2026-03-05 10:55:00',NULL,'2026-03-08 11:00:00'),
 
-('4f000000-0000-0000-0000-000000000013','20000000-0000-0000-0000-000000000001','RF13','Controle de Permissões',
+('4f000000-0000-0000-0000-000000000013','20000000-0000-0000-0000-000000000001','REQ-013','RF13 — Controle de Permissões',
  'O sistema deve controlar o acesso às funcionalidades com base em permissões associadas aos papéis organizacionais e papéis de projeto.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 11:00:00','2026-03-05 11:00:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4f000000-0000-0000-0000-000000000014','20000000-0000-0000-0000-000000000001','RF14','Controle de Versão de Requisitos',
+('4f000000-0000-0000-0000-000000000014','20000000-0000-0000-0000-000000000001','REQ-014','RF14 — Controle de Versão de Requisitos',
  'O sistema deve permitir o controle de versões dos requisitos cadastrados. Sempre que um requisito for alterado, uma nova versão deve ser registrada, preservando o histórico das versões anteriores e permitindo rastrear a evolução das mudanças ao longo do projeto.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000003',2,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000003','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 11:05:00','2026-03-05 11:05:00','2026-03-06 15:00:00','2026-03-08 16:00:00'),
 
-('4f000000-0000-0000-0000-000000000015','20000000-0000-0000-0000-000000000001','RF15','Visualização do Status dos Requisitos',
+('4f000000-0000-0000-0000-000000000015','20000000-0000-0000-0000-000000000001','REQ-015','RF15 — Visualização do Status dos Requisitos',
  'O sistema deve permitir que os usuários visualizem o status atual dos requisitos do projeto (proposto, em análise, em validação, aprovado ou rejeitado), acompanhando a evolução do processo de elicitação e validação.',
  'FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000002',NULL,'11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 11:10:00','2026-03-05 11:10:00',NULL,'2026-03-08 11:00:00'),
 
 -- ─── NÃO FUNCIONAIS ─────────────────────────────────────────────────────────
-('4e000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','RNF01','Autenticação Segura',
+('4e000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','REQ-016','RNF01 — Autenticação Segura',
  'O sistema deve utilizar autenticação baseada em um servidor de identidade (Keycloak) para garantir segurança no acesso dos usuários.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001',TRUE,
  '2026-03-05 11:20:00','2026-03-05 11:20:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4e000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','RNF02','Controle de Acesso',
+('4e000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','REQ-017','RNF02 — Controle de Acesso',
  'O sistema deve garantir que usuários acessem apenas funcionalidades permitidas de acordo com seus papéis e permissões.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001',TRUE,
  '2026-03-05 11:25:00','2026-03-05 11:25:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4e000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','RNF03','Desempenho do Sistema',
+('4e000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','REQ-018','RNF03 — Desempenho do Sistema',
  'O sistema deve responder às requisições do usuário em até 2 segundos em condições normais de uso.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000002',NULL,'11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 11:30:00','2026-03-05 11:30:00',NULL,'2026-03-08 11:00:00'),
 
-('4e000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','RNF04','Rastreabilidade',
+('4e000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','REQ-019','RNF04 — Rastreabilidade',
  'O sistema deve manter rastreabilidade entre requisitos, comentários, decisões e histórico de alterações.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000003','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 11:35:00','2026-03-05 11:35:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4e000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','RNF05','Escalabilidade',
+('4e000000-0000-0000-0000-000000000005','20000000-0000-0000-0000-000000000001','REQ-020','RNF05 — Escalabilidade',
  'O sistema deve permitir crescimento do número de usuários, projetos e requisitos sem degradação significativa de desempenho.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000003',NULL,'11111111-0000-0000-0000-000000000003',TRUE,
  '2026-03-05 11:40:00','2026-03-05 11:40:00',NULL,'2026-03-08 11:00:00'),
 
-('4e000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001','RNF06','Usabilidade',
+('4e000000-0000-0000-0000-000000000006','20000000-0000-0000-0000-000000000001','REQ-021','RNF06 — Usabilidade',
  'O sistema deve possuir interface web intuitiva que permita fácil navegação e interação entre os stakeholders.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 11:45:00','2026-03-05 11:45:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4e000000-0000-0000-0000-000000000007','20000000-0000-0000-0000-000000000001','RNF07','Portabilidade',
+('4e000000-0000-0000-0000-000000000007','20000000-0000-0000-0000-000000000001','REQ-022','RNF07 — Portabilidade',
  'O sistema deve ser acessível por navegadores modernos como Chrome, Firefox e Edge sem necessidade de instalação adicional.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000002',NULL,'11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 11:50:00','2026-03-05 11:50:00',NULL,'2026-03-08 11:00:00'),
 
-('4e000000-0000-0000-0000-000000000008','20000000-0000-0000-0000-000000000001','RNF08','Integridade dos Dados',
+('4e000000-0000-0000-0000-000000000008','20000000-0000-0000-0000-000000000001','REQ-023','RNF08 — Integridade dos Dados',
  'O sistema deve garantir a integridade dos dados armazenados no banco, impedindo inconsistências entre informações relacionadas, especialmente entre projetos, requisitos, usuários e comentários.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000001',TRUE,
  '2026-03-05 11:55:00','2026-03-05 11:55:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4e000000-0000-0000-0000-000000000009','20000000-0000-0000-0000-000000000001','RNF09','Registro de Logs do Sistema',
+('4e000000-0000-0000-0000-000000000009','20000000-0000-0000-0000-000000000001','REQ-024','RNF09 — Registro de Logs do Sistema',
  'O sistema deve registrar logs de operações relevantes realizadas pelos usuários (criação, alteração e exclusão de informações), permitindo monitoramento e diagnóstico de problemas.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000002',NULL,'11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 12:00:00','2026-03-05 12:00:00',NULL,'2026-03-08 11:00:00'),
 
-('4e000000-0000-0000-0000-000000000010','20000000-0000-0000-0000-000000000001','RNF10','Consistência de Transações',
+('4e000000-0000-0000-0000-000000000010','20000000-0000-0000-0000-000000000001','REQ-025','RNF10 — Consistência de Transações',
  'O sistema deve garantir que operações críticas (criação, atualização e aprovação de requisitos) sejam executadas de forma transacional no banco, assegurando que as alterações sejam concluídas integralmente ou revertidas em caso de falha.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000003',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000002','11111111-0000-0000-0000-000000000001','11111111-0000-0000-0000-000000000002',TRUE,
  '2026-03-05 12:05:00','2026-03-05 12:05:00','2026-03-06 15:00:00','2026-03-06 15:00:00'),
 
-('4e000000-0000-0000-0000-000000000011','20000000-0000-0000-0000-000000000001','RNF11','Backup de Dados',
+('4e000000-0000-0000-0000-000000000011','20000000-0000-0000-0000-000000000001','REQ-026','RNF11 — Backup de Dados',
  'O sistema deve possuir mecanismo de backup periódico dos dados armazenados no banco, garantindo a recuperação das informações em caso de falhas ou perda de dados.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000001',1,'c3000003-0000-0000-0000-000000000003',
  '11111111-0000-0000-0000-000000000001',NULL,'11111111-0000-0000-0000-000000000001',TRUE,
  '2026-03-05 12:10:00','2026-03-05 12:10:00',NULL,'2026-03-05 12:10:00'),
 
-('4e000000-0000-0000-0000-000000000012','20000000-0000-0000-0000-000000000001','RNF12','Manutenibilidade do Sistema',
+('4e000000-0000-0000-0000-000000000012','20000000-0000-0000-0000-000000000001','REQ-027','RNF12 — Manutenibilidade do Sistema',
  'O sistema deve ser desenvolvido utilizando boas práticas de arquitetura e organização de código, permitindo manutenção, evolução e correção de erros com baixo impacto nas funcionalidades existentes.',
  'NAO_FUNCIONAL','b2000002-0000-0000-0000-000000000002',1,'c3000003-0000-0000-0000-000000000002',
  '11111111-0000-0000-0000-000000000003',NULL,'11111111-0000-0000-0000-000000000003',TRUE,
@@ -559,15 +566,45 @@ ON CONFLICT (id) DO NOTHING;
 -- 11. EVENTOS DO PROJETO (RF11)
 -- =============================================================================
 
-INSERT INTO evento (id, nome, descricao, criado_por, organizacao_id, projeto_id, data_hora_inicio, data_hora_fim, data_criacao) VALUES
+--   status: APROVADO (criado por Dono/Gestor ou pedido atendido) | SOLICITADO
+--   (pedido de stakeholder aguardando resposta) | REJEITADO
+INSERT INTO evento (id, nome, descricao, criado_por, organizacao_id, projeto_id, data_hora_inicio, data_hora_fim, data_criacao, status) VALUES
     ('b0000000-0000-0000-0000-000000000001','Workshop de Discovery','Levantamento das principais dores de gerentes de projeto e stakeholders nas fases de Discovery e Elicitação.',
-     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-03-05 14:00:00','2026-03-05 16:00:00','2026-03-01 09:00:00'),
+     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-03-05 14:00:00','2026-03-05 16:00:00','2026-03-01 09:00:00','APROVADO'),
     ('b0000000-0000-0000-0000-000000000002','Validação da lista de requisitos','Revisão dos requisitos funcionais e não funcionais com os stakeholders e o orientador.',
-     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-03-08 10:00:00','2026-03-08 12:00:00','2026-03-06 09:00:00'),
+     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-03-08 10:00:00','2026-03-08 12:00:00','2026-03-06 09:00:00','APROVADO'),
     ('b0000000-0000-0000-0000-000000000003','Apresentação do TCC à banca','Defesa da monografia e do protótipo perante a banca examinadora.',
-     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-06-25 19:00:00','2026-06-25 20:30:00','2026-06-01 09:00:00'),
+     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-06-25 19:00:00','2026-06-25 20:30:00','2026-06-01 09:00:00','APROVADO'),
     ('b0000000-0000-0000-0000-000000000004','Reunião de evolução pós-banca','Planejamento das evoluções pedidas pela banca: matriz de rastreabilidade dinâmica e modelagem de dados nos requisitos.',
-     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-08-30 14:00:00','2026-08-30 16:00:00','2026-08-25 09:00:00')
+     '11111111-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-08-30 14:00:00','2026-08-30 16:00:00','2026-08-25 09:00:00','APROVADO'),
+    -- Pedido do orientador (stakeholder) ainda sem resposta — ver solicitação d0...03
+    ('b0000000-0000-0000-0000-000000000005','Revisão do controle de acesso','Validar com o orientador os papéis de organização e projeto implementados (Dono, Gestor, Stakeholder).',
+     '11111111-0000-0000-0000-000000000004','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','2026-10-06 19:00:00','2026-10-06 20:00:00','2026-09-27 10:00:00','SOLICITADO')
+ON CONFLICT (id) DO NOTHING;
+
+
+-- =============================================================================
+-- 11.1 SOLICITAÇÕES (D12) — pedidos de stakeholder ao Dono/Gestor do projeto
+--    tipo  : APROVACAO_REQUISITO | ALTERACAO_REQUISITO | REPROVACAO_REQUISITO |
+--            EVENTO | EXPORT_MER | EXPORT_RASTREABILIDADE
+--    status: PENDENTE | ATENDIDA | RECUSADA | CANCELADA
+-- =============================================================================
+
+INSERT INTO solicitacao (id, projeto_id, tipo, alvo_id, status, solicitante_id, justificativa, respondido_por, resposta, data_criacao, data_resposta) VALUES
+    -- Plínio (cliente) pede a aprovação do RF03, ainda em revisão
+    ('d0000000-0000-0000-0000-000000000001','20000000-0000-0000-0000-000000000001','APROVACAO_REQUISITO','4f000000-0000-0000-0000-000000000003','PENDENTE',
+     '11111111-0000-0000-0000-000000000004','Os papéis de organização e projeto já foram validados na reunião pós-banca.',NULL,NULL,'2026-09-27 09:30:00',NULL),
+    -- Plínio pediu alteração do RF09 (aprovado); o Gubio atendeu
+    ('d0000000-0000-0000-0000-000000000002','20000000-0000-0000-0000-000000000001','ALTERACAO_REQUISITO','4f000000-0000-0000-0000-000000000009','ATENDIDA',
+     '11111111-0000-0000-0000-000000000004','A aprovação deve ser do Dono/Gestor do projeto; o stakeholder só solicita.',
+     '11111111-0000-0000-0000-000000000001','Ajustado: stakeholders agora solicitam aprovação e o responsável aprova.','2026-09-20 10:00:00','2026-09-21 14:00:00'),
+    -- Plínio pediu um evento (b0...05, SOLICITADO)
+    ('d0000000-0000-0000-0000-000000000003','20000000-0000-0000-0000-000000000001','EVENTO','b0000000-0000-0000-0000-000000000005','PENDENTE',
+     '11111111-0000-0000-0000-000000000004','Revisar o controle de acesso antes da entrega final.',NULL,NULL,'2026-09-27 10:00:00',NULL),
+    -- Plínio pediu a exportação do MER; atendida (libera o download para ele)
+    ('d0000000-0000-0000-0000-000000000004','20000000-0000-0000-0000-000000000001','EXPORT_MER',NULL,'ATENDIDA',
+     '11111111-0000-0000-0000-000000000004','Anexar o modelo de dados na versão final da monografia.',
+     '11111111-0000-0000-0000-000000000002','Liberado.','2026-09-22 08:00:00','2026-09-22 09:00:00')
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -576,14 +613,14 @@ ON CONFLICT (id) DO NOTHING;
 -- =============================================================================
 
 INSERT INTO auditoria (id, organizacao_id, projeto_id, entidade_tipo, entidade_id, acao, campo_alterado, valor_anterior, valor_novo, usuario_id, data_alteracao) VALUES
-    ('a0000000-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa',NULL,'Organizacao','0f000000-0000-0000-0000-0000000000fa','CRIACAO',NULL,NULL,'Fatesg','11111111-0000-0000-0000-000000000001','2026-02-20 09:00:00'),
-    ('a0000000-0000-0000-0000-000000000002','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','Projeto','20000000-0000-0000-0000-000000000001','CRIACAO',NULL,NULL,'Plataforma para Apoio à Gestão da Fase de Discovery...','11111111-0000-0000-0000-000000000001','2026-02-20 09:00:00'),
-    ('a0000000-0000-0000-0000-000000000003','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','Requisito','4f000000-0000-0000-0000-000000000001','CRIACAO',NULL,NULL,'RF01 — Cadastro de Organização','11111111-0000-0000-0000-000000000002','2026-03-05 10:00:00'),
-    ('a0000000-0000-0000-0000-000000000004','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','Requisito','4f000000-0000-0000-0000-000000000007','CRIACAO',NULL,NULL,'RF07 — Cadastro de Requisitos','11111111-0000-0000-0000-000000000001','2026-03-05 10:30:00'),
-    ('a0000000-0000-0000-0000-000000000005','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','Requisito','4f000000-0000-0000-0000-000000000007','EDICAO','versao','1','2','11111111-0000-0000-0000-000000000001','2026-03-08 16:00:00'),
-    ('a0000000-0000-0000-0000-000000000006','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','Requisito','4f000000-0000-0000-0000-000000000010','EDICAO','status','EM_REVISAO','APROVADO','11111111-0000-0000-0000-000000000001','2026-03-06 15:00:00'),
-    ('a0000000-0000-0000-0000-000000000007','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','Requisito','4f000000-0000-0000-0000-000000000010','EDICAO','versao','1','2','11111111-0000-0000-0000-000000000002','2026-03-08 16:00:00'),
-    ('a0000000-0000-0000-0000-000000000008','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','EntidadeDados','60000000-0000-0000-0000-000000000006','CRIACAO',NULL,NULL,'Requisito','11111111-0000-0000-0000-000000000001','2026-03-06 14:15:00')
+    ('a0000000-0000-0000-0000-000000000001','0f000000-0000-0000-0000-0000000000fa',NULL,'ORGANIZACAO','0f000000-0000-0000-0000-0000000000fa','CRIACAO',NULL,NULL,'Fatesg','11111111-0000-0000-0000-000000000001','2026-02-20 09:00:00'),
+    ('a0000000-0000-0000-0000-000000000002','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','PROJETO','20000000-0000-0000-0000-000000000001','CRIACAO',NULL,NULL,'Plataforma para Apoio à Gestão da Fase de Discovery...','11111111-0000-0000-0000-000000000001','2026-02-20 09:00:00'),
+    ('a0000000-0000-0000-0000-000000000003','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','REQUISITO','4f000000-0000-0000-0000-000000000001','CRIACAO',NULL,NULL,'RF01 — Cadastro de Organização','11111111-0000-0000-0000-000000000002','2026-03-05 10:00:00'),
+    ('a0000000-0000-0000-0000-000000000004','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','REQUISITO','4f000000-0000-0000-0000-000000000007','CRIACAO',NULL,NULL,'RF07 — Cadastro de Requisitos','11111111-0000-0000-0000-000000000001','2026-03-05 10:30:00'),
+    ('a0000000-0000-0000-0000-000000000005','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','REQUISITO','4f000000-0000-0000-0000-000000000007','EDICAO','versao','1','2','11111111-0000-0000-0000-000000000001','2026-03-08 16:00:00'),
+    ('a0000000-0000-0000-0000-000000000006','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','REQUISITO','4f000000-0000-0000-0000-000000000010','EDICAO','status','EM_REVISAO','APROVADO','11111111-0000-0000-0000-000000000001','2026-03-06 15:00:00'),
+    ('a0000000-0000-0000-0000-000000000007','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','REQUISITO','4f000000-0000-0000-0000-000000000010','EDICAO','versao','1','2','11111111-0000-0000-0000-000000000002','2026-03-08 16:00:00'),
+    ('a0000000-0000-0000-0000-000000000008','0f000000-0000-0000-0000-0000000000fa','20000000-0000-0000-0000-000000000001','ENTIDADE_DADOS','60000000-0000-0000-0000-000000000006','CRIACAO',NULL,NULL,'Requisito','11111111-0000-0000-0000-000000000001','2026-03-06 14:15:00')
 ON CONFLICT (id) DO NOTHING;
 
 
@@ -629,6 +666,7 @@ COMMIT;
 -- UNION ALL SELECT 'impacto_dados',      count(*) FROM impacto_dados      WHERE id::text LIKE '80000000-%'
 -- UNION ALL SELECT 'comentario',         count(*) FROM comentario         WHERE id::text LIKE 'c0000000-%'
 -- UNION ALL SELECT 'evento',             count(*) FROM evento             WHERE id::text LIKE 'b0000000-%'
+-- UNION ALL SELECT 'solicitacao',        count(*) FROM solicitacao        WHERE id::text LIKE 'd0000000-%'
 -- UNION ALL SELECT 'auditoria',          count(*) FROM auditoria          WHERE id::text LIKE 'a0000000-%'
 -- UNION ALL SELECT 'interacao',          count(*) FROM interacao          WHERE id::text LIKE '90000000-%';
 -- =============================================================================

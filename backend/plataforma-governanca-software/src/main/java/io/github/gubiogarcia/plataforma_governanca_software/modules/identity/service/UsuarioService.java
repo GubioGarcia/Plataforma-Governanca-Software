@@ -8,7 +8,10 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.UsuarioResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminClient;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminException;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakTokenClient;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -28,6 +31,9 @@ public class UsuarioService {
 
     private final UsuarioRepository usuarioRepository;
     private final KeycloakAdminClient keycloakAdminClient;
+    private final KeycloakTokenClient keycloakTokenClient;
+    private final AutorizacaoService autorizacaoService;
+    private final RevogacaoTokenService revogacaoTokenService;
 
     @Transactional
     public UsuarioResponseDTO cadastrar(CadastroUsuarioRequestDTO request) {
@@ -120,16 +126,26 @@ public class UsuarioService {
     }
 
     @Transactional
-    public void alterarSenha(AlterarSenhaRequestDTO request) {
+    public void alterarSenha(Jwt jwt, AlterarSenhaRequestDTO request) {
 
         if (!request.novaSenha().equals(request.confirmacaoSenha())) {
             throw new SenhasNaoConferemException("A nova senha e a confirmação não conferem.");
         }
 
+        if (request.novaSenha().equals(request.senhaAtual())) {
+            throw new SenhasNaoConferemException("A nova senha deve ser diferente da senha atual.");
+        }
+
+        KeycloakUserInfo keycloakInfo = extrairInfoKeycloak(jwt);
+
         Usuario usuario = usuarioRepository
-                .findByEmail(request.email())
+                .findByExternalIdentityId(keycloakInfo.keycloakId())
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
-                        "Nenhum usuário encontrado com o e-mail informado."));
+                        "Usuário não encontrado. Realize o cadastro na plataforma."));
+
+        if (!keycloakTokenClient.credenciaisValidas(usuario.getEmail(), request.senhaAtual())) {
+            throw new SenhaAtualInvalidaException("A senha atual informada está incorreta.");
+        }
 
         try {
             keycloakAdminClient.redefinirSenha(usuario.getExternalIdentityId(), request.novaSenha());
@@ -146,6 +162,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponseDTO> listarTodos(Boolean ativo) {
+        autorizacaoService.exigirAdminPlataforma(); // listagem global: só Admin da Plataforma
         List<Usuario> usuarios = (ativo == null)
                 ? usuarioRepository.findAll()
                 : usuarioRepository.findAllByAtivo(ativo);
@@ -160,11 +177,16 @@ public class UsuarioService {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
                         "Nenhum usuário encontrado com o id: " + id));
+        boolean proprio = autorizacaoService.keycloakIdAtual().equals(usuario.getExternalIdentityId());
+        if (!proprio && !autorizacaoService.isAdminPlataforma()) {
+            throw new AcessoNegadoException("Apenas o próprio usuário ou o administrador da plataforma pode ver esta conta.");
+        }
         return mapToResponseDTO(usuario, Collections.emptyList());
     }
 
     @Transactional(readOnly = true)
     public UsuarioResponseDTO buscarPorEmail(String email) {
+        autorizacaoService.exigirAdminPlataforma();
         Usuario usuario = usuarioRepository.findByEmail(email)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
                         "Nenhum usuário encontrado com o e-mail: " + email));
@@ -173,6 +195,7 @@ public class UsuarioService {
 
     @Transactional(readOnly = true)
     public List<UsuarioResponseDTO> buscarPorNome(String nome) {
+        autorizacaoService.exigirAdminPlataforma();
         List<Usuario> usuarios = usuarioRepository.findByNomeContainingIgnoreCase(nome);
         if (usuarios.isEmpty()) {
             throw new UsuarioNaoEncontradoException(
@@ -183,11 +206,17 @@ public class UsuarioService {
                 .toList();
     }
 
+    /** Só o próprio usuário ou o Admin da Plataforma podem inativar uma conta. */
     @Transactional
     public void inativar(UUID id) {
         Usuario usuario = usuarioRepository.findById(id)
                 .orElseThrow(() -> new UsuarioNaoEncontradoException(
                         "Nenhum usuário encontrado com o id: " + id));
+
+        boolean proprioUsuario = autorizacaoService.keycloakIdAtual().equals(usuario.getExternalIdentityId());
+        if (!proprioUsuario && !autorizacaoService.isAdminPlataforma()) {
+            throw new AcessoNegadoException("Apenas o próprio usuário ou o administrador da plataforma pode inativar esta conta.");
+        }
 
         if (Boolean.FALSE.equals(usuario.getAtivo())) {
             throw new UsuarioJaInativoException(id);
@@ -195,6 +224,8 @@ public class UsuarioService {
 
         try {
             keycloakAdminClient.desabilitarUsuario(usuario.getExternalIdentityId());
+            // Sem isto o refresh token continuaria renovando a sessão até expirar
+            keycloakAdminClient.encerrarSessoes(usuario.getExternalIdentityId());
         } catch (KeycloakAdminException ex) {
             log.error("Falha ao desabilitar usuário {} no Keycloak: {}", id, ex.getMessage());
             throw new AtualizacaoKeycloakException(
@@ -204,6 +235,8 @@ public class UsuarioService {
         usuario.setAtivo(false);
         usuario.setDataAtualizacao(Instant.now());
         usuarioRepository.save(usuario);
+        // O access token atual também deixa de valer na hora (401 na próxima requisição)
+        revogacaoTokenService.revogarTokensDoUsuario(usuario);
 
         log.info("Usuário {} inativado com sucesso.", id);
     }
@@ -279,6 +312,12 @@ public class UsuarioService {
 
     public static class SenhasNaoConferemException extends RuntimeException {
         public SenhasNaoConferemException(String message) {
+            super(message);
+        }
+    }
+
+    public static class SenhaAtualInvalidaException extends RuntimeException {
+        public SenhaAtualInvalidaException(String message) {
             super(message);
         }
     }

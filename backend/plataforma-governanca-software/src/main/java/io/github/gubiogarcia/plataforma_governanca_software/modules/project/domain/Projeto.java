@@ -44,4 +44,8 @@ public class Projeto {
 
     @Column(name = "data_atualizacao")
     private Instant dataAtualizacao;
+
+    /** Id do grupo /org-{id}/proj-{id} no Keycloak (pertencimento e papéis ficam nos subgrupos). */
+    @Column(name = "keycloak_group_id")
+    private UUID keycloakGroupId;
 }

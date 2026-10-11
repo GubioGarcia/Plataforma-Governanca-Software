@@ -10,6 +10,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.domain.VinculoRequisito;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.dto.*;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.repository.VinculoRequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -35,14 +37,15 @@ public class MatrizRastreabilidadeService {
     private final ProjetoRepository projetoRepository;
     private final VinculoRequisitoRepository vinculoRequisitoRepository;
     private final ImpactoDadosRepository impactoDadosRepository;
+    private final AutorizacaoService autorizacao;
 
     // ── Matriz ────────────────────────────────────────────────────────────────
 
     @Transactional(readOnly = true)
     public MatrizRastreabilidadeResponseDTO montarMatriz(UUID projetoId) {
-        if (!projetoRepository.existsById(projetoId)) {
-            throw new RequisitoService.ProjetoNaoEncontradoException(projetoId);
-        }
+        var projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new RequisitoService.ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.RASTREABILIDADE_VIEW);
 
         List<RequisitoResumoDTO> eixo = requisitoRepository.findAllByProjetoId(projetoId).stream()
                 .filter(r -> Boolean.TRUE.equals(r.getAtivo()))
@@ -92,6 +95,7 @@ public class MatrizRastreabilidadeService {
     public AnaliseImpactoResponseDTO analisarImpacto(UUID requisitoId) {
         Requisito raiz = requisitoRepository.findById(requisitoId)
                 .orElseThrow(() -> new RequisitoService.RequisitoNaoEncontradoException(requisitoId));
+        autorizacao.exigir(raiz.getProjeto(), Permissao.RASTREABILIDADE_VIEW);
         UUID projetoId = raiz.getProjeto().getId();
 
         Map<UUID, Requisito> porId = new HashMap<>();

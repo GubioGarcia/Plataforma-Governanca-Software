@@ -17,6 +17,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -44,6 +46,7 @@ public class EntidadeDadosService {
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
+    private final AutorizacaoService autorizacao;
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
@@ -52,6 +55,7 @@ public class EntidadeDadosService {
         Usuario usuario = resolverUsuario(jwt);
         Projeto projeto = projetoRepository.findById(projetoId)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.MER_EDIT);
         if (Boolean.FALSE.equals(projeto.getAtivo())) {
             throw new ProjetoInativoException(projetoId);
         }
@@ -87,9 +91,7 @@ public class EntidadeDadosService {
 
     @Transactional(readOnly = true)
     public List<EntidadeDadosResponseDTO> listarPorProjeto(UUID projetoId) {
-        if (!projetoRepository.existsById(projetoId)) {
-            throw new ProjetoNaoEncontradoException(projetoId);
-        }
+        exigirNoProjeto(projetoId, Permissao.MER_VIEW);
         return entidadeDadosRepository.findAllByProjetoIdAndAtivoTrue(projetoId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -99,7 +101,14 @@ public class EntidadeDadosService {
     public EntidadeDadosDetalheResponseDTO buscarPorId(UUID id) {
         EntidadeDados entidade = entidadeDadosRepository.findById(id)
                 .orElseThrow(() -> new EntidadeDadosNaoEncontradaException(id));
+        autorizacao.exigir(entidade.getProjeto(), Permissao.MER_VIEW);
         return mapToDetalheDTO(entidade);
+    }
+
+    private void exigirNoProjeto(UUID projetoId, Permissao permissao) {
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, permissao);
     }
 
     /**
@@ -108,9 +117,7 @@ public class EntidadeDadosService {
      */
     @Transactional(readOnly = true)
     public DiagramaProjetoResponseDTO montarDiagrama(UUID projetoId, UUID entidadeDestacadaId) {
-        if (!projetoRepository.existsById(projetoId)) {
-            throw new ProjetoNaoEncontradoException(projetoId);
-        }
+        exigirNoProjeto(projetoId, Permissao.MER_VIEW);
         List<EntidadeDadosDetalheResponseDTO> entidades = entidadeDadosRepository
                 .findAllByProjetoIdAndAtivoTrue(projetoId).stream()
                 .map(this::mapToDetalheDTO)
@@ -128,8 +135,9 @@ public class EntidadeDadosService {
     public EntidadeDadosResponseDTO atualizar(Jwt jwt, UUID id, AtualizarEntidadeDadosRequestDTO request) {
         EntidadeDados entidade = entidadeDadosRepository.findById(id)
                 .orElseThrow(() -> new EntidadeDadosNaoEncontradaException(id));
-        Usuario usuario = resolverUsuario(jwt);
         Projeto projeto = entidade.getProjeto();
+        autorizacao.exigir(projeto, Permissao.MER_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (request.nome() != null && !request.nome().equals(entidade.getNome())) {
             if (entidadeDadosRepository.existsByProjetoIdAndNomeIgnoreCase(projeto.getId(), request.nome())) {
@@ -166,8 +174,9 @@ public class EntidadeDadosService {
     public void deletar(Jwt jwt, UUID id) {
         EntidadeDados entidade = entidadeDadosRepository.findById(id)
                 .orElseThrow(() -> new EntidadeDadosNaoEncontradaException(id));
-        Usuario usuario = resolverUsuario(jwt);
         Projeto projeto = entidade.getProjeto();
+        autorizacao.exigir(projeto, Permissao.MER_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (impactoDadosRepository.existsByEntidadeId(id)) {
             throw new EntidadeDadosEmUsoException(id);

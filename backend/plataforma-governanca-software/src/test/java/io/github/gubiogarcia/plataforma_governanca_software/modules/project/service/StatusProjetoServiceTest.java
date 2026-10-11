@@ -8,7 +8,11 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.CriarStatusProjetoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -45,6 +49,26 @@ class StatusProjetoServiceTest {
     // Substitui o JwtDecoder que tenta conectar ao Keycloak na inicialização
     @MockitoBean
     private JwtDecoder jwtDecoder;
+
+    // Lista global: escrita só pelo Admin da Plataforma (grupo /_admin)
+    @BeforeEach
+    void autenticarComoAdmin() {
+        AutenticacaoTeste.comoAdminDaPlataforma(UUID.randomUUID());
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
+    }
+
+    @Test
+    void criar_deveNegarAcesso_quandoUsuarioNaoEAdminDaPlataforma() {
+        AutenticacaoTeste.comoDonoDaOrganizacao(UUID.randomUUID(), UUID.randomUUID());
+
+        assertThatThrownBy(() -> statusProjetoService.criar(new CriarStatusProjetoRequestDTO("SEM_ADMIN", null, 90)))
+                .isInstanceOf(AcessoNegadoException.class);
+        assertThat(statusProjetoRepository.existsByNomeIgnoreCase("SEM_ADMIN")).isFalse();
+    }
 
     // ─── criar ───────────────────────────────────────────────────────────────
 

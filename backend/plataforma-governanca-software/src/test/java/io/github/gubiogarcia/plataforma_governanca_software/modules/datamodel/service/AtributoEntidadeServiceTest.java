@@ -15,7 +15,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.doma
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.StatusProjeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -69,6 +71,8 @@ class AtributoEntidadeServiceTest {
         Organizacao org = organizacaoRepository.save(Organizacao.builder()
                 .nome("Org Attr").ativo(true).criadoPor(UUID.randomUUID())
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
+        // Usuário do teste é Dono da organização (grupo no token lido pelo AutorizacaoService)
+        AutenticacaoTeste.comoDonoDaOrganizacao(keycloakId, org.getId());
         projeto = projetoRepository.save(Projeto.builder()
                 .nome("Projeto Attr").organizacao(org).status(sp).criadoPor(usuario).ativo(true)
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
@@ -78,6 +82,11 @@ class AtributoEntidadeServiceTest {
                 new CriarEntidadeDadosRequestDTO("Pedido", null)).id();
         clienteId = entidadeDadosService.criar(jwtMock, projeto.getId(),
                 new CriarEntidadeDadosRequestDTO("Cliente", null)).id();
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     private CriarAtributoEntidadeRequestDTO dtoSimples(String nome, String tipo, boolean obrigatorio, int ordem) {
@@ -96,6 +105,7 @@ class AtributoEntidadeServiceTest {
                 .nome("Projeto Attr Outro").organizacao(org).status(sp).criadoPor(usuario).ativo(true)
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
         entityManager.flush();
+        AutenticacaoTeste.adicionarGrupo(AutenticacaoTeste.grupoDonoOrganizacao(org.getId()));
 
         return entidadeDadosService.criar(jwtMock, outroProjeto.getId(),
                 new CriarEntidadeDadosRequestDTO("Externa", null)).id();

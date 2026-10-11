@@ -34,8 +34,12 @@ import InputLabel from '@mui/material/InputLabel';
 import StatusChip from '../../components/common/StatusChip';
 import EmptyState from '../../components/common/EmptyState';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
+import OrgResumo from '../organizations/OrgResumo';
 import { useSnackbar } from '../../context/SnackbarContext';
+import { PAPEL_PROJETO_LABEL } from '../../types/acesso';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useAuth } from '../../context/useAuth';
+import { isApiError } from '../../services/userService';
 import type { ProjetoAPI, StatusProjetoAPI } from '../../types/projeto';
 import {
   listarProjetosPorOrg,
@@ -53,7 +57,10 @@ export default function ProjectList() {
   const navigate = useNavigate();
   const { orgId } = useParams<{ orgId: string }>();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode, podeNoProjeto, organizacaoAtual } = usePermissions();
+  const papeisNoProjeto = (id: string) =>
+    organizacaoAtual?.projetos.find((p) => p.id === id)?.papeis.map((x) => PAPEL_PROJETO_LABEL[x]).join(' + ') ?? '—';
+  const { recarregarPermissoes } = useAuth();
 
   const [projects, setProjects] = useState<ProjetoAPI[]>([]);
   const [statusOptions, setStatusOptions] = useState<StatusProjetoAPI[]>([]);
@@ -204,9 +211,11 @@ export default function ProjectList() {
       setForm({ nome: '', descricao: '' });
       setDialogOpen(false);
       notify('Projeto criado com sucesso');
+      // O criador virou Dono do projeto: atualiza papéis/permissões antes de listar
+      await recarregarPermissoes();
       fetchProjects();
-    } catch {
-      notify('Erro ao criar projeto', 'error');
+    } catch (err) {
+      notify(isApiError(err) ? err.response?.data?.detail ?? 'Erro ao criar projeto' : 'Erro ao criar projeto', 'error');
     }
   };
 
@@ -228,6 +237,11 @@ export default function ProjectList() {
     return STATUS_CARD_STYLES[key] ?? STATUS_CARD_STYLES.TOTAL;
   }
 
+  // Indicadores da organização, a partir dos resumos já carregados para os cards
+  const resumosCarregados = !loading && !fetchError && projects.every((p) => reqResumos[p.id]);
+  const totalRequisitos = Object.values(reqResumos).reduce((acc, r) => acc + r.total, 0);
+  const totalAprovados = Object.values(reqResumos).reduce((acc, r) => acc + r.aprovados, 0);
+
   const summaryCards = [
     { label: 'Total', value: projects.length, filterId: 'TODOS', ...getStatusStyle('TOTAL') },
     ...statusOptions.map((s) => ({
@@ -239,7 +253,7 @@ export default function ProjectList() {
   ];
 
   return (
-    <Box sx={{ flexGrow: 1, p: 4 }}>
+    <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
       {/* Botão Voltar */}
       <Box sx={{ mb: 1 }}>
         <Button
@@ -252,14 +266,28 @@ export default function ProjectList() {
         </Button>
       </Box>
 
+      {/* Organização: dados, indicadores e membros (conforme o papel) */}
+      {orgId && (
+        <OrgResumo
+          orgId={orgId}
+          totalProjetos={loading || fetchError ? null : projects.length}
+          totalRequisitos={resumosCarregados ? totalRequisitos : null}
+          totalAprovados={resumosCarregados ? totalAprovados : null}
+        />
+      )}
+
+      <Divider sx={{ my: 4 }} />
+
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mb: 4 }}>
+      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <Box>
-          <Typography variant="h2" sx={{ mb: 0.5 }}>Projetos</Typography>
-          <Typography variant="body2">Gerencie os projetos da organização</Typography>
+          <Typography variant="h3" sx={{ mb: 0.5 }}>Projetos</Typography>
+          <Typography variant="body2">
+            {organizacaoAtual?.papel ? 'Gerencie os projetos da organização' : 'Seus projetos nesta organização'}
+          </Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1.5 }}>
-          {!isStakeholder && (
+          {pode('ORG_CREATE_PROJECT') && (
             <>
               <Button
                 variant="outlined"
@@ -410,7 +438,7 @@ export default function ProjectList() {
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 1, flexWrap: 'wrap' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <PeopleIcon sx={{ fontSize: 15, color: 'text.secondary' }} />
-                          <Typography variant="caption">0 stakeholders</Typography>
+                          <Typography variant="caption">Você: {papeisNoProjeto(project.id)}</Typography>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <ListAltIcon sx={{ fontSize: 15, color: 'text.secondary' }} />
@@ -429,7 +457,7 @@ export default function ProjectList() {
                     </Box>
 
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
-                      {!isStakeholder && (
+                      {(podeNoProjeto(project.id, 'PROJETO_EDIT') || podeNoProjeto(project.id, 'PROJETO_INATIVAR')) && (
                       <Tooltip title="Mais opções">
                         <IconButton
                           size="small"
@@ -480,12 +508,16 @@ export default function ProjectList() {
         >
           Ver Projeto
         </MenuItem>
-        <MenuItem onClick={openEditProject}>
-          <EditIcon fontSize="small" sx={{ mr: 1, fontSize: 16 }} />
-          Editar
-        </MenuItem>
-        <Divider />
-        <MenuItem onClick={handleDeleteProject} sx={{ color: 'error.main' }}>Inativar</MenuItem>
+        {menuProjectId && podeNoProjeto(menuProjectId, 'PROJETO_EDIT') && (
+          <MenuItem onClick={openEditProject}>
+            <EditIcon fontSize="small" sx={{ mr: 1, fontSize: 16 }} />
+            Editar
+          </MenuItem>
+        )}
+        {menuProjectId && podeNoProjeto(menuProjectId, 'PROJETO_INATIVAR') && <Divider />}
+        {menuProjectId && podeNoProjeto(menuProjectId, 'PROJETO_INATIVAR') && (
+          <MenuItem onClick={handleDeleteProject} sx={{ color: 'error.main' }}>Inativar</MenuItem>
+        )}
       </Menu>
 
       {/* Reactivate confirm */}
@@ -540,16 +572,18 @@ export default function ProjectList() {
                       <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{proj.descricao}</Typography>
                     )}
                   </Box>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<CheckCircleIcon />}
-                    color="success"
-                    onClick={() => setReactivateTarget(proj)}
-                    sx={{ whiteSpace: 'nowrap', ml: 2 }}
-                  >
-                    Reativar
-                  </Button>
+                  {podeNoProjeto(proj.id, 'PROJETO_INATIVAR') && (
+                    <Button
+                      variant="outlined"
+                      size="small"
+                      startIcon={<CheckCircleIcon />}
+                      color="success"
+                      onClick={() => setReactivateTarget(proj)}
+                      sx={{ whiteSpace: 'nowrap', ml: 2 }}
+                    >
+                      Reativar
+                    </Button>
+                  )}
                 </Box>
               ))}
             </Box>

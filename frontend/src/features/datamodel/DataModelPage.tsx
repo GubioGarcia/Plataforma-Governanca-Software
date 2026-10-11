@@ -38,6 +38,7 @@ import MetricBand from '../../components/common/MetricBand';
 import PageHeading from '../../components/common/PageHeading';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import BotaoExportar from '../../components/common/BotaoExportar';
 import { extractApiErrorMessage } from '../../utils/apiError';
 import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import {
@@ -315,6 +316,7 @@ export default function DataModelPage() {
         descricao="As entidades que os requisitos deste projeto manipulam. O diagrama sai do estado atual do modelo, e cada entidade mostra quais requisitos a alteram."
         acoes={
           <>
+            {projectId && <BotaoExportar projetoId={projectId} tipo="mer" />}
             <Tooltip title="Recarregar do servidor">
               <span>
                 <IconButton onClick={restaurarCenario} disabled={isStakeholder}>

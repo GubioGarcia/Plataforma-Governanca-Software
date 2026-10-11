@@ -4,6 +4,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.service.VisaoProdutoService;
@@ -15,6 +16,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.StatusProjetoResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -36,6 +39,8 @@ public class ProjetoService {
     private final UsuarioRepository usuarioRepository;
     private final VisaoProdutoService visaoProdutoService;
     private final AuditoriaService auditoriaService;
+    private final GruposAcessoService gruposAcessoService;
+    private final AutorizacaoService autorizacao;
 
     private static final String STATUS_INICIAL_NOME = "RASCUNHO";
 
@@ -45,6 +50,7 @@ public class ProjetoService {
 
         Organizacao organizacao = organizacaoRepository.findById(request.organizacaoId())
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException(request.organizacaoId()));
+        autorizacao.exigir(organizacao, Permissao.ORG_CREATE_PROJECT);
 
         if (Boolean.FALSE.equals(organizacao.getAtivo())) {
             throw new OrganizacaoInativaException(organizacao.getId());
@@ -82,17 +88,29 @@ public class ProjetoService {
                 "nome", null, projeto.getNome()
         );
 
+        // Grupos de acesso /org-{id}/proj-{id} por último (criador vira Dono): erros de
+        // banco aparecem antes, e os grupos são revertidos se a transação falhar depois
+        projetoRepository.flush();
+        projeto.setKeycloakGroupId(gruposAcessoService.criarEstruturaProjeto(projeto, usuario));
+
         return mapToResponseDTO(projeto);
     }
 
     @Transactional(readOnly = true)
     public List<ProjetoResponseDTO> listarPorOrganizacao(UUID organizacaoId, Boolean ativo) {
-        if (!organizacaoRepository.existsById(organizacaoId)) {
-            throw new OrganizacaoNaoEncontradaException(organizacaoId);
-        }
+        Organizacao organizacao = organizacaoRepository.findById(organizacaoId)
+                .orElseThrow(() -> new OrganizacaoNaoEncontradaException(organizacaoId));
+        autorizacao.exigirVinculo(organizacao);
+
         List<Projeto> projetos = (ativo == null)
                 ? projetoRepository.findAllByOrganizacaoId(organizacaoId)
                 : projetoRepository.findAllByOrganizacaoIdAndAtivo(organizacaoId, ativo);
+
+        // Papel na organização → vê todos os projetos dela; convidado só a projetos → só esses
+        if (autorizacao.papelNaOrganizacao(organizacao).isEmpty()) {
+            var diretos = autorizacao.projetosComVinculoDireto(organizacaoId);
+            projetos = projetos.stream().filter(p -> diretos.contains(p.getId())).toList();
+        }
         return projetos.stream().map(this::mapToResponseDTO).toList();
     }
 
@@ -100,6 +118,7 @@ public class ProjetoService {
     public ProjetoResponseDTO buscarPorId(UUID id) {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
+        autorizacao.exigirParticipacao(projeto);
         return mapToResponseDTO(projeto);
     }
 
@@ -107,6 +126,7 @@ public class ProjetoService {
     public ProjetoResponseDTO atualizar(Jwt jwt, UUID id, AtualizarProjetoRequestDTO request) {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
+        autorizacao.exigir(projeto, Permissao.PROJETO_EDIT);
 
         if (Boolean.FALSE.equals(projeto.getAtivo())) {
             throw new ProjetoInativoException(id);
@@ -170,6 +190,7 @@ public class ProjetoService {
     public void inativar(Jwt jwt, UUID id) {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
+        autorizacao.exigir(projeto, Permissao.PROJETO_INATIVAR);
 
         if (Boolean.FALSE.equals(projeto.getAtivo())) {
             throw new ProjetoJaInativoException(id);
@@ -194,6 +215,7 @@ public class ProjetoService {
     public ProjetoResponseDTO ativar(Jwt jwt, UUID id) {
         Projeto projeto = projetoRepository.findById(id)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException("Nenhum projeto encontrado com o id: " + id));
+        autorizacao.exigir(projeto, Permissao.PROJETO_INATIVAR); // reativar = mesma permissão (D15)
 
         if (Boolean.TRUE.equals(projeto.getAtivo())) {
             throw new ProjetoJaAtivoException(id);

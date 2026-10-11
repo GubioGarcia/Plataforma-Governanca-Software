@@ -58,8 +58,8 @@ public class UsuarioController {
     }
 
     @PatchMapping("/alterarSenha")
-    public ResponseEntity<Void> alterarSenha(@Valid @RequestBody AlterarSenhaRequestDTO request) {
-        usuarioService.alterarSenha(request);
+    public ResponseEntity<Void> alterarSenha(@AuthenticationPrincipal Jwt jwt, @Valid @RequestBody AlterarSenhaRequestDTO request) {
+        usuarioService.alterarSenha(jwt, request);
         return ResponseEntity.noContent().build();
     }
 

@@ -25,7 +25,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.dto.MatrizRastreabilidadeResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.dto.RequisitoImpactadoDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.dto.CriarVinculoRequisitoRequestDTO;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -93,6 +95,8 @@ class MatrizRastreabilidadeServiceTest {
         Organizacao org = organizacaoRepository.save(Organizacao.builder()
                 .nome("Org Matriz").ativo(true).criadoPor(UUID.randomUUID())
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
+        // Usuário do teste é Dono da organização (grupo no token lido pelo AutorizacaoService)
+        AutenticacaoTeste.comoDonoDaOrganizacao(keycloakId, org.getId());
         projeto = projetoRepository.save(Projeto.builder()
                 .nome("Projeto Matriz").organizacao(org).status(sp).criadoPor(usuario).ativo(true)
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
@@ -114,6 +118,11 @@ class MatrizRastreabilidadeServiceTest {
         impactoDadosService.criar(jwtMock, reqC,
                 new CriarImpactoDadosRequestDTO(clienteId, null, TipoOperacaoImpacto.ALTERA_ENTIDADE, null, null));
         entityManager.flush();
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     private Requisito novoRequisito(String codigo, String titulo) {

@@ -16,7 +16,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.PrioridadeRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.StatusRequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -109,6 +111,8 @@ class RequisitoServiceTest {
                 .dataCriacao(Instant.now())
                 .dataAtualizacao(Instant.now())
                 .build());
+        // Usuário do teste é Dono da organização (grupo no token lido pelo AutorizacaoService)
+        AutenticacaoTeste.comoDonoDaOrganizacao(keycloakId, org.getId());
 
         projeto = projetoRepository.save(Projeto.builder()
                 .nome("Projeto de Requisitos")
@@ -121,6 +125,11 @@ class RequisitoServiceTest {
                 .build());
 
         entityManager.flush();
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     // ─── criar ───────────────────────────────────────────────────────────────

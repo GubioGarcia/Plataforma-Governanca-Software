@@ -19,7 +19,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.StatusRequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.RequisitoService;
+import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -77,6 +79,8 @@ class ImpactoDadosServiceTest {
         Organizacao org = organizacaoRepository.save(Organizacao.builder()
                 .nome("Org Impacto").ativo(true).criadoPor(UUID.randomUUID())
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
+        // Usuário do teste é Dono da organização (grupo no token lido pelo AutorizacaoService)
+        AutenticacaoTeste.comoDonoDaOrganizacao(keycloakId, org.getId());
         projeto = projetoRepository.save(Projeto.builder()
                 .nome("Projeto Impacto").organizacao(org).status(sp).criadoPor(usuario).ativo(true)
                 .dataCriacao(Instant.now()).dataAtualizacao(Instant.now()).build());
@@ -88,6 +92,11 @@ class ImpactoDadosServiceTest {
         clienteId = entidadeDadosService.criar(jwtMock, projeto.getId(), new CriarEntidadeDadosRequestDTO("Cliente", null)).id();
         cpfId = atributoEntidadeService.criar(jwtMock, clienteId,
                 new CriarAtributoEntidadeRequestDTO("cpf", "VARCHAR(11)", true, false, 1, false, null, null)).id();
+    }
+
+    @AfterEach
+    void limparAutenticacao() {
+        AutenticacaoTeste.limpar();
     }
 
     private Requisito novoRequisito(Usuario usuario, String codigo, String titulo) {

@@ -46,7 +46,10 @@ import {
   listarStatusRequisito,
   listarPrioridades,
   atualizarRequisito,
+  aprovarRequisito,
+  reprovarRequisito,
 } from '../../services/requirementService';
+import RequirementActions from './RequirementActions';
 import type { RequisitoAPI, CriterioAceiteAPI, StatusRequisitoAPI, PrioridadeAPI, TipoRequisito } from '../../types/requirementAPI';
 
 const MAX_DESCRICAO_REQUISITO = 1000;
@@ -179,10 +182,17 @@ export default function RequirementDetail() {
       if (settingsForm.titulo.trim()) payload.titulo = settingsForm.titulo.trim();
       if (settingsForm.descricao.trim()) payload.descricao = settingsForm.descricao.trim();
       if (settingsForm.tipoRequisito) payload.tipoRequisito = settingsForm.tipoRequisito;
-      if (settingsForm.statusId) payload.statusId = settingsForm.statusId;
       if (settingsForm.prioridadeId) payload.prioridadeId = settingsForm.prioridadeId;
 
-      const updated = await atualizarRequisito(requirementId, payload);
+      // APROVADO/REPROVADO é decisão de aprovação: vai pelos endpoints próprios (o PUT recusa)
+      const novoStatus = statusList.find((s) => s.id === settingsForm.statusId)?.nome.toUpperCase();
+      const mudouStatus = settingsForm.statusId && settingsForm.statusId !== requisito?.statusId;
+      const decisao = mudouStatus && (novoStatus === 'APROVADO' || novoStatus === 'REPROVADO') ? novoStatus : null;
+      if (mudouStatus && !decisao) payload.statusId = settingsForm.statusId;
+
+      let updated = await atualizarRequisito(requirementId, payload);
+      if (decisao === 'APROVADO') updated = await aprovarRequisito(requirementId);
+      if (decisao === 'REPROVADO') updated = await reprovarRequisito(requirementId);
       setRequisito(updated);
       setSettingsOpen(false);
       auditCardRef.current?.reload();
@@ -350,6 +360,15 @@ export default function RequirementDetail() {
               <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2.5, lineHeight: 1.7 }}>
                 {requisito.descricao}
               </Typography>
+
+              {/* Aprovar/reprovar (gestão) ou solicitar alteração/reprovação/aprovação (stakeholder) */}
+              {projectId && (
+                <RequirementActions
+                  projetoId={projectId}
+                  requisito={requisito}
+                  onAtualizado={(r) => { setRequisito(r); auditCardRef.current?.reload(); }}
+                />
+              )}
 
               <Divider sx={{ mb: 2 }} />
 

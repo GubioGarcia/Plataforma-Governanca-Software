@@ -16,6 +16,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.re
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -47,6 +49,7 @@ public class AtributoEntidadeService {
     private final RelacionamentoEntidadeService relacionamentoEntidadeService;
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
+    private final AutorizacaoService autorizacao;
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
@@ -55,6 +58,7 @@ public class AtributoEntidadeService {
         Usuario usuario = resolverUsuario(jwt);
         EntidadeDados entidade = entidadeDadosRepository.findById(entidadeId)
                 .orElseThrow(() -> new EntidadeDadosService.EntidadeDadosNaoEncontradaException(entidadeId));
+        autorizacao.exigir(entidade.getProjeto(), Permissao.MER_EDIT);
 
         if (atributoEntidadeRepository.existsByEntidadeIdAndNomeIgnoreCase(entidadeId, request.nome())) {
             throw new AtributoEntidadeNomeJaExisteException(request.nome());
@@ -103,9 +107,10 @@ public class AtributoEntidadeService {
 
     @Transactional(readOnly = true)
     public List<AtributoEntidadeResponseDTO> listarPorEntidade(UUID entidadeId) {
-        if (!entidadeDadosRepository.existsById(entidadeId)) {
-            throw new EntidadeDadosService.EntidadeDadosNaoEncontradaException(entidadeId);
-        }
+        EntidadeDados entidade = entidadeDadosRepository.findById(entidadeId)
+                .orElseThrow(() -> new EntidadeDadosService.EntidadeDadosNaoEncontradaException(entidadeId));
+        autorizacao.exigir(entidade.getProjeto(), Permissao.MER_VIEW);
+
         return atributoEntidadeRepository.findAllByEntidadeIdOrderByOrdemAscNomeAsc(entidadeId).stream()
                 .map(this::mapToResponseDTO)
                 .toList();
@@ -115,6 +120,7 @@ public class AtributoEntidadeService {
     public AtributoEntidadeResponseDTO buscarPorId(UUID id) {
         AtributoEntidade atributo = atributoEntidadeRepository.findById(id)
                 .orElseThrow(() -> new AtributoEntidadeNaoEncontradoException(id));
+        autorizacao.exigir(atributo.getEntidade().getProjeto(), Permissao.MER_VIEW);
         return mapToResponseDTO(atributo);
     }
 
@@ -124,9 +130,10 @@ public class AtributoEntidadeService {
     public AtributoEntidadeResponseDTO atualizar(Jwt jwt, UUID id, AtualizarAtributoEntidadeRequestDTO request) {
         AtributoEntidade atributo = atributoEntidadeRepository.findById(id)
                 .orElseThrow(() -> new AtributoEntidadeNaoEncontradoException(id));
-        Usuario usuario = resolverUsuario(jwt);
         EntidadeDados entidade = atributo.getEntidade();
         Projeto projeto = entidade.getProjeto();
+        autorizacao.exigir(projeto, Permissao.MER_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (request.nome() != null && !request.nome().equals(atributo.getNome())) {
             if (atributoEntidadeRepository.existsByEntidadeIdAndNomeIgnoreCase(entidade.getId(), request.nome())) {
@@ -238,9 +245,10 @@ public class AtributoEntidadeService {
     public void deletar(Jwt jwt, UUID id) {
         AtributoEntidade atributo = atributoEntidadeRepository.findById(id)
                 .orElseThrow(() -> new AtributoEntidadeNaoEncontradoException(id));
-        Usuario usuario = resolverUsuario(jwt);
         EntidadeDados entidade = atributo.getEntidade();
         Projeto projeto = entidade.getProjeto();
+        autorizacao.exigir(projeto, Permissao.MER_EDIT);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (impactoDadosRepository.existsByAtributoId(id)) {
             throw new AtributoEntidadeEmUsoException(id);

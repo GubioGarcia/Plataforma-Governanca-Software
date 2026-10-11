@@ -2,9 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 import AppShell from './components/layout/AppShell';
 import ProjectShell from './components/layout/ProjectShell';
 import ProtectedRoute from './components/layout/ProtectedRoute';
+import GuardaOrganizacao from './components/layout/GuardaOrganizacao';
 import LoginPage from './pages/LoginPage';
 import OrganizationList from './features/organizations/OrganizationList';
-import OrgDashboard from './features/organizations/OrgDashboard';
 import ProjectList from './features/projects/ProjectList';
 import ProjectDashboard from './features/projects/ProjectDashboard';
 import WikiPage from './features/wiki/WikiPage';
@@ -20,6 +20,7 @@ import DataModelPage from './features/datamodel/DataModelPage';
 import EventTimeline from './features/events/EventTimeline';
 import FileRepository from './features/files/FileRepository';
 import StakeholderList from './features/stakeholders/StakeholderList';
+import SolicitationList from './features/solicitations/SolicitationList';
 import AuditLog from './features/audit/AuditLog';
 import ProjectAnalytics from './features/analytics/ProjectAnalytics';
 import ProfilePage from './pages/ProfilePage';
@@ -41,9 +42,12 @@ export default function App() {
         <Route index element={<Navigate to="/organizations" replace />} />
         <Route path="organizations" element={<OrganizationList />} />
         <Route path="profile" element={<ProfilePage />} />
-        <Route path="users" element={<UsersPage />} />
-        <Route path="organizations/:orgId" element={<OrgDashboard />} />
-        <Route path="organizations/:orgId/projects" element={<ProjectList />} />
+        {/* Tela global de usuários: só o Admin da Plataforma */}
+        <Route path="users" element={<ProtectedRoute requireAdminPlataforma><UsersPage /></ProtectedRoute>} />
+        {/* Organização/projeto: só para quem tem vínculo (o ProjectShell checa o projeto) */}
+        {/* A tela da organização é a própria lista de projetos (dados e membros no topo) */}
+        <Route path="organizations/:orgId" element={<Navigate to="projects" replace />} />
+        <Route path="organizations/:orgId/projects" element={<GuardaOrganizacao><ProjectList /></GuardaOrganizacao>} />
         <Route path="organizations/:orgId/projects/:projectId" element={<ProjectShell />}>
           <Route index element={<ProjectDashboard />} />
           <Route path="wiki" element={<WikiPage />} />
@@ -59,6 +63,7 @@ export default function App() {
           <Route path="events" element={<EventTimeline />} />
           <Route path="files" element={<FileRepository />} />
           <Route path="stakeholders" element={<StakeholderList />} />
+          <Route path="solicitations" element={<SolicitationList />} />
           <Route path="audit" element={<AuditLog />} />
           <Route path="analytics" element={<ProjectAnalytics />} />
         </Route>

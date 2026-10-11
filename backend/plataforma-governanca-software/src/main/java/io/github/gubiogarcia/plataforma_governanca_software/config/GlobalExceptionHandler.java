@@ -1,6 +1,8 @@
 package io.github.gubiogarcia.plataforma_governanca_software.config;
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminException;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.AuthService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.UsuarioService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.service.OrganizacaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.service.VisaoProdutoService;
@@ -18,12 +20,18 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.se
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.ImpactoDadosService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.datamodel.service.RelacionamentoEntidadeService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability.service.VinculoRequisitoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.ConviteService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.MembrosService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.solicitation.service.SolicitacaoService;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -48,6 +56,76 @@ public class GlobalExceptionHandler {
     public ProblemDetail handleAccessDenied(AccessDeniedException ex) {
         return problem(HttpStatus.FORBIDDEN, "Acesso negado",
                 "Voce nao tem permissao para acessar este recurso.", "/errors/acesso-negado");
+    }
+
+    @ExceptionHandler(AcessoNegadoException.class)
+    public ProblemDetail handleAcessoNegadoAutorizacao(AcessoNegadoException ex) {
+        return problem(HttpStatus.FORBIDDEN, "Acesso negado", ex.getMessage(), "/errors/acesso-negado");
+    }
+
+    // Corpo ilegível (JSON malformado, enum desconhecido) → 400 em vez do fallback 500
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ProblemDetail handleCorpoInvalido(HttpMessageNotReadableException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Requisicao invalida",
+                "O corpo da requisicao nao pode ser lido. Verifique os campos e valores enviados.", "/errors/corpo-invalido");
+    }
+
+    // ── Fase 6: membros, convites, solicitações, aprovação ─────────────────
+    @ExceptionHandler(MembrosService.RecursoNaoEncontradoException.class)
+    public ProblemDetail handleRecursoNaoEncontrado(MembrosService.RecursoNaoEncontradoException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Nao encontrado", ex.getMessage(), "/errors/recurso-nao-encontrado");
+    }
+
+    @ExceptionHandler(MembrosService.UsuarioNaoParticipaException.class)
+    public ProblemDetail handleUsuarioNaoParticipa(MembrosService.UsuarioNaoParticipaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Usuario nao participa", ex.getMessage(), "/errors/usuario-nao-participa");
+    }
+
+    @ExceptionHandler(MembrosService.PapelJaAtribuidoException.class)
+    public ProblemDetail handlePapelJaAtribuido(MembrosService.PapelJaAtribuidoException ex) {
+        return problem(HttpStatus.CONFLICT, "Papel ja atribuido", ex.getMessage(), "/errors/papel-ja-atribuido");
+    }
+
+    @ExceptionHandler(MembrosService.OperacaoNaoPermitidaException.class)
+    public ProblemDetail handleOperacaoNaoPermitida(MembrosService.OperacaoNaoPermitidaException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Operacao nao permitida", ex.getMessage(), "/errors/operacao-nao-permitida");
+    }
+
+    @ExceptionHandler(ConviteService.ConviteInvalidoException.class)
+    public ProblemDetail handleConviteInvalido(ConviteService.ConviteInvalidoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Convite invalido", ex.getMessage(), "/errors/convite-invalido");
+    }
+
+    @ExceptionHandler(ConviteService.ConviteDuplicadoException.class)
+    public ProblemDetail handleConviteDuplicado(ConviteService.ConviteDuplicadoException ex) {
+        return problem(HttpStatus.CONFLICT, "Convite duplicado", ex.getMessage(), "/errors/convite-duplicado");
+    }
+
+    @ExceptionHandler(SolicitacaoService.SolicitacaoNaoEncontradaException.class)
+    public ProblemDetail handleSolicitacaoNaoEncontrada(SolicitacaoService.SolicitacaoNaoEncontradaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Nao encontrado", ex.getMessage(), "/errors/solicitacao-nao-encontrada");
+    }
+
+    @ExceptionHandler(SolicitacaoService.SolicitacaoInvalidaException.class)
+    public ProblemDetail handleSolicitacaoInvalida(SolicitacaoService.SolicitacaoInvalidaException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Solicitacao invalida", ex.getMessage(), "/errors/solicitacao-invalida");
+    }
+
+    @ExceptionHandler(SolicitacaoService.SolicitacaoDuplicadaException.class)
+    public ProblemDetail handleSolicitacaoDuplicada(SolicitacaoService.SolicitacaoDuplicadaException ex) {
+        return problem(HttpStatus.CONFLICT, "Solicitacao duplicada", ex.getMessage(), "/errors/solicitacao-duplicada");
+    }
+
+    @ExceptionHandler(RequisitoService.StatusSoPorAprovacaoException.class)
+    public ProblemDetail handleStatusSoPorAprovacao(RequisitoService.StatusSoPorAprovacaoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Status de aprovacao", ex.getMessage(), "/errors/status-so-por-aprovacao");
+    }
+
+    // Sem este handler o fallback de Exception devolvia 500 para metodo HTTP inexistente
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ProblemDetail handleMetodoNaoSuportado(HttpRequestMethodNotSupportedException ex) {
+        return problem(HttpStatus.METHOD_NOT_ALLOWED, "Metodo nao suportado",
+                "O metodo " + ex.getMethod() + " nao e suportado para este recurso.", "/errors/metodo-nao-suportado");
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
@@ -78,6 +156,30 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(UsuarioService.UsuarioJaInativoException.class)
     public ProblemDetail handleUsuarioJaInativo(UsuarioService.UsuarioJaInativoException ex) {
         return problem(HttpStatus.CONFLICT, "Usuario ja inativo", ex.getMessage(), "/errors/usuario-ja-inativo");
+    }
+
+    // 401 no login (antes: RuntimeException generica → 500)
+    @ExceptionHandler(AuthService.CredenciaisInvalidasException.class)
+    public ProblemDetail handleCredenciaisInvalidas(AuthService.CredenciaisInvalidasException ex) {
+        return problem(HttpStatus.UNAUTHORIZED, "Credenciais invalidas", ex.getMessage(), "/errors/credenciais-invalidas");
+    }
+
+    @ExceptionHandler(UsuarioService.SenhasNaoConferemException.class)
+    public ProblemDetail handleSenhasNaoConferem(UsuarioService.SenhasNaoConferemException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Senha invalida", ex.getMessage(), "/errors/senhas-nao-conferem");
+    }
+
+    // 400 (e nao 401): um 401 faria o frontend encerrar a sessao do usuario
+    @ExceptionHandler(UsuarioService.SenhaAtualInvalidaException.class)
+    public ProblemDetail handleSenhaAtualInvalida(UsuarioService.SenhaAtualInvalidaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Senha atual incorreta", ex.getMessage(), "/errors/senha-atual-invalida");
+    }
+
+    @ExceptionHandler(GruposAcessoService.EstruturaGruposException.class)
+    public ProblemDetail handleEstruturaGrupos(GruposAcessoService.EstruturaGruposException ex) {
+        log.error("Erro ao criar grupos de acesso no Keycloak: {}", ex.getMessage(), ex.getCause());
+        return problem(HttpStatus.BAD_GATEWAY, "Falha no servidor de autenticacao",
+                "Nao foi possivel configurar o acesso no servidor de autenticacao. Tente novamente.", "/errors/grupos-acesso");
     }
 
     @ExceptionHandler(KeycloakAdminException.class)
@@ -195,6 +297,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.NOT_FOUND, "Evento nao encontrado", ex.getMessage(), "/errors/evento-nao-encontrado");
     }
 
+    @ExceptionHandler(EventoService.EventoOrganizacaoInconsistenteException.class)
+    public ProblemDetail handleEventoOrganizacaoInconsistente(EventoService.EventoOrganizacaoInconsistenteException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Organizacao do evento invalida", ex.getMessage(), "/errors/evento-organizacao-invalida");
+    }
+
     @ExceptionHandler(EventoService.EventoDataInvalidaException.class)
     public ProblemDetail handleEventoDataInvalida(EventoService.EventoDataInvalidaException ex) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Data do evento invalida", ex.getMessage(), "/errors/evento-data-invalida");
@@ -293,14 +400,14 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Usuário não autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
     }
 
-    @ExceptionHandler(ComentarioService.OrganizacaoNaoEncontradaException.class)
-    public ProblemDetail handleComentarioOrgNaoEncontrada(ComentarioService.OrganizacaoNaoEncontradaException ex) {
-        return problem(HttpStatus.NOT_FOUND, "Organização não encontrada", ex.getMessage(), "/errors/organizacao-nao-encontrada");
+    @ExceptionHandler(ComentarioService.EntidadeComentadaNaoEncontradaException.class)
+    public ProblemDetail handleEntidadeComentadaNaoEncontrada(ComentarioService.EntidadeComentadaNaoEncontradaException ex) {
+        return problem(HttpStatus.NOT_FOUND, "Entidade não encontrada", ex.getMessage(), "/errors/entidade-comentada-nao-encontrada");
     }
 
-    @ExceptionHandler(ComentarioService.ProjetoNaoEncontradoException.class)
-    public ProblemDetail handleComentarioProjetoNaoEncontrado(ComentarioService.ProjetoNaoEncontradoException ex) {
-        return problem(HttpStatus.NOT_FOUND, "Projeto não encontrado", ex.getMessage(), "/errors/projeto-nao-encontrado");
+    @ExceptionHandler(ComentarioService.TipoEntidadeComentarioInvalidoException.class)
+    public ProblemDetail handleTipoEntidadeComentarioInvalido(ComentarioService.TipoEntidadeComentarioInvalidoException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Tipo de entidade inválido", ex.getMessage(), "/errors/tipo-entidade-comentario-invalido");
     }
 
     @ExceptionHandler(ComentarioService.ComentarioComRespostasException.class)
@@ -422,6 +529,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ImpactoDadosService.ImpactoDadosNaoEncontradoException.class)
     public ProblemDetail handleImpactoDadosNaoEncontrado(ImpactoDadosService.ImpactoDadosNaoEncontradoException ex) {
         return problem(HttpStatus.NOT_FOUND, "Impacto em dados não encontrado", ex.getMessage(), "/errors/impacto-dados-nao-encontrado");
+    }
+
+    @ExceptionHandler(ImpactoDadosService.ImpactoEntreProjetosDiferentesException.class)
+    public ProblemDetail handleImpactoEntreProjetosDiferentes(ImpactoDadosService.ImpactoEntreProjetosDiferentesException ex) {
+        return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Projetos diferentes", ex.getMessage(), "/errors/impacto-projetos-diferentes");
     }
 
     @ExceptionHandler(ImpactoDadosService.AtributoNaoPertenceAEntidadeException.class)
