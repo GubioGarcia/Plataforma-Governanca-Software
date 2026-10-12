@@ -62,6 +62,8 @@ Principais funcionalidades:
 | TypeScript | 5.9 | Tipagem estática |
 | Vite | 7 | Ferramenta de build e servidor de desenvolvimento |
 | Material UI (MUI) | v7 | Biblioteca de componentes (Material Design) |
+| MUI X (Data Grid / Date Pickers) | v8 | Tabela da auditoria e seleção de datas |
+| Mermaid | v11 | Renderização do diagrama ER da modelagem de dados |
 | React Router DOM | v7 | Roteamento client-side e rotas protegidas |
 | TanStack React Query | v5 | Gerenciamento de estado assíncrono e cache |
 | React Hook Form + Zod | v7 / v4 | Formulários e validação com type-safety |
@@ -73,6 +75,7 @@ Principais funcionalidades:
 
 - Arquitetura orientada a **feature modules** (`features/requirements`, `features/wiki`, `features/solicitations`, etc.)
 - Suporte a **dark/light mode** via tema MUI customizável
+- Tela da organização unificada: dados, indicadores e membros no topo e, abaixo, os filtros e a lista de projetos
 - Sistema global de notificações (toast) via `SnackbarContext`
 - Tela adaptada ao papel do usuário: o hook `usePermissions` lê as permissões reais de `/api/auth/me` (o backend confere tudo de novo)
 - Proxy reverso via **Nginx** — o frontend é servido em conjunto com a API sem exposição direta das portas dos serviços internos
@@ -83,8 +86,9 @@ Principais funcionalidades:
 |---|---|
 | Docker | Containerização dos serviços |
 | Docker Compose | Orquestração do ambiente completo |
-| Nginx | Proxy reverso (roteamento `/api` → backend, `/` → frontend) |
-| PostgreSQL | Banco de dados com persistência via volume Docker |
+| Nginx | Proxy reverso (roteamento `/api` e `/swagger-ui` → backend, `/` → frontend) |
+| PostgreSQL | Banco de dados com persistência via volume Docker (`postgres_data`) |
+| Volume `project_files` | Arquivos enviados aos projetos (upload de até 20 MB por arquivo) |
 
 ---
 

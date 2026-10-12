@@ -83,6 +83,8 @@ Os valores sensíveis (datasource, clients e segredos do Keycloak) vêm de vari�
 | --- | --- | --- |
 | `plataforma.auth.cookie-seguro` (`AUTH_COOKIE_SECURE`) | `false` | Marca o cookie do refresh token como `Secure` — use `true` em produção (HTTPS) |
 | `plataforma.grupos-acesso.migrar-na-inicializacao` | `true` | Na inicialização, cria no Keycloak os grupos de organizações/projetos que ainda não têm |
+| `file.storage.root` (`FILE_STORAGE_ROOT`) | `/files` | Pasta onde ficam os arquivos dos projetos (no Docker, o volume `project_files`) |
+| `file.storage.max-upload-size-mb` (`FILE_STORAGE_MAX_MB`) | `20` | Tamanho máximo de cada upload (o multipart do Spring também limita a 20 MB) |
 
 ## Banco de dados
 

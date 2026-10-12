@@ -39,7 +39,7 @@ Descrição:
 | docker/keycloak      | Definição do realm `plataforma_discovery` (roles, clients, mapper, grupo `/_admin`) |
 | docker/keycloak-init | Aplica o `realm-export.json` no realm existente a cada subida  |
 | docker/postgres      | Script de inicialização do PostgreSQL                         |
-| docker/nginx         | Proxy reverso (`/` → frontend, `/api` → backend)              |
+| docker/nginx         | Proxy reverso (`/` → frontend, `/api` e `/swagger-ui` → backend; requisições de até 25 MB para os uploads) |
 | docker-compose.yml   | Orquestração dos containers                                   |
 | .env                 | Variáveis do ambiente de desenvolvimento                      |
 
@@ -145,13 +145,14 @@ Atenção: isso apaga todos os usuários do Keycloak. Os registros da tabela `us
 
 # Persistência de dados
 
-O banco PostgreSQL utiliza volumes Docker para persistência de dados.
+Os dados ficam em volumes Docker:
 
-Volume utilizado:
+| Volume          | Conteúdo                                                                 |
+| --------------- | ------------------------------------------------------------------------ |
+| `postgres_data` | Bancos `plataforma` (aplicação) e `keycloak`                             |
+| `project_files` | Arquivos enviados aos projetos, montado em `/files` no backend (até 20 MB por arquivo) |
 
-```
-postgres_data
-```
+`docker compose down` preserva os volumes; `docker compose down -v` apaga todos os dados.
 
 ---
 

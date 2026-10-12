@@ -22,6 +22,8 @@ O frontend se comunica com a API backend por meio de **requisições HTTP REST**
 - React 19 + TypeScript
 - Vite 7
 - Material UI (MUI) v7
+- MUI X Data Grid e Date Pickers v8
+- Mermaid v11 (diagrama ER da modelagem de dados)
 - React Router DOM v7
 - TanStack React Query v5
 - React Hook Form + Zod
@@ -55,6 +57,18 @@ src/
   utils/        # funções utilitárias
 e2e/            # testes ponta a ponta com Playwright
 ```
+
+---
+
+## Navegação
+
+| Rota | Tela |
+|---|---|
+| `/organizations` | Organizações do usuário (e convites pendentes) |
+| `/organizations/:orgId/projects` | Tela da organização: dados e indicadores (`OrgResumo`), membros em card recolhível com o botão Convidar (`OrgMembers`, conforme o papel) e, após a divisória, filtros e lista de projetos (`ProjectList`). `/organizations/:orgId` redireciona para cá |
+| `/organizations/:orgId/projects/:projectId/...` | Projeto (`ProjectShell`): painel, visão do produto, requisitos, rastreabilidade, modelagem de dados, eventos, arquivos, participantes, solicitações, auditoria e analytics |
+| `/profile` | Dados do usuário e onde ele atua (papel em cada organização/projeto) |
+| `/users` | Gestão de usuários — só Admin da Plataforma |
 
 ---
 
