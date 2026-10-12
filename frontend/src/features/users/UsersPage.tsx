@@ -217,7 +217,8 @@ const INIT_PERFIS: PerfilSistema[] = [
 // ── Componente Principal ──────────────────────────────────────────────────────
 
 export default function UsersPage() {
-  const { isGestor } = usePermissions();
+  // Tela global de usuários: ações de gestão só para o Admin da Plataforma (grupo /_admin)
+  const { adminPlataforma: isGestor } = usePermissions();
   const { notify } = useSnackbar();
 
   // view: 'list' | 'user' | 'profiles' | 'profile'
@@ -364,8 +365,9 @@ export default function UsersPage() {
       await removerUsuario(deleteTarget.id);
       setUsers((prev) => prev.filter((u) => u.id !== deleteTarget.id));
       notify('Usuário removido', 'info');
-    } catch {
-      notify('Erro ao remover usuário', 'error');
+    } catch (err) {
+      // 403: só o próprio usuário ou o administrador da plataforma pode inativar a conta
+      notify(isApiError(err) ? err.response?.data?.detail ?? 'Erro ao remover usuário' : 'Erro ao remover usuário', 'error');
     } finally {
       setLoading(false);
       setDeleteTarget(null);

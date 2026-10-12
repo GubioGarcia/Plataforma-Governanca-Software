@@ -56,6 +56,18 @@ export async function atualizarUsuario(id: string, data: AtualizarUsuarioRequest
   return res.data;
 }
 
+export interface AtualizarPerfilRequest {
+  nome: string;
+  email: string;
+  urlMidiaPerfil?: string | null;
+}
+
+/** PUT /api/usuario/atualizar — o próprio usuário atualiza nome/e-mail */
+export async function atualizarMeuPerfil(data: AtualizarPerfilRequest): Promise<UsuarioBackend> {
+  const res = await api.put<UsuarioBackend>('/usuario/atualizar', data);
+  return res.data;
+}
+
 /** DELETE /api/usuario/{id} — remove usuário */
 export async function removerUsuario(id: string): Promise<void> {
   await api.delete(`/usuario/${id}`);

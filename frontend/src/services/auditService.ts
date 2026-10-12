@@ -1,5 +1,5 @@
 import api from '../config/axios';
-import type { AuditoriaAPI, CriarAuditoriaPayload, AtualizarAuditoriaPayload } from '../types/auditoriaAPI';
+import type { AuditoriaAPI } from '../types/auditoriaAPI';
 
 // ── Listagens ──────────────────────────────────────────────────────────────
 
@@ -29,21 +29,4 @@ export async function buscarAuditoriaPorId(id: string): Promise<AuditoriaAPI> {
   return res.data;
 }
 
-// ── Mutações ───────────────────────────────────────────────────────────────
-
-export async function criarAuditoria(payload: CriarAuditoriaPayload): Promise<AuditoriaAPI> {
-  const res = await api.post<AuditoriaAPI>('/auditoria', payload);
-  return res.data;
-}
-
-export async function atualizarAuditoria(
-  id: string,
-  payload: AtualizarAuditoriaPayload,
-): Promise<AuditoriaAPI> {
-  const res = await api.put<AuditoriaAPI>(`/auditoria/${id}`, payload);
-  return res.data;
-}
-
-export async function deletarAuditoria(id: string): Promise<void> {
-  await api.delete(`/auditoria/${id}`);
-}
+// Sem mutações: o log de auditoria é somente leitura na API (gravado pelo backend).

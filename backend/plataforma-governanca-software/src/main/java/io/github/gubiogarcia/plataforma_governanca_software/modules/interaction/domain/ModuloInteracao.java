@@ -5,5 +5,7 @@ public enum ModuloInteracao {
     REQUISITO,
     COMENTARIO,
     EVENTO,
-    ARQUIVO
+    ARQUIVO,
+    MODELAGEM_DADOS,
+    RASTREABILIDADE
 }

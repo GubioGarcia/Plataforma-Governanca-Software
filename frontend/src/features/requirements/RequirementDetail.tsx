@@ -32,6 +32,8 @@ import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { CommentSection } from '../comments';
 import AuditCard, { type AuditCardHandle } from '../audit/AuditCard';
+import TraceabilityCard from '../traceability/TraceabilityCard';
+import DataImpactCard from '../datamodel/DataImpactCard';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { extractApiErrorMessage } from '../../utils/apiError';
@@ -44,7 +46,10 @@ import {
   listarStatusRequisito,
   listarPrioridades,
   atualizarRequisito,
+  aprovarRequisito,
+  reprovarRequisito,
 } from '../../services/requirementService';
+import RequirementActions from './RequirementActions';
 import type { RequisitoAPI, CriterioAceiteAPI, StatusRequisitoAPI, PrioridadeAPI, TipoRequisito } from '../../types/requirementAPI';
 
 const MAX_DESCRICAO_REQUISITO = 1000;
@@ -129,6 +134,10 @@ export default function RequirementDetail() {
   // Delete
   const [deleteTarget, setDeleteTarget] = useState<CriterioAceiteAPI | null>(null);
 
+  // Incrementado quando os impactos no modelo de dados mudam: as relações
+  // indiretas da rastreabilidade derivam deles e precisam ser recalculadas.
+  const [versaoDados, setVersaoDados] = useState(0);
+
   const load = useCallback(async () => {
     if (!requirementId) return;
     try {
@@ -173,10 +182,17 @@ export default function RequirementDetail() {
       if (settingsForm.titulo.trim()) payload.titulo = settingsForm.titulo.trim();
       if (settingsForm.descricao.trim()) payload.descricao = settingsForm.descricao.trim();
       if (settingsForm.tipoRequisito) payload.tipoRequisito = settingsForm.tipoRequisito;
-      if (settingsForm.statusId) payload.statusId = settingsForm.statusId;
       if (settingsForm.prioridadeId) payload.prioridadeId = settingsForm.prioridadeId;
 
-      const updated = await atualizarRequisito(requirementId, payload);
+      // APROVADO/REPROVADO é decisão de aprovação: vai pelos endpoints próprios (o PUT recusa)
+      const novoStatus = statusList.find((s) => s.id === settingsForm.statusId)?.nome.toUpperCase();
+      const mudouStatus = settingsForm.statusId && settingsForm.statusId !== requisito?.statusId;
+      const decisao = mudouStatus && (novoStatus === 'APROVADO' || novoStatus === 'REPROVADO') ? novoStatus : null;
+      if (mudouStatus && !decisao) payload.statusId = settingsForm.statusId;
+
+      let updated = await atualizarRequisito(requirementId, payload);
+      if (decisao === 'APROVADO') updated = await aprovarRequisito(requirementId);
+      if (decisao === 'REPROVADO') updated = await reprovarRequisito(requirementId);
       setRequisito(updated);
       setSettingsOpen(false);
       auditCardRef.current?.reload();
@@ -344,6 +360,15 @@ export default function RequirementDetail() {
               <Typography variant="body1" sx={{ color: 'text.secondary', mb: 2.5, lineHeight: 1.7 }}>
                 {requisito.descricao}
               </Typography>
+
+              {/* Aprovar/reprovar (gestão) ou solicitar alteração/reprovação/aprovação (stakeholder) */}
+              {projectId && (
+                <RequirementActions
+                  projetoId={projectId}
+                  requisito={requisito}
+                  onAtualizado={(r) => { setRequisito(r); auditCardRef.current?.reload(); }}
+                />
+              )}
 
               <Divider sx={{ mb: 2 }} />
 
@@ -523,17 +548,20 @@ export default function RequirementDetail() {
             </CardContent>
           </Card>
 
-          {/* ── Comentários ── */}
-          <Card variant="outlined" sx={{ borderRadius: 3, mt: 3 }}>
-            <CardContent sx={{ p: 3 }}>
-              <CommentSection
-                entidadeTipo="REQUISITO"
-                entidadeId={requirementId!}
-                projetoId={projectId!}
-                organizacaoId={orgId!}
-              />
-            </CardContent>
-          </Card>
+          {/* ── Modelagem de dados (estado atual × proposto) ── */}
+          <DataImpactCard
+            projetoId={projectId!}
+            requisitoId={requirementId!}
+            aoAlterar={() => setVersaoDados((v) => v + 1)}
+          />
+
+          {/* ── Rastreabilidade (vínculos diretos e indiretos) ── */}
+          <TraceabilityCard
+            organizacaoId={orgId!}
+            projetoId={projectId!}
+            requisitoId={requirementId!}
+            versaoDados={versaoDados}
+          />
         </Grid>
 
         {/* ── Right sidebar ── */}
@@ -560,6 +588,18 @@ export default function RequirementDetail() {
               {requisito.dataAprovacao && (
                 <InfoRow label="Data de aprovação" value={formatDate(requisito.dataAprovacao)} />
               )}
+            </CardContent>
+          </Card>
+
+          {/* Comentários */}
+          <Card variant="outlined" sx={{ borderRadius: 3, mb: 3 }}>
+            <CardContent sx={{ p: 3 }}>
+              <CommentSection
+                entidadeTipo="REQUISITO"
+                entidadeId={requirementId!}
+                projetoId={projectId!}
+                organizacaoId={orgId!}
+              />
             </CardContent>
           </Card>
 

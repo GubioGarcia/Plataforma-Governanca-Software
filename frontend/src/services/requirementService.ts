@@ -43,6 +43,17 @@ export async function criarRequisito(
   return res.data;
 }
 
+/** REQ_APPROVE — APROVADO/REPROVADO só por estes endpoints (o PUT recusa esses status). */
+export async function aprovarRequisito(id: string): Promise<RequisitoAPI> {
+  const res = await api.patch<RequisitoAPI>(`/requisito/${id}/aprovar`);
+  return res.data;
+}
+
+export async function reprovarRequisito(id: string): Promise<RequisitoAPI> {
+  const res = await api.patch<RequisitoAPI>(`/requisito/${id}/reprovar`);
+  return res.data;
+}
+
 export async function atualizarRequisito(
   id: string,
   payload: AtualizarRequisitoPayload,

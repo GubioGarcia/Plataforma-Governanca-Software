@@ -11,22 +11,29 @@ import IconButton from '@mui/material/IconButton';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import ChecklistIcon from '@mui/icons-material/Checklist';
+import HubIcon from '@mui/icons-material/Hub';
+import SchemaIcon from '@mui/icons-material/Schema';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import GroupIcon from '@mui/icons-material/Group';
 import HistoryIcon from '@mui/icons-material/History';
 import BarChartIcon from '@mui/icons-material/BarChart';
 import DashboardIcon from '@mui/icons-material/Dashboard';
-import { mockProjects } from '../../mocks/projects';
+import InboxIcon from '@mui/icons-material/Inbox';
+import SemAcesso from '../common/SemAcesso';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useAcessoRota } from '../../hooks/useAcessoRota';
 
 const SIDEBAR_WIDTH = 220;
 
 export default function ProjectShell() {
   const { orgId, projectId } = useParams();
   const navigate = useNavigate();
-  const project = mockProjects.find((p) => p.id === Number(projectId));
-  const { isStakeholder } = usePermissions();
+  const { pode, projetoAtual } = usePermissions();
+  // Só abre projeto em que o usuário participa (direto ou herdado da organização)
+  const acesso = useAcessoRota(!!projetoAtual, projectId);
+  // Tela completa de auditoria: AUDIT_VIEW (Dono/Gestor)
+  const isStakeholder = !pode('AUDIT_VIEW');
 
   const base = `/organizations/${orgId}/projects/${projectId}`;
 
@@ -34,17 +41,22 @@ export default function ProjectShell() {
     { label: 'Visão Geral',  icon: <DashboardIcon fontSize="small" />,   to: base },
     { label: 'WIKI',         icon: <AutoStoriesIcon fontSize="small" />,  to: `${base}/wiki` },
     { label: 'Requisitos',   icon: <ChecklistIcon fontSize="small" />,    to: `${base}/requirements` },
+    { label: 'Rastreabilidade', icon: <HubIcon fontSize="small" />,       to: `${base}/traceability` },
+    { label: 'Modelo de Dados', icon: <SchemaIcon fontSize="small" />,    to: `${base}/data-model` },
     { label: 'Eventos',      icon: <EventNoteIcon fontSize="small" />,    to: `${base}/events` },
     { label: 'Arquivos',     icon: <FolderOpenIcon fontSize="small" />,   to: `${base}/files` },
     { label: 'Stakeholders', icon: <GroupIcon fontSize="small" />,        to: `${base}/stakeholders` },
+    { label: 'Solicitações', icon: <InboxIcon fontSize="small" />,        to: `${base}/solicitations` },
     { label: 'Analytics',    icon: <BarChartIcon fontSize="small" />,     to: `${base}/analytics` },
     { label: 'Auditoria',    icon: <HistoryIcon fontSize="small" />,      to: `${base}/audit`, gestorOnly: true },
   ];
 
   const navItems = allNavItems.filter((item) => !item.gestorOnly || !isStakeholder);
 
+  if (acesso !== 'ok') return <SemAcesso situacao={acesso} alvo="projeto" />;
+
   return (
-    <Box sx={{ display: 'flex', flexGrow: 1, minHeight: 'calc(100vh - 56px)', overflow: 'hidden' }}>
+    <Box sx={{ display: 'flex', flexGrow: 1, height: 'calc(100vh - 56px)', overflow: 'hidden' }}>
       {/* Sidebar */}
       <Box
         sx={{
@@ -84,9 +96,9 @@ export default function ProjectShell() {
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
             }}
-            title={project?.name}
+            title={projetoAtual?.nome}
           >
-            {project?.name ?? 'Projeto'}
+            {projetoAtual?.nome ?? 'Projeto'}
           </Typography>
         </Box>
         <Divider />

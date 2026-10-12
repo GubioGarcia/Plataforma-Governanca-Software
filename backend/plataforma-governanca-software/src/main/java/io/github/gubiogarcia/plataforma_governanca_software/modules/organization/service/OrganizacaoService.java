@@ -2,12 +2,15 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.organizatio
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.GruposAcessoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.AtualizarOrganizacaoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.CriarOrganizacaoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.dto.OrganizacaoResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -28,10 +31,12 @@ public class OrganizacaoService {
     private final OrganizacaoRepository organizacaoRepository;
     private final UsuarioRepository usuarioRepository;
     private final ProjetoRepository projetoRepository;
+    private final GruposAcessoService gruposAcessoService;
+    private final AutorizacaoService autorizacao;
 
     @Transactional
     public OrganizacaoResponseDTO criar(Jwt jwt, CriarOrganizacaoRequestDTO request) {
-        UUID usuarioId = resolverUsuarioId(jwt);
+        Usuario usuario = resolverUsuario(jwt);
 
         if (organizacaoRepository.existsByNome(request.nome())) {
             throw new OrganizacaoNomeJaExisteException(request.nome());
@@ -42,23 +47,28 @@ public class OrganizacaoService {
                 .descricao(request.descricao())
                 .plano(request.plano())
                 .ativo(true)
-                .criadoPor(usuarioId)
+                .criadoPor(usuario.getId())
                 .dataCriacao(Instant.now())
                 .dataAtualizacao(Instant.now())
                 .build();
 
-        organizacao = organizacaoRepository.save(organizacao);
+        // flush antes do Keycloak: erro de banco aparece antes de criar os grupos
+        organizacao = organizacaoRepository.saveAndFlush(organizacao);
 
-        log.info("Organização '{}' criada com sucesso. ID: {}, criada por: {}", organizacao.getNome(), organizacao.getId(), usuarioId);
+        // Grupos de acesso /org-{id} (criador vira Dono); revertidos se a transação falhar
+        organizacao.setKeycloakGroupId(gruposAcessoService.criarEstruturaOrganizacao(organizacao, usuario));
+
+        log.info("Organização '{}' criada com sucesso. ID: {}, criada por: {}", organizacao.getNome(), organizacao.getId(), usuario.getId());
 
         return mapToResponseDTO(organizacao, 0L);
     }
 
     @Transactional(readOnly = true)
     public List<OrganizacaoResponseDTO> listar(Boolean ativo) {
-        List<Organizacao> organizacoes = (ativo == null)
-                ? organizacaoRepository.findAll()
-                : organizacaoRepository.findAllByAtivo(ativo);
+        // Multi-tenancy: só as organizações com as quais o usuário tem vínculo
+        List<Organizacao> organizacoes = organizacaoRepository.findAllById(autorizacao.organizacoesComVinculo()).stream()
+                .filter(o -> ativo == null || ativo.equals(o.getAtivo()))
+                .toList();
 
         List<UUID> ids = organizacoes.stream().map(Organizacao::getId).toList();
 
@@ -79,6 +89,7 @@ public class OrganizacaoService {
     public OrganizacaoResponseDTO buscarPorId(UUID id) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organização encontrada com o id: " + id));
+        autorizacao.exigirVinculo(organizacao);
         long total = projetoRepository.countByOrganizacaoIdAndAtivo(id, true);
         return mapToResponseDTO(organizacao, total);
     }
@@ -87,6 +98,7 @@ public class OrganizacaoService {
     public OrganizacaoResponseDTO atualizar(UUID id, AtualizarOrganizacaoRequestDTO request) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organização encontrada com o id: " + id));
+        autorizacao.exigir(organizacao, Permissao.ORG_EDIT);
 
         if (Boolean.FALSE.equals(organizacao.getAtivo())) {
             throw new OrganizacaoInativaException(id);
@@ -114,6 +126,7 @@ public class OrganizacaoService {
     public void inativar(UUID id) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organização encontrada com o id: " + id));
+        autorizacao.exigir(organizacao, Permissao.ORG_INATIVAR);
 
         if (Boolean.FALSE.equals(organizacao.getAtivo())) {
             throw new OrganizacaoJaInativaException(id);
@@ -130,6 +143,7 @@ public class OrganizacaoService {
     public OrganizacaoResponseDTO ativar(UUID id) {
         Organizacao organizacao = organizacaoRepository.findById(id)
                 .orElseThrow(() -> new OrganizacaoNaoEncontradaException("Nenhuma organizacao encontrada com o id: " + id));
+        autorizacao.exigir(organizacao, Permissao.ORG_INATIVAR); // reativar = mesma permissão (D15)
 
         if (Boolean.TRUE.equals(organizacao.getAtivo())) {
             throw new OrganizacaoJaAtivaException(id);
@@ -147,11 +161,10 @@ public class OrganizacaoService {
 
     // Helpers privados
 
-    private UUID resolverUsuarioId(Jwt jwt) {
+    private Usuario resolverUsuario(Jwt jwt) {
         UUID keycloakId = UUID.fromString(jwt.getSubject());
-        Usuario usuario = usuarioRepository.findByExternalIdentityId(keycloakId)
+        return usuarioRepository.findByExternalIdentityId(keycloakId)
                 .orElseThrow(() -> new UsuarioNaoAutorizadoException("Usuário autenticado não encontrado na plataforma."));
-        return usuario.getId();
     }
 
     private OrganizacaoResponseDTO mapToResponseDTO(Organizacao o, Long totalProjetosAtivos) {

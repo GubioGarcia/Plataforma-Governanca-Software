@@ -19,4 +19,8 @@ export interface EventoProjeto {
   dataHoraInicio?: string;
   dataHoraFim?: string;
   dataCriacao?: string;
+  /** SOLICITADO = pedido por stakeholder, aguardando o gestor; REJEITADO = pedido recusado. */
+  status?: StatusEvento;
 }
+
+export type StatusEvento = 'SOLICITADO' | 'APROVADO' | 'REJEITADO';

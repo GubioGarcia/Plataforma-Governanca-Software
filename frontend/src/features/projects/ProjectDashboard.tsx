@@ -28,31 +28,69 @@ import { buscarProjetoPorId } from '../../services/projetoService';
 import { listarRequisitosPorProjeto, listarStatusRequisito } from '../../services/requirementService';
 import { fetchEventsByProject } from '../../services/eventService';
 import { listarAuditoriasPorProjeto } from '../../services/auditService';
-import { buscarResumoPorProjeto } from '../../services/interacaoService';
+import { buscarResumoPorProjeto, listarInteracoesPorProjeto } from '../../services/interacaoService';
 import type { ProjetoAPI } from '../../types/projeto';
 import type { RequisitoAPI, StatusRequisitoAPI } from '../../types/requirementAPI';
 import type { EventoProjeto } from '../../types/event';
 import type { AuditoriaAPI } from '../../types/auditoriaAPI';
-import type { ResumoInteracaoProjeto } from '../../types/interacao';
+import type { InteracaoAPI, ResumoInteracaoProjeto } from '../../types/interacao';
 import { usePermissions } from '../../hooks/usePermissions';
 
 const activityColor: Record<string, string> = {
   CRIACAO: '#16A34A',
   EDICAO: '#D97706',
   EXCLUSAO: '#DC2626',
+  APROVACAO: '#059669',
+  REPROVACAO: '#DC2626',
+  COMENTARIO: '#3B82F6',
+  MUDANCA_STATUS: '#7C3AED',
 };
+
+/** Item da "Atividade recente": vem da auditoria (Dono/Gestor) ou das interações (demais). */
+interface ItemAtividade {
+  id: string;
+  titulo: string;
+  autor: string;
+  avatarUrl: string | null;
+  data: string;
+  acao: string;
+}
+
+function daAuditoria(a: AuditoriaAPI): ItemAtividade {
+  return {
+    id: a.id,
+    titulo: a.campoAlterado ? `${a.entidadeTipo} — ${a.campoAlterado}` : a.entidadeTipo,
+    autor: a.usuarioNome ?? 'Sistema',
+    avatarUrl: a.usuarioAvatarUrl ?? null,
+    data: a.dataAlteracao,
+    acao: a.acao,
+  };
+}
+
+function daInteracao(i: InteracaoAPI): ItemAtividade {
+  return {
+    id: i.id,
+    titulo: i.descricao ?? i.modulo,
+    autor: i.usuarioNome,
+    avatarUrl: i.usuarioUrlFoto,
+    data: i.dataInteracao,
+    acao: i.tipo,
+  };
+}
 
 export default function ProjectDashboard() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const base = `/organizations/${orgId}/projects/${projectId}`;
-  const { isStakeholder, user } = usePermissions();
+  const { pode } = usePermissions();
+  // Auditoria completa só para quem tem AUDIT_VIEW; os demais veem as interações do projeto
+  const veAuditoria = pode('AUDIT_VIEW');
 
   const [project, setProject]             = useState<ProjetoAPI | null>(null);
   const [reqs, setReqs]                   = useState<RequisitoAPI[]>([]);
   const [statusRequisito, setStatusRequisito] = useState<StatusRequisitoAPI[]>([]);
   const [events, setEvents]               = useState<EventoProjeto[]>([]);
-  const [audit, setAudit]                 = useState<AuditoriaAPI[]>([]);
+  const [atividades, setAtividades]       = useState<ItemAtividade[]>([]);
   const [resumo, setResumo]               = useState<ResumoInteracaoProjeto | null>(null);
   const [loading, setLoading]             = useState(true);
 
@@ -64,20 +102,22 @@ export default function ProjectDashboard() {
         buscarProjetoPorId(projectId),
         listarRequisitosPorProjeto(projectId),
         fetchEventsByProject(projectId),
-        listarAuditoriasPorProjeto(projectId),
+        veAuditoria
+          ? listarAuditoriasPorProjeto(projectId).then((l) => l.map(daAuditoria))
+          : listarInteracoesPorProjeto(projectId).then((l) => l.map(daInteracao)),
         buscarResumoPorProjeto(projectId),
         listarStatusRequisito(),
       ]);
       if (proj.status    === 'fulfilled') setProject(proj.value);
       if (req.status     === 'fulfilled') setReqs(req.value);
       if (ev.status      === 'fulfilled') setEvents(ev.value);
-      if (aud.status     === 'fulfilled') setAudit(aud.value);
+      if (aud.status     === 'fulfilled') setAtividades(aud.value);
       if (res.status     === 'fulfilled') setResumo(res.value);
       if (statuses.status === 'fulfilled') setStatusRequisito(statuses.value);
     } finally {
       setLoading(false);
     }
-  }, [projectId]);
+  }, [projectId, veAuditoria]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -124,10 +164,9 @@ export default function ProjectDashboard() {
     .sort((a, b) => new Date(a.dataHoraInicio!).getTime() - new Date(b.dataHoraInicio!).getTime())
     .slice(0, 3);
 
-  // ── Derived: auditoria ────────────────────────────────────────────────────
-  const recentActivity = [...audit]
-    .filter((a) => !isStakeholder || a.usuarioId === user?.id)
-    .sort((a, b) => new Date(b.dataAlteracao).getTime() - new Date(a.dataAlteracao).getTime())
+  // ── Derived: atividade recente ────────────────────────────────────────────
+  const recentActivity = [...atividades]
+    .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     .slice(0, 5);
 
   // ── Derived: interações ───────────────────────────────────────────────────
@@ -448,7 +487,7 @@ export default function ProjectDashboard() {
                     <HistoryIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
                     <Typography variant="h5">Atividade Recente</Typography>
                   </Box>
-                  {!isStakeholder && (
+                  {veAuditoria && (
                   <Button
                     size="small"
                     endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
@@ -467,14 +506,14 @@ export default function ProjectDashboard() {
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                     {recentActivity.map((entry, idx) => {
                       const color = activityColor[entry.acao] ?? '#6B7280';
-                      const name = entry.usuarioNome ?? 'Sistema';
+                      const name = entry.autor;
                       const inits = name.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase();
                       return (
                         <Box key={entry.id}>
                           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, py: 1.5 }}>
                             <Box sx={{ mt: 0.25 }}>
-                              {entry.usuarioAvatarUrl ? (
-                                <Avatar src={entry.usuarioAvatarUrl} sx={{ width: 30, height: 30 }} />
+                              {entry.avatarUrl ? (
+                                <Avatar src={entry.avatarUrl} sx={{ width: 30, height: 30 }} />
                               ) : (
                                 <Avatar sx={{ width: 30, height: 30, bgcolor: `${color}20`, fontSize: '12px', color }}>
                                   {inits}
@@ -483,12 +522,10 @@ export default function ProjectDashboard() {
                             </Box>
                             <Box sx={{ flex: 1 }}>
                               <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
-                                {entry.campoAlterado
-                                  ? `${entry.entidadeTipo} — ${entry.campoAlterado}`
-                                  : entry.entidadeTipo}
+                                {entry.titulo}
                               </Typography>
                               <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '11px' }}>
-                                {name} · {new Date(entry.dataAlteracao).toLocaleDateString('pt-BR', {
+                                {name} · {new Date(entry.data).toLocaleDateString('pt-BR', {
                                   day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit',
                                 })}
                               </Typography>

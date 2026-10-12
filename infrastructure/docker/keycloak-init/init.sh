@@ -49,14 +49,17 @@ RM_CLIENT_UUID=$(curl -sf "${KEYCLOAK_URL}/admin/realms/${REALM}/clients?clientI
 
 echo "[init] realm-management UUID: ${RM_CLIENT_UUID}"
 
-# 5. Buscar as roles manage-users, view-users e query-users do realm-management
+# 5. Buscar as roles do realm-management necessárias ao backend:
+#    manage-users/view-users/query-users → usuários, grupos e associação a grupos
+#    query-groups                        → listar/buscar grupos
+#    view-realm                          → ler roles do realm (mapear role em grupo)
 echo "[init] Buscando roles do realm-management..."
 ROLES_JSON=$(curl -sf "${KEYCLOAK_URL}/admin/realms/${REALM}/clients/${RM_CLIENT_UUID}/roles" \
   -H "Authorization: Bearer ${TOKEN}" \
   | python3 -c "
 import json,sys
 roles = json.load(sys.stdin)
-needed = ['manage-users', 'view-users', 'query-users']
+needed = ['manage-users', 'view-users', 'query-users', 'query-groups', 'view-realm']
 filtered = [r for r in roles if r['name'] in needed]
 print(json.dumps(filtered))
 ")
@@ -72,7 +75,7 @@ EXISTING=$(curl -sf "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${SA_USER_ID}/r
 echo "[init] Roles já atribuídas: ${EXISTING}"
 
 # 7. Atribuir as roles à service account
-echo "[init] Atribuindo roles manage-users, view-users e query-users ao plataforma-admin-client..."
+echo "[init] Atribuindo roles do realm-management ao plataforma-admin-client..."
 HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
   "${KEYCLOAK_URL}/admin/realms/${REALM}/users/${SA_USER_ID}/role-mappings/clients/${RM_CLIENT_UUID}" \
   -H "Authorization: Bearer ${TOKEN}" \
@@ -84,5 +87,11 @@ if [ "$HTTP_STATUS" = "204" ] || [ "$HTTP_STATUS" = "200" ]; then
 else
   echo "[init] AVISO: HTTP ${HTTP_STATUS} ao atribuir roles. Podem já estar atribuídas."
 fi
+
+# 8. Sincronizar roles, composites, mappers e grupos de topo a partir do realm-export.json.
+#    O --import-realm do Keycloak ignora realm já existente; este passo aplica as mudanças
+#    do arquivo também em ambientes que já têm o realm criado.
+echo "[init] Sincronizando configuracao de autorizacao do realm..."
+KEYCLOAK_URL="${KEYCLOAK_URL}" python3 /sync_realm.py /config/realm-export.json
 
 echo "[init] Inicializacao do Keycloak concluida com sucesso."

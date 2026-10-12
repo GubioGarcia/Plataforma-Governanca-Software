@@ -13,6 +13,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.repository.OrganizacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -51,6 +53,7 @@ public class ArquivoProjetoService {
     private final UsuarioRepository usuarioRepository;
     private final AuditoriaService auditoriaService;
     private final InteracaoService interacaoService;
+    private final AutorizacaoService autorizacao;
 
     // ── Upload ─────────────────────────────────────────────────────────────────
 
@@ -60,6 +63,7 @@ public class ArquivoProjetoService {
 
         Projeto projeto = projetoRepository.findById(projetoId)
                 .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.ARQUIVO_UPLOAD);
 
         validarArquivo(file);
 
@@ -108,9 +112,10 @@ public class ArquivoProjetoService {
 
     @Transactional(readOnly = true)
     public List<ArquivoProjetoResponseDTO> listar(UUID projetoId) {
-        if (!projetoRepository.existsById(projetoId)) {
-            throw new ProjetoNaoEncontradoException(projetoId);
-        }
+        Projeto projeto = projetoRepository.findById(projetoId)
+                .orElseThrow(() -> new ProjetoNaoEncontradoException(projetoId));
+        autorizacao.exigir(projeto, Permissao.ARQUIVO_VIEW);
+
         return arquivoRepository.findAllByProjetoIdAndAtivoTrue(projetoId).stream()
                 .map(this::toResponseDTO)
                 .toList();
@@ -122,6 +127,7 @@ public class ArquivoProjetoService {
     public DownloadResult download(UUID fileId) {
         ArquivoProjeto arquivo = arquivoRepository.findByIdAndAtivoTrue(fileId)
                 .orElseThrow(() -> new ArquivoNaoEncontradoException(fileId));
+        autorizacao.exigir(arquivo.getProjeto(), Permissao.ARQUIVO_DOWNLOAD);
 
         Path caminho = Paths.get(arquivo.getCaminhoArquivo());
         if (!Files.exists(caminho)) {
@@ -144,6 +150,7 @@ public class ArquivoProjetoService {
 
         ArquivoProjeto arquivo = arquivoRepository.findByIdAndAtivoTrue(fileId)
                 .orElseThrow(() -> new ArquivoNaoEncontradoException(fileId));
+        autorizacao.exigir(arquivo.getProjeto(), Permissao.ARQUIVO_DELETE);
 
         arquivo.setAtivo(false);
         arquivoRepository.save(arquivo);

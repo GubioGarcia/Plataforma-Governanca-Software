@@ -11,6 +11,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.dto.CriterioAceiteResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.CriterioAceiteRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -30,6 +32,7 @@ public class CriterioAceiteService {
     private final RequisitoRepository       requisitoRepository;
     private final UsuarioRepository         usuarioRepository;
     private final AuditoriaService          auditoriaService;
+    private final AutorizacaoService        autorizacao;
 
     // ── Criar ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +41,7 @@ public class CriterioAceiteService {
         Usuario  usuario  = resolverUsuario(jwt);
         Requisito requisito = requisitoRepository.findById(requisitoId)
                 .orElseThrow(() -> new RequisitoService.RequisitoNaoEncontradoException(requisitoId));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_EDIT);
 
         CriterioAceite criterio = CriterioAceite.builder()
                 .nome(request.nome())
@@ -72,9 +76,10 @@ public class CriterioAceiteService {
 
     @Transactional(readOnly = true)
     public List<CriterioAceiteResponseDTO> listarPorRequisito(UUID requisitoId) {
-        if (!requisitoRepository.existsById(requisitoId)) {
-            throw new RequisitoService.RequisitoNaoEncontradoException(requisitoId);
-        }
+        Requisito requisito = requisitoRepository.findById(requisitoId)
+                .orElseThrow(() -> new RequisitoService.RequisitoNaoEncontradoException(requisitoId));
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_VIEW);
+
         return criterioAceiteRepository
                 .findAllByRequisitoIdOrderByDataCriacaoAsc(requisitoId)
                 .stream()
@@ -86,6 +91,7 @@ public class CriterioAceiteService {
     public CriterioAceiteResponseDTO buscarPorId(UUID id) {
         CriterioAceite criterio = criterioAceiteRepository.findById(id)
                 .orElseThrow(() -> new CriterioAceiteNaoEncontradoException(id));
+        autorizacao.exigir(criterio.getRequisito().getProjeto(), Permissao.REQ_VIEW);
         return mapToResponseDTO(criterio);
     }
 
@@ -95,8 +101,9 @@ public class CriterioAceiteService {
     public CriterioAceiteResponseDTO atualizar(Jwt jwt, UUID id, AtualizarCriterioAceiteRequestDTO request) {
         CriterioAceite criterio  = criterioAceiteRepository.findById(id)
                 .orElseThrow(() -> new CriterioAceiteNaoEncontradoException(id));
-        Usuario        usuario   = resolverUsuario(jwt);
         Requisito      requisito = criterio.getRequisito();
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_EDIT);
+        Usuario        usuario   = resolverUsuario(jwt);
 
         // Auditoria por campo
         if (request.nome() != null && !request.nome().equals(criterio.getNome())) {
@@ -136,8 +143,9 @@ public class CriterioAceiteService {
     public void deletar(Jwt jwt, UUID id) {
         CriterioAceite criterio  = criterioAceiteRepository.findById(id)
                 .orElseThrow(() -> new CriterioAceiteNaoEncontradoException(id));
-        Usuario        usuario   = resolverUsuario(jwt);
         Requisito      requisito = criterio.getRequisito();
+        autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_EDIT);
+        Usuario        usuario   = resolverUsuario(jwt);
 
         // Auditoria: remoção do critério
         auditoriaService.registrar(

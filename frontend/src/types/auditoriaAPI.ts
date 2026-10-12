@@ -15,20 +15,3 @@ export interface AuditoriaAPI {
   usuarioAvatarUrl: string | null;
   dataAlteracao: string;
 }
-
-export interface CriarAuditoriaPayload {
-  organizacaoId?: string;
-  projetoId?: string;
-  entidadeTipo: string;
-  entidadeId: string;
-  acao: AcaoAuditoria;
-  campoAlterado: string;
-  valorAnterior?: string;
-  valorNovo?: string;
-}
-
-export interface AtualizarAuditoriaPayload {
-  campoAlterado?: string;
-  valorAnterior?: string;
-  valorNovo?: string;
-}

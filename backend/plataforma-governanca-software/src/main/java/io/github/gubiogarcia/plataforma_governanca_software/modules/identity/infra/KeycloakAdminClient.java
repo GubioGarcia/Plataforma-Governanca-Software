@@ -1,11 +1,48 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra;
 
+import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface KeycloakAdminClient {
 
     UUID criarUsuario(String email, String nome, String senha);
+
     void atualizarUsuario(UUID keycloakId, String novoNome, String novoEmail);
+
     void redefinirSenha(UUID keycloakId, String novaSenha);
+
     void desabilitarUsuario(UUID keycloakId);
+
+    /** Encerra todas as sessões do usuário no Keycloak (o refresh token deixa de valer). */
+    void encerrarSessoes(UUID keycloakId);
+
+    // ── Grupos ────────────────────────────────────────────────────────────────
+
+    /** Cria um grupo de topo. Se já existir um com o mesmo nome, devolve o id dele. */
+    UUID criarGrupo(String nome);
+
+    /** Cria um subgrupo. Se o pai já tiver um filho com o mesmo nome, devolve o id dele. */
+    UUID criarSubgrupo(UUID grupoPaiId, String nome);
+
+    /** Exclui o grupo e todos os subgrupos. Grupo inexistente é ignorado. */
+    void excluirGrupo(UUID grupoId);
+
+    void adicionarMembro(UUID usuarioKeycloakId, UUID grupoId);
+
+    /** Mapeia uma role de realm no grupo (todos os membros passam a tê-la no token). */
+    void mapearRoleNoGrupo(UUID grupoId, String nomeRole);
+
+    /** Id do grupo pelo caminho completo (ex.: /org-{id}/_membros); vazio se não existir. */
+    Optional<UUID> buscarGrupoPorCaminho(String caminho);
+
+    /** Ids (Keycloak) dos membros diretos do grupo. */
+    List<UUID> listarMembros(UUID grupoId);
+
+    void removerMembro(UUID usuarioKeycloakId, UUID grupoId);
+
+    /** Grupos dos quais o usuário é membro direto (id + caminho completo). */
+    List<GrupoDoUsuario> listarGruposDoUsuario(UUID usuarioKeycloakId);
+
+    record GrupoDoUsuario(UUID id, String caminho) {}
 }

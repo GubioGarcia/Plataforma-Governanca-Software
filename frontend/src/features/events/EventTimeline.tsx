@@ -10,6 +10,9 @@ import Dialog from '@mui/material/Dialog';
 import DialogActions from '@mui/material/DialogActions';
 import DialogContent from '@mui/material/DialogContent';
 import DialogTitle from '@mui/material/DialogTitle';
+import Chip from '@mui/material/Chip';
+import { criarSolicitacao } from '../../services/acessoService';
+import { isApiError } from '../../services/userService';
 import IconButton from '@mui/material/IconButton';
 import TextField from '@mui/material/TextField';
 import Tooltip from '@mui/material/Tooltip';
@@ -211,7 +214,9 @@ function CalendarView({ events, onEdit, onDelete, isStakeholder }: {
 export default function EventTimeline() {
   const { orgId, projectId } = useParams();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { isStakeholder, pode } = usePermissions();
+  // Stakeholder não cria evento: solicita (EVENTO_REQUEST)
+  const podeSolicitar = !pode('EVENTO_CREATE') && pode('EVENTO_REQUEST');
   const [allEvents, setAllEvents] = useState<EventoProjeto[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'timeline' | 'agenda'>('timeline');
@@ -261,6 +266,11 @@ export default function EventTimeline() {
         const updated = await updateEvent(editingId, payload);
         setAllEvents((prev) => prev.map((ev) => ev.id === editingId ? updated : ev));
         notify('Evento atualizado', 'success');
+      } else if (podeSolicitar) {
+        // Stakeholder não cria: pede o evento ao gestor (fica SOLICITADO até ser atendido)
+        await criarSolicitacao(projectId, { tipo: 'EVENTO', evento: payload });
+        setAllEvents(await fetchEventsByProject(projectId));
+        notify('Evento solicitado ao gestor do projeto', 'success');
       } else {
         if (!orgId) { notify('Organização não informada', 'error'); return; }
         const created = await createEvent({ ...payload, projetoId: projectId, organizacaoId: orgId });
@@ -268,8 +278,8 @@ export default function EventTimeline() {
         notify('Evento criado com sucesso', 'success');
       }
       setDialogOpen(false);
-    } catch {
-      notify('Não foi possível salvar o evento.', 'error');
+    } catch (err) {
+      notify(isApiError(err) ? err.response?.data?.detail ?? 'Não foi possível salvar o evento.' : 'Não foi possível salvar o evento.', 'error');
     }
   };
 
@@ -311,6 +321,9 @@ export default function EventTimeline() {
           {!isStakeholder && (
           <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate}>Novo Evento</Button>
           )}
+          {podeSolicitar && (
+          <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate}>Solicitar Evento</Button>
+          )}
         </Box>
       </Box>
 
@@ -341,7 +354,20 @@ export default function EventTimeline() {
                         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Typography variant="h6" sx={{ mb: 0.5, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{event.nome}</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                                <Typography variant="h6" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{event.nome}</Typography>
+                                {event.status && event.status !== 'APROVADO' && (
+                                  <Chip
+                                    size="small"
+                                    label={event.status === 'SOLICITADO' ? 'Aguardando aprovação' : 'Recusado'}
+                                    sx={{
+                                      height: 20, fontSize: 11, fontWeight: 600,
+                                      bgcolor: event.status === 'SOLICITADO' ? '#FEF3C7' : '#FEE2E2',
+                                      color: event.status === 'SOLICITADO' ? '#B45309' : '#B91C1C',
+                                    }}
+                                  />
+                                )}
+                              </Box>
                               <Typography variant="caption" sx={{ color: '#6B7280', display: 'block', mb: event.descricao ? 1 : 0 }}>
                                 {event.dataHoraInicio
                                   ? new Date(event.dataHoraInicio).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -371,7 +397,7 @@ export default function EventTimeline() {
 
       {/* Dialog criar / editar */}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{editingId ? 'Editar Evento' : 'Novo Evento'}</DialogTitle>
+        <DialogTitle>{editingId ? 'Editar Evento' : podeSolicitar ? 'Solicitar Evento' : 'Novo Evento'}</DialogTitle>
         <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2.5, pt: '16px !important' }}>
           <TextField label="Nome do evento" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} fullWidth autoFocus required placeholder="Ex.: Kick-off com Stakeholders" />
           <TextField label="Data e hora de início" type="datetime-local" value={form.dataHoraInicio} onChange={(e) => setForm((f) => ({ ...f, dataHoraInicio: e.target.value }))} fullWidth required InputLabelProps={{ shrink: true }} />

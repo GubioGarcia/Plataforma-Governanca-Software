@@ -1,0 +1,264 @@
+import type {
+  AtributoEntidadeAPI,
+  DiffEntidade,
+  ImpactoDadosAPI,
+  LinhaDiffAtributo,
+  ModeloDadosProjeto,
+  TipoOperacaoImpacto,
+  TipoRelacionamentoEntidade,
+} from '../types/dataModel';
+
+/**
+ * Projeções do modelo de dados usadas pelas telas: o diff "estado atual x
+ * estado proposto" de um requisito e a geração do diagrama ER.
+ *
+ * Convenção do diff: o modelo persistido representa o estado PROPOSTO (o mais
+ * recente). O estado ATUAL é reconstruído revertendo os impactos do requisito
+ * — é para isso que `ImpactoDados` guarda `valor_anterior` e `valor_novo`,
+ * mesmo princípio já adotado no módulo de auditoria.
+ */
+
+/**
+ * Assinatura textual de um atributo, no formato exibido no diff — inclui PK/FK
+ * para que uma edição que só muda a chave (sem mexer em tipo/obrigatório)
+ * apareça como uma alteração real no texto, não só na cor da linha.
+ */
+export function assinaturaAtributo(
+  atributo: Pick<AtributoEntidadeAPI, 'tipo' | 'obrigatorio' | 'chavePrimaria' | 'chaveEstrangeira' | 'entidadeReferenciadaNome'>,
+): string {
+  const marcadores: string[] = [];
+  if (atributo.chavePrimaria) marcadores.push('PK');
+  if (atributo.chaveEstrangeira) marcadores.push(`FK → ${atributo.entidadeReferenciadaNome ?? '—'}`);
+  const sufixo = marcadores.length > 0 ? ` · ${marcadores.join(', ')}` : '';
+  return `${atributo.tipo} ${atributo.obrigatorio ? 'NOT NULL' : 'NULL'}${sufixo}`;
+}
+
+export const ROTULOS_OPERACAO: Record<TipoOperacaoImpacto, string> = {
+  CRIA_ENTIDADE: 'Criação de entidade',
+  ALTERA_ENTIDADE: 'Alteração de entidade',
+  REMOVE_ENTIDADE: 'Remoção de entidade',
+  CRIA_ATRIBUTO: 'Adição de atributo',
+  ALTERA_ATRIBUTO: 'Alteração de atributo',
+  REMOVE_ATRIBUTO: 'Remoção de atributo',
+};
+
+export const ROTULOS_CARDINALIDADE: Record<TipoRelacionamentoEntidade, string> = {
+  UM_PARA_UM: '1 : 1',
+  UM_PARA_MUITOS: '1 : N',
+  MUITOS_PARA_MUITOS: 'N : N',
+};
+
+export const CORES_OPERACAO: Record<TipoOperacaoImpacto, string> = {
+  CRIA_ENTIDADE: '#7C3AED',
+  ALTERA_ENTIDADE: '#7C3AED',
+  REMOVE_ENTIDADE: '#DC2626',
+  CRIA_ATRIBUTO: '#16A34A',
+  ALTERA_ATRIBUTO: '#D97706',
+  REMOVE_ATRIBUTO: '#DC2626',
+};
+
+/**
+ * Monta o diff de todas as entidades tocadas por um requisito.
+ * Uma entrada por entidade, na ordem em que os impactos foram registrados.
+ */
+export function construirDiff(modelo: ModeloDadosProjeto, requisitoId: string): DiffEntidade[] {
+  const impactosDoRequisito = modelo.impactos.filter((i) => i.requisitoId === requisitoId);
+  if (impactosDoRequisito.length === 0) return [];
+
+  const atributoPorId = new Map(modelo.atributos.map((a) => [a.id, a]));
+  const entidadeIds = [...new Set(impactosDoRequisito.map((i) => i.entidadeId))];
+
+  return entidadeIds.flatMap((entidadeId) => {
+    const entidade = modelo.entidades.find((e) => e.id === entidadeId);
+    if (!entidade) return [];
+
+    const impactos = impactosDoRequisito.filter((i) => i.entidadeId === entidadeId);
+    const entidadeNova = impactos.some((i) => i.tipoOperacao === 'CRIA_ENTIDADE');
+
+    const atributosDaEntidade = modelo.atributos.filter((a) => a.entidadeId === entidadeId);
+    const linhas = new Map<string, LinhaDiffAtributo>();
+
+    // Base: estado proposto (o que está gravado no modelo hoje).
+    for (const atributo of atributosDaEntidade) {
+      const assinatura = assinaturaAtributo(atributo);
+      linhas.set(atributo.id, {
+        nome: atributo.nome,
+        atual: entidadeNova ? null : assinatura,
+        proposto: assinatura,
+        situacao: entidadeNova ? 'ADICIONADO' : 'INALTERADO',
+      });
+    }
+
+    // Reversão: cada impacto reconstrói como o atributo estava antes.
+    for (const impacto of impactos) {
+      aplicarImpactoNoDiff(impacto, linhas, atributoPorId);
+    }
+
+    return [{ entidade, linhas: [...linhas.values()], entidadeNova }];
+  });
+}
+
+function aplicarImpactoNoDiff(
+  impacto: ImpactoDadosAPI,
+  linhas: Map<string, LinhaDiffAtributo>,
+  atributoPorId: Map<string, AtributoEntidadeAPI>,
+): void {
+  if (
+    impacto.tipoOperacao === 'CRIA_ENTIDADE' ||
+    impacto.tipoOperacao === 'ALTERA_ENTIDADE' ||
+    impacto.tipoOperacao === 'REMOVE_ENTIDADE' ||
+    !impacto.atributoId
+  )
+    return;
+
+  const atributo = atributoPorId.get(impacto.atributoId);
+  const chave = impacto.atributoId;
+  const nome = atributo?.nome ?? 'atributo';
+  const propostoAtual = atributo ? assinaturaAtributo(atributo) : impacto.valorNovo;
+
+  switch (impacto.tipoOperacao) {
+    case 'CRIA_ATRIBUTO':
+      linhas.set(chave, {
+        nome,
+        atual: null,
+        proposto: impacto.valorNovo ?? propostoAtual,
+        situacao: 'ADICIONADO',
+      });
+      break;
+    case 'ALTERA_ATRIBUTO':
+      linhas.set(chave, {
+        nome,
+        atual: impacto.valorAnterior,
+        proposto: impacto.valorNovo ?? propostoAtual,
+        situacao: 'ALTERADO',
+      });
+      break;
+    case 'REMOVE_ATRIBUTO':
+      linhas.set(chave, {
+        nome,
+        atual: impacto.valorAnterior ?? propostoAtual,
+        proposto: null,
+        situacao: 'REMOVIDO',
+      });
+      break;
+  }
+}
+
+// ── Diagrama ER ────────────────────────────────────────────────────────────
+
+/** Remove os sinais diacríticos, mantendo apenas as letras-base. */
+function removerAcentos(texto: string): string {
+  const COMBINANTES_INICIO = 0x0300;
+  const COMBINANTES_FIM = 0x036f;
+  return [...texto.normalize('NFD')]
+    .filter((caractere) => {
+      const codigo = caractere.codePointAt(0) ?? 0;
+      return codigo < COMBINANTES_INICIO || codigo > COMBINANTES_FIM;
+    })
+    .join('');
+}
+
+/** Nome de entidade no formato aceito pelo Mermaid (sem espaços ou acentos). */
+function nomeMermaid(nome: string): string {
+  return removerAcentos(nome)
+    .replace(/[^A-Za-z0-9_]/g, '_')
+    .toUpperCase();
+}
+
+/** Tipos como `NUMERIC(12,2)` precisam perder espaços para o parser do Mermaid. */
+function tipoMermaid(tipo: string): string {
+  return tipo.replace(/\s+/g, '_').replace(/[^A-Za-z0-9_(),[\]]/g, '');
+}
+
+const CARDINALIDADE_MERMAID: Record<string, string> = {
+  UM_PARA_UM: '||--||',
+  UM_PARA_MUITOS: '||--o{',
+  MUITOS_PARA_MUITOS: '}o--o{',
+};
+
+export interface OpcoesDiagrama {
+  /** Restringe o diagrama a estas entidades e às suas vizinhas diretas. */
+  entidadesEmFoco?: string[];
+  /** Omite a lista de atributos, deixando apenas as caixas e as ligações. */
+  somenteEstrutura?: boolean;
+}
+
+/**
+ * Gera o código `erDiagram` do Mermaid a partir do estado atual do modelo.
+ * O diagrama é derivado a cada render — não há artefato salvo para
+ * desatualizar.
+ */
+/** Classe Mermaid aplicada às entidades com impacto de remoção registrado. */
+const CLASSE_ENTIDADE_REMOVIDA = 'entidadeRemovida';
+
+export function gerarErDiagram(modelo: ModeloDadosProjeto, opcoes: OpcoesDiagrama = {}): string {
+  const { entidadesEmFoco, somenteEstrutura = false } = opcoes;
+
+  let entidades = modelo.entidades;
+  let relacionamentos = modelo.relacionamentos;
+
+  // Entidades com ao menos um impacto de remoção registrado (de qualquer
+  // requisito) ganham destaque em vermelho no diagrama — mesmo princípio já
+  // usado para as cores de operação (CORES_OPERACAO.REMOVE_ENTIDADE).
+  const entidadesMarcadasParaRemocao = new Set(
+    modelo.impactos.filter((i) => i.tipoOperacao === 'REMOVE_ENTIDADE').map((i) => i.entidadeId),
+  );
+
+  if (entidadesEmFoco && entidadesEmFoco.length > 0) {
+    const foco = new Set(entidadesEmFoco);
+    relacionamentos = modelo.relacionamentos.filter(
+      (r) => foco.has(r.entidadeOrigemId) || foco.has(r.entidadeDestinoId),
+    );
+    const visiveis = new Set(foco);
+    for (const relacionamento of relacionamentos) {
+      visiveis.add(relacionamento.entidadeOrigemId);
+      visiveis.add(relacionamento.entidadeDestinoId);
+    }
+    entidades = modelo.entidades.filter((e) => visiveis.has(e.id));
+  }
+
+  const nomePorId = new Map(entidades.map((e) => [e.id, nomeMermaid(e.nome)]));
+  const linhas: string[] = ['erDiagram'];
+
+  for (const relacionamento of relacionamentos) {
+    const origem = nomePorId.get(relacionamento.entidadeOrigemId);
+    const destino = nomePorId.get(relacionamento.entidadeDestinoId);
+    if (!origem || !destino) continue;
+    const cardinalidade = CARDINALIDADE_MERMAID[relacionamento.tipo] ?? '||--o{';
+    const rotulo = relacionamento.atributoFkNome ?? 'relaciona';
+    linhas.push(`    ${origem} ${cardinalidade} ${destino} : "${rotulo}"`);
+  }
+
+  const nomesMarcadosParaRemocao: string[] = [];
+
+  for (const entidade of entidades) {
+    const nome = nomePorId.get(entidade.id) as string;
+    if (entidadesMarcadasParaRemocao.has(entidade.id)) {
+      nomesMarcadosParaRemocao.push(nome);
+    }
+
+    if (somenteEstrutura) {
+      linhas.push(`    ${nome} {`, '    }');
+      continue;
+    }
+
+    linhas.push(`    ${nome} {`);
+    for (const atributo of modelo.atributos.filter((a) => a.entidadeId === entidade.id)) {
+      const marcador = atributo.chavePrimaria ? ' PK' : atributo.chaveEstrangeira ? ' FK' : '';
+      linhas.push(`        ${tipoMermaid(atributo.tipo)} ${atributo.nome}${marcador}`);
+    }
+    linhas.push('    }');
+  }
+
+  if (nomesMarcadosParaRemocao.length > 0) {
+    linhas.push(`    classDef ${CLASSE_ENTIDADE_REMOVIDA} fill:#FEE2E2,stroke:#DC2626,color:#7F1D1D`);
+    linhas.push(`    class ${nomesMarcadosParaRemocao.join(',')} ${CLASSE_ENTIDADE_REMOVIDA}`);
+  }
+
+  return linhas.join('\n');
+}
+
+/** Nome no formato do diagrama — usado para destacar a entidade em foco no SVG. */
+export function idEntidadeNoDiagrama(nome: string): string {
+  return nomeMermaid(nome);
+}

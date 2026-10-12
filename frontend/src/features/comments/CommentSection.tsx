@@ -10,9 +10,12 @@ import Typography from '@mui/material/Typography';
 import AddCommentIcon from '@mui/icons-material/AddComment';
 import CalendarTodayIcon from '@mui/icons-material/CalendarToday';
 import CheckIcon from '@mui/icons-material/Check';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import CloseIcon from '@mui/icons-material/Close';
 import DeleteIcon from '@mui/icons-material/Delete';
 import EditIcon from '@mui/icons-material/Edit';
+import SwapVertIcon from '@mui/icons-material/SwapVert';
 import { useAuth } from '../../context/useAuth';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { extractApiErrorMessage } from '../../utils/apiError';
@@ -25,6 +28,9 @@ import {
 import type { ComentarioAPI } from './types';
 
 const MAX_COMENTARIO = 2000;
+
+/** Mesmo esquema do card "Alterações": 4 registros por página. */
+const PAGE_SIZE = 4;
 
 // ── Props ─────────────────────────────────────────────────────────────────────
 
@@ -306,6 +312,9 @@ export default function CommentSection({
   const [loading, setLoading]       = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [novoTexto, setNovoTexto]   = useState('');
+  const [page, setPage]             = useState(0);
+  /** 'asc' = mais antigos primeiro (ordem do backend); 'desc' = mais recentes primeiro. */
+  const [ordem, setOrdem]           = useState<'asc' | 'desc'>('asc');
 
   // ── Carregar ──────────────────────────────────────────────────────────────
 
@@ -314,6 +323,7 @@ export default function CommentSection({
       setLoading(true);
       const data = await listarComentarios(entidadeTipo, entidadeId);
       setComentarios(data);
+      setPage(0);
     } catch {
       notify('Não foi possível carregar os comentários.', 'error');
     } finally {
@@ -323,6 +333,12 @@ export default function CommentSection({
 
   useEffect(() => { carregar(); }, [carregar]);
 
+  // Mantém a página dentro do intervalo válido quando a lista encolhe.
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(comentarios.length / PAGE_SIZE));
+    setPage((p) => Math.min(p, totalPages - 1));
+  }, [comentarios.length]);
+
   // ── Criar ─────────────────────────────────────────────────────────────────
 
   async function handleSubmit() {
@@ -331,8 +347,12 @@ export default function CommentSection({
     setSubmitting(true);
     try {
       const novo = await criarComentario({ conteudo, entidadeTipo, entidadeId, projetoId, organizacaoId });
-      setComentarios((prev) => [...prev, novo]);
+      const proxima = [...comentarios, novo];
+      setComentarios(proxima);
       setNovoTexto('');
+      // Vai para a página onde o comentário recém-criado aparece, conforme a ordenação.
+      const ultimaPagina = Math.max(0, Math.ceil(proxima.length / PAGE_SIZE) - 1);
+      setPage(ordem === 'asc' ? ultimaPagina : 0);
       notify('Comentário adicionado.', 'success');
     } catch (err) {
       notify(extractApiErrorMessage(err, 'Erro ao adicionar comentário.'), 'error');
@@ -376,12 +396,61 @@ export default function CommentSection({
 
   // ── Render ────────────────────────────────────────────────────────────────
 
+  const totalPages = Math.max(1, Math.ceil(comentarios.length / PAGE_SIZE));
+  // `comentarios` vem sempre em ordem cronológica (asc); a exibição inverte quando pedido.
+  const ordenados = ordem === 'asc' ? comentarios : [...comentarios].reverse();
+  const paginados = ordenados.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+
+  function alternarOrdem() {
+    setOrdem((o) => (o === 'asc' ? 'desc' : 'asc'));
+    setPage(0);
+  }
+
   return (
     <Box>
-      {/* Título */}
-      <Typography variant="h6" sx={{ fontWeight: 700, mb: 2.5, fontSize: '1rem' }}>
-        Comentários
-      </Typography>
+      {/* Título + contador + ordenação */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2.5 }}>
+        <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1rem', flex: 1 }}>
+          Comentários
+        </Typography>
+
+        {!loading && comentarios.length > 0 && (
+          <Tooltip title={`${comentarios.length} comentário${comentarios.length !== 1 ? 's' : ''} no total`}>
+            <Box
+              sx={{
+                bgcolor: 'primary.main',
+                color: 'primary.contrastText',
+                borderRadius: '50%',
+                minWidth: 22,
+                height: 22,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: 11,
+                fontWeight: 700,
+                px: 0.5,
+                cursor: 'default',
+              }}
+            >
+              {comentarios.length}
+            </Box>
+          </Tooltip>
+        )}
+
+        {!loading && comentarios.length > 1 && (
+          <Tooltip
+            title={
+              ordem === 'asc'
+                ? 'Mais antigos primeiro — clique para inverter'
+                : 'Mais recentes primeiro — clique para inverter'
+            }
+          >
+            <IconButton size="small" onClick={alternarOrdem} sx={{ width: 28, height: 28 }}>
+              <SwapVertIcon sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Tooltip>
+        )}
+      </Box>
 
       {/* Lista */}
       {loading ? (
@@ -396,28 +465,76 @@ export default function CommentSection({
           Nenhum comentário ainda. Seja o primeiro a comentar.
         </Typography>
       ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column' }}>
-          {comentarios.map((c, idx) => {
-            const isOwn = user?.id === c.usuarioId;
+        <>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
+            {paginados.map((c) => {
+              const isOwn = user?.id === c.usuarioId;
 
-            // Um comentário tem "posterior" se existir algum outro comentário
-            // ativo com índice maior na lista ordenada por dataCriacao ASC.
-            // Como a lista já vem ordenada do backend, basta checar se há
-            // algum elemento após este índice.
-            const temPosterior = idx < comentarios.length - 1;
+              // Um comentário tem "posterior" se existir outro comentário ativo
+              // criado depois dele. `comentarios` está sempre em ordem
+              // cronológica, então basta olhar a posição real (independe da
+              // ordem de exibição escolhida pelo usuário).
+              const chronoIdx = comentarios.findIndex((x) => x.id === c.id);
+              const temPosterior = chronoIdx > -1 && chronoIdx < comentarios.length - 1;
 
-            return (
-              <CommentCard
-                key={c.id}
-                comentario={c}
-                isOwn={isOwn}
-                temPosterior={temPosterior}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-              />
-            );
-          })}
-        </Box>
+              return (
+                <CommentCard
+                  key={c.id}
+                  comentario={c}
+                  isOwn={isOwn}
+                  temPosterior={temPosterior}
+                  onEdit={handleEdit}
+                  onDelete={handleDelete}
+                />
+              );
+            })}
+          </Box>
+
+          {/* ── Paginação — mesmo padrão do card "Alterações" ── */}
+          {totalPages > 1 && (
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                mt: 2,
+                pt: 1.5,
+                borderTop: '1px solid',
+                borderColor: 'divider',
+              }}
+            >
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: 11 }}>
+                {page + 1} de {totalPages}
+              </Typography>
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <Tooltip title="Página anterior">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => setPage((p) => p - 1)}
+                      disabled={page === 0}
+                      sx={{ width: 28, height: 28 }}
+                    >
+                      <ChevronLeftIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+                <Tooltip title="Próxima página">
+                  <span>
+                    <IconButton
+                      size="small"
+                      onClick={() => setPage((p) => p + 1)}
+                      disabled={page >= totalPages - 1}
+                      sx={{ width: 28, height: 28 }}
+                    >
+                      <ChevronRightIcon sx={{ fontSize: 16 }} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            </Box>
+          )}
+        </>
       )}
 
       {/* Input novo comentário */}
@@ -466,29 +583,40 @@ export default function CommentSection({
         <Box
           sx={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
+            flexDirection: 'column',
+            alignItems: 'flex-end',
             mt: 1.5,
             pl: 6,
           }}
         >
-          <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-            Ctrl+Enter para enviar
-          </Typography>
           <Button
             variant="contained"
             size="small"
             startIcon={
               submitting
-                ? <CircularProgress size={14} sx={{ color: 'inherit' }} />
-                : <AddCommentIcon sx={{ fontSize: 16 }} />
+                ? <CircularProgress size={12} sx={{ color: 'inherit' }} />
+                : <AddCommentIcon sx={{ fontSize: 14 }} />
             }
             onClick={handleSubmit}
             disabled={!novoTexto.trim() || submitting}
-            sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 600 }}
+            sx={{
+              borderRadius: 1.5,
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: 12,
+              py: 0.4,
+              px: 1.25,
+              minWidth: 0,
+            }}
           >
             Adicionar comentário
           </Button>
+          <Typography
+            variant="caption"
+            sx={{ color: 'text.disabled', fontSize: 10.5, mt: 0.5 }}
+          >
+            Ctrl+Enter para enviar
+          </Typography>
         </Box>
       </Box>
     </Box>
