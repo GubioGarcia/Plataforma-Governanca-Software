@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback } from 'react';
+import { createContext, useContext, useState, useCallback, useMemo, useRef } from 'react';
 import Snackbar from '@mui/material/Snackbar';
 import Alert from '@mui/material/Alert';
 
@@ -16,49 +16,49 @@ interface SnackbarCtx {
 
 const SnackbarContext = createContext<SnackbarCtx>({ notify: () => {} });
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useSnackbar() {
   return useContext(SnackbarContext);
 }
 
 export function SnackbarProvider({ children }: { children: React.ReactNode }) {
-  const [_queue, setQueue] = useState<SnackMsg[]>([]);
   const [open, setOpen] = useState(false);
   const [current, setCurrent] = useState<SnackMsg | null>(null);
+  // Fila e "ocupado" em refs: o notify não depende de estado e mantém a mesma
+  // identidade. Muitas telas o têm nas dependências do useEffect de carga; se ele
+  // mudasse a cada abertura do snackbar, a tela recarregaria (e, num erro, em laço).
+  const fila = useRef<SnackMsg[]>([]);
+  const ocupado = useRef(false);
+  const proximaChave = useRef(0);
 
-  const processQueue = useCallback(() => {
-    setQueue((prev) => {
-      if (prev.length === 0) return prev;
-      const [next, ...rest] = prev;
-      setCurrent(next);
-      setOpen(true);
-      return rest;
-    });
+  const exibir = useCallback((msg: SnackMsg) => {
+    ocupado.current = true;
+    setCurrent(msg);
+    setOpen(true);
   }, []);
 
   const notify = useCallback((message: string, severity: Severity = 'success') => {
-    setQueue((prev) => {
-      const entry: SnackMsg = { message, severity, key: Date.now() };
-      const next = [...prev, entry];
-      if (!open && prev.length === 0) {
-        setCurrent(entry);
-        setOpen(true);
-        return [];
-      }
-      return next;
-    });
-  }, [open]);
+    const entry: SnackMsg = { message, severity, key: ++proximaChave.current };
+    if (ocupado.current) fila.current.push(entry);
+    else exibir(entry);
+  }, [exibir]);
 
   const handleClose = (_: React.SyntheticEvent | Event, reason?: string) => {
     if (reason === 'clickaway') return;
     setOpen(false);
   };
 
+  // Só depois da animação de saída mostra a próxima mensagem da fila
   const handleExited = () => {
-    processQueue();
+    const next = fila.current.shift();
+    if (next) exibir(next);
+    else ocupado.current = false;
   };
 
+  const value = useMemo(() => ({ notify }), [notify]);
+
   return (
-    <SnackbarContext.Provider value={{ notify }}>
+    <SnackbarContext.Provider value={value}>
       {children}
       <Snackbar
         key={current?.key}
