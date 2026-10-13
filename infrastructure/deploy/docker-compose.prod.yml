@@ -1,0 +1,142 @@
+# Ambiente hospedado (VM Oracle Always Free: 1 GB de RAM + 2 GB de swap).
+# Montado e enviado por publicar.sh; na VM vira ~/plataforma/docker-compose.yml.
+# Os segredos vêm do ~/plataforma/.env da VM (gerado lá por subir.sh, nunca versionado).
+#
+# Diferenças para o compose de desenvolvimento:
+#  - só o nginx fica exposto (80/443); Keycloak e backend escutam apenas em 127.0.0.1
+#    (para o carregar_demo.sh), o PostgreSQL não publica porta;
+#  - imagens montadas a partir do jar e do dist já compilados (nada compila na VM);
+#  - limites de memória das JVMs e do PostgreSQL para caber na máquina.
+
+services:
+
+  postgres:
+    image: postgres:15
+    container_name: postgres-db
+    restart: unless-stopped
+    command: postgres -c shared_buffers=32MB -c max_connections=60
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Sao_Paulo
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.2
+    container_name: idprovider_keycloak
+    restart: unless-stopped
+    # Não é exposto à internet (só a rede interna e 127.0.0.1 da VM), por isso o modo dev
+    # mantém o mesmo hostname/issuer do ambiente local sem exigir HTTPS no Keycloak.
+    command: start-dev --import-realm
+    environment:
+      KC_DB: postgres
+      KC_DB_URL_HOST: postgres
+      KC_DB_URL_DATABASE: ${KEYCLOAK_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_HOSTNAME: localhost
+      KC_HOSTNAME_STRICT: "false"
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "false"
+      KC_HEALTH_ENABLED: "true"
+      JAVA_OPTS_APPEND: "-Xms64m -Xmx320m"
+      TZ: America/Sao_Paulo
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # realm-export com os client secrets da VM (gerado por subir.sh)
+      - ./keycloak/realm-export.prod.json:/opt/keycloak/data/import/realm-export.json:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/localhost/8080 && echo -e 'GET /health/ready HTTP/1.0\\r\\nHost: localhost\\r\\n\\r\\n' >&3 && grep -q '\"status\": \"UP\"' <&3"]
+      interval: 15s
+      timeout: 10s
+      retries: 40
+      start_period: 180s
+
+  keycloak-init:
+    build:
+      context: ./keycloak-init
+    container_name: keycloak-init
+    environment:
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    volumes:
+      - ./keycloak/realm-export.prod.json:/config/realm-export.json:ro
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    restart: on-failure
+
+  backend:
+    build:
+      context: ./backend
+    container_name: backend
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: America/Sao_Paulo
+      KEYCLOAK_JWK_SET_URI: http://keycloak:8080/realms/plataforma_discovery/protocol/openid-connect/certs
+      KEYCLOAK_TOKEN_ISSUER: http://localhost/realms/plataforma_discovery
+      KEYCLOAK_TOKEN_URL: http://idprovider_keycloak:8080/realms/plataforma_discovery/protocol/openid-connect/token
+      KEYCLOAK_CLIENT_ID: plataforma-api-client
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET}
+      KEYCLOAK_ADMIN_CLIENT_ID: plataforma-admin-client
+      KEYCLOAK_ADMIN_CLIENT_SECRET: ${KEYCLOAK_ADMIN_CLIENT_SECRET}
+      AUTH_COOKIE_SECURE: "true"
+      # Usa os X-Forwarded-* do nginx: sem isso o Spring vê http:// e recusa como CORS
+      # o Origin https:// do navegador ("Invalid CORS request")
+      SERVER_FORWARD_HEADERS_STRATEGY: native
+      FILE_STORAGE_ROOT: /files
+      FILE_STORAGE_MAX_MB: 20
+      JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:+UseSerialGC"
+    volumes:
+      - project_files:/files
+    depends_on:
+      keycloak:
+        condition: service_healthy
+      keycloak-init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: frontend
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: nginx
+    restart: unless-stopped
+    environment:
+      DOMINIO: ${DOMINIO}
+      TZ: America/Sao_Paulo
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # o entrypoint da imagem troca ${DOMINIO} no template e grava em conf.d/
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+    depends_on:
+      - frontend
+      - backend
+
+volumes:
+  postgres_data:
+  project_files:

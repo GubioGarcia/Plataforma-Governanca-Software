@@ -195,6 +195,14 @@ Contas criadas, iguais às do ambiente hospedado (e-mails fictícios; senha padr
 
 ---
 
+## Hospedagem
+
+A plataforma está publicada em **https://129-148-55-171.sslip.io**, numa VM Oracle Cloud Always Free, com HTTPS do Let's Encrypt. As contas da demonstração usam **e-mails fictícios** (`gubio@email.com`, `luizfernando@email.com`, `thiago@email.com`, `plinio@email.com`). As senhas do banco e do Keycloak são geradas na própria VM e não ficam no repositório.
+
+Como publicar, a configuração de produção e a operação estão em [`infrastructure/deploy/README.md`](infrastructure/deploy/README.md).
+
+---
+
 ## Testes
 
 | O quê | Como executar | Cobertura |
@@ -222,7 +230,7 @@ Os testes ponta a ponta criam usuários e organizações descartáveis e apagam 
 ```
 backend/          # API Spring Boot (Java 21 + Spring Boot 4)
 frontend/         # SPA React 19 + TypeScript + Vite (+ testes Playwright em e2e/)
-infrastructure/   # Docker Compose, Nginx, Keycloak e PostgreSQL
+infrastructure/   # Docker Compose, Nginx, Keycloak e PostgreSQL (+ deploy/: ambiente hospedado)
 scripts/          # Seed de demonstração, recriação do ambiente de dev e e2e da API
 ```
 

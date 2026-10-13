@@ -28,9 +28,13 @@ docker/
  ├── postgres          # init.sql (cria o banco do Keycloak)
  └── nginx             # nginx.conf
 
+deploy/                # ambiente hospedado (compose de produção, HTTPS, scripts de publicação)
+
 docker-compose.yml
 .env
 ```
+
+> O `docker-compose.yml` e o `.env` desta pasta são do **ambiente local de desenvolvimento**. A publicação na nuvem usa `deploy/`, com senhas geradas na VM: veja [`deploy/README.md`](deploy/README.md).
 
 Descrição:
 

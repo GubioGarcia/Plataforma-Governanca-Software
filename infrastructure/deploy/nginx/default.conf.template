@@ -1,0 +1,53 @@
+# Proxy reverso do ambiente hospedado. ${DOMINIO} é preenchido pelo entrypoint
+# da imagem nginx a partir da variável de ambiente; as variáveis do nginx
+# ($host, $remote_addr...) não são tocadas.
+
+server {
+  listen 80;
+  server_name ${DOMINIO};
+  return 301 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${DOMINIO};
+
+  ssl_certificate     /etc/letsencrypt/live/${DOMINIO}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${DOMINIO}/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_session_cache shared:SSL:5m;
+
+  add_header Strict-Transport-Security "max-age=31536000" always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy same-origin always;
+  server_tokens off;
+
+  # Uploads de até 25 MB (margem sobre o limite de 20 MB da aplicação)
+  client_max_body_size 25m;
+
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header X-Forwarded-Port 443;
+
+  # ── Backend API ──────────────────────────────────────────────────────────────
+  location /api/ {
+    proxy_pass http://backend:8081;
+    proxy_read_timeout 120s;
+  }
+
+  location /swagger-ui/ {
+    proxy_pass http://backend:8081/swagger-ui/;
+  }
+
+  location /v3/api-docs {
+    proxy_pass http://backend:8081/v3/api-docs;
+  }
+
+  # ── Frontend (React SPA) ─────────────────────────────────────────────────────
+  location / {
+    proxy_pass http://frontend:80;
+  }
+}
