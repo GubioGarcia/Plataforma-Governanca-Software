@@ -184,14 +184,14 @@ py scripts/recriar_ambiente_dev.py --confirmar
 
 > ⚠️ **Destrutivo:** apaga o banco da aplicação, todos os usuários do realm e os grupos de organização no Keycloak. Use apenas no ambiente local.
 
-Contas criadas (senha padrão `Demo@2026`, configurável por `DEV_SENHA_DEMO`):
+Contas criadas, iguais às do ambiente hospedado (e-mails fictícios; senha padrão `TCC@{nome}2026`, configurável por `DEV_SENHA_DEMO`, onde `{nome}` vira o primeiro nome da pessoa, sem acento):
 
-| Conta | Papel |
-|---|---|
-| gubiogarcia@gmail.com | Dono da organização e do projeto + Admin da Plataforma |
-| luizfernandopadua@gmail.com | Gestor da organização |
-| thiagomatheus@gmail.com | Gestor da organização |
-| plinio.carneiro@fatesg.senai.br | Stakeholder Técnico + Cliente do projeto |
+| Conta | Papel | Senha |
+|---|---|---|
+| gubio@email.com | Dono da organização e do projeto + Admin da Plataforma | `TCC@Gubio2026` |
+| luizfernando@email.com | Gestor da organização | `TCC@Luiz2026` |
+| thiago@email.com | Gestor da organização | `TCC@Thiago2026` |
+| plinio@email.com | Stakeholder Técnico + Cliente do projeto | `TCC@Plinio2026` |
 
 ---
 

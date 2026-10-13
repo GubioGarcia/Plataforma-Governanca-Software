@@ -31,9 +31,10 @@ Variáveis de ambiente (opcionais):
     DEV_PG_USER         admin
     DEV_PG_DB           plataforma
     DEV_BACKEND         backend        (nome do container do backend)
-    DEV_SENHA_DEMO      Demo@2026      (senha de todas as contas da demo)
+    DEV_SENHA_DEMO      TCC@{nome}2026 (senha das contas da demo; "{nome}" vira o primeiro
+                                        nome da pessoa, sem acento: TCC@Gubio2026, TCC@Luiz2026...)
 """
-import json, os, pathlib, subprocess, sys, time, urllib.error, urllib.parse, urllib.request
+import json, os, pathlib, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
 
 API = os.getenv("DEV_API_URL", "http://localhost:8081/api")
 KC = os.getenv("DEV_KEYCLOAK_URL", "http://localhost:8080")
@@ -43,7 +44,7 @@ PG_CONTAINER = os.getenv("DEV_PG_CONTAINER", "postgres-db")
 PG_USER = os.getenv("DEV_PG_USER", "admin")
 PG_DB = os.getenv("DEV_PG_DB", "plataforma")
 BACKEND = os.getenv("DEV_BACKEND", "backend")
-SENHA = os.getenv("DEV_SENHA_DEMO", "Demo@2026")
+SENHA = os.getenv("DEV_SENHA_DEMO", "TCC@{nome}2026")
 
 SEED = pathlib.Path(__file__).with_name("seed_tcc_projeto_demo.sql")
 A = f"{KC}/admin/realms/{REALM}"
@@ -52,12 +53,19 @@ PROJ = "20000000-0000-0000-0000-000000000001"     # projeto do TCC (seed)
 
 # e-mail → (nome, grupos além dos criados pela migração)
 PESSOAS = {
-    "gubiogarcia@gmail.com":           ("Gubio Garcia dos Santos",                  ["/_admin"]),
-    "luizfernandopadua@gmail.com":     ("Luiz Fernando De Pádua Paixão",            [f"/org-{ORG}/_gestores"]),
-    "thiagomatheus@gmail.com":         ("Thiago Matheus Onorio Ribeiro Pinheiro",   [f"/org-{ORG}/_gestores"]),
-    "plinio.carneiro@fatesg.senai.br": ("Prof. Esp. Plínio Marcos Mendes Carneiro", [f"/org-{ORG}/proj-{PROJ}/_stakeholders_tecnicos",
-                                                                                     f"/org-{ORG}/proj-{PROJ}/_stakeholders_clientes"]),
+    "gubio@email.com":        ("Gubio Garcia dos Santos",                  ["/_admin"]),
+    "luizfernando@email.com": ("Luiz Fernando De Pádua Paixão",            [f"/org-{ORG}/_gestores"]),
+    "thiago@email.com":       ("Thiago Matheus Onorio Ribeiro Pinheiro",   [f"/org-{ORG}/_gestores"]),
+    "plinio@email.com":       ("Prof. Esp. Plínio Marcos Mendes Carneiro", [f"/org-{ORG}/proj-{PROJ}/_stakeholders_tecnicos",
+                                                                            f"/org-{ORG}/proj-{PROJ}/_stakeholders_clientes"]),
 }
+
+
+def senha_de(email):
+    """Aplica o primeiro nome (sem títulos como "Prof." e sem acento) no lugar de {nome}."""
+    primeiro = next(p for p in PESSOAS[email][0].split() if not p.endswith("."))
+    sem_acento = unicodedata.normalize("NFKD", primeiro).encode("ascii", "ignore").decode()
+    return SENHA.replace("{nome}", sem_acento)
 
 
 def passo(texto):
@@ -156,7 +164,7 @@ def main():
         s, b, h = chamar("POST", f"{A}/users", {
             "username": email, "email": email, "firstName": nome, "lastName": nome,
             "enabled": True, "emailVerified": True, "requiredActions": [],
-            "credentials": [{"type": "password", "value": SENHA, "temporary": False}]}, token=t)
+            "credentials": [{"type": "password", "value": senha_de(email), "temporary": False}]}, token=t)
         if s != 201:
             sys.exit(f"Falha ao criar {email} no Keycloak: HTTP {s} {b}")
         ids[email] = h["Location"].rsplit("/", 1)[1]
@@ -171,8 +179,13 @@ def main():
     passo("6. Reiniciando o backend (migração cria os grupos e põe o criador no _dono)")
     docker("restart", BACKEND)
     esperar_backend()
-    sem_grupo = psql("SELECT (SELECT count(*) FROM organizacao WHERE keycloak_group_id IS NULL)"
-                     " + (SELECT count(*) FROM projeto WHERE keycloak_group_id IS NULL)")
+    # A migração roda depois de o backend já responder; em máquina lenta leva mais de um minuto.
+    for _ in range(60):
+        sem_grupo = psql("SELECT (SELECT count(*) FROM organizacao WHERE keycloak_group_id IS NULL)"
+                         " + (SELECT count(*) FROM projeto WHERE keycloak_group_id IS NULL)")
+        if sem_grupo == "0":
+            break
+        time.sleep(5)
     if sem_grupo != "0":
         sys.exit(f"{sem_grupo} organização/projeto sem grupo no Keycloak — veja `docker logs {BACKEND}`.")
     print("   grupos da organização e do projeto criados")
@@ -190,7 +203,7 @@ def main():
     passo("8. Conferência (login + /api/auth/me)")
     ok = True
     for email in PESSOAS:
-        s, b, _ = chamar("POST", f"{API}/auth/login", {"email": email, "senha": SENHA})
+        s, b, _ = chamar("POST", f"{API}/auth/login", {"email": email, "senha": senha_de(email)})
         if s != 200:
             print(f"   [FALHA] {email}: login HTTP {s}"); ok = False; continue
         _, me, _ = chamar("GET", f"{API}/auth/me", token=b["token"])
@@ -203,7 +216,7 @@ def main():
             ok = False
     if not ok:
         sys.exit("\nAlguma conta não ficou com acesso ao projeto do TCC.")
-    print(f"\nPronto. Todas as contas da demo usam a senha '{SENHA}'.")
+    print(f"\nPronto. Senha das contas da demo: '{SENHA}'.")
 
 
 if __name__ == "__main__":

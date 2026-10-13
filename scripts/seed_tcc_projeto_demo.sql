@@ -62,10 +62,10 @@ BEGIN;
 -- =============================================================================
 
 INSERT INTO usuario (id, nome, email, ativo, data_criacao, data_atualizacao) VALUES
-    ('11111111-0000-0000-0000-000000000001', 'Gubio Garcia dos Santos',                  'gubiogarcia@gmail.com',            TRUE, '2026-02-20 09:00:00', '2026-02-20 09:00:00'),
-    ('11111111-0000-0000-0000-000000000002', 'Luiz Fernando De Pádua Paixão',            'luizfernandopadua@gmail.com',      TRUE, '2026-02-20 09:00:00', '2026-02-20 09:00:00'),
-    ('11111111-0000-0000-0000-000000000003', 'Thiago Matheus Onorio Ribeiro Pinheiro',   'thiagomatheus@gmail.com', TRUE, '2026-03-05 09:00:00', '2026-03-05 09:00:00'),
-    ('11111111-0000-0000-0000-000000000004', 'Prof. Esp. Plínio Marcos Mendes Carneiro', 'plinio.carneiro@fatesg.senai.br',  TRUE, '2026-02-20 09:00:00', '2026-02-20 09:00:00')
+    ('11111111-0000-0000-0000-000000000001', 'Gubio Garcia dos Santos',                  'gubio@email.com',         TRUE, '2026-02-20 09:00:00', '2026-02-20 09:00:00'),
+    ('11111111-0000-0000-0000-000000000002', 'Luiz Fernando De Pádua Paixão',            'luizfernando@email.com',  TRUE, '2026-02-20 09:00:00', '2026-02-20 09:00:00'),
+    ('11111111-0000-0000-0000-000000000003', 'Thiago Matheus Onorio Ribeiro Pinheiro',   'thiago@email.com',        TRUE, '2026-03-05 09:00:00', '2026-03-05 09:00:00'),
+    ('11111111-0000-0000-0000-000000000004', 'Prof. Esp. Plínio Marcos Mendes Carneiro', 'plinio@email.com',        TRUE, '2026-02-20 09:00:00', '2026-02-20 09:00:00')
 ON CONFLICT (id) DO NOTHING;
 
 
