@@ -224,9 +224,6 @@ Precisa do backend no ar (as telas consomem a API real).
    - Clique em um código à esquerda para ver a análise de impacto (BFS).
 7. Recarregue a página — o estado persiste (veio do banco). O botão **↺** recarrega do servidor.
 
-> O modo `/demo/` (`frontend/demo/`) não simula os endpoints de `traceability`/`datamodel`; essas duas
-> telas só funcionam com o backend.
-
 ---
 
 ## O que falta
