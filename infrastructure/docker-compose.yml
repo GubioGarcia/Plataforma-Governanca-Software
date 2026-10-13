@@ -100,9 +100,6 @@ services:
       args:
         # /api é rota relativa — o nginx resolve para http://backend:8081
         VITE_API_URL: /api
-        # Keycloak é acessado pelo BROWSER → usa localhost (host público)
-        VITE_KEYCLOAK_URL: ${VITE_KEYCLOAK_URL}
-        VITE_KEYCLOAK_REALM: ${VITE_KEYCLOAK_REALM}
     container_name: frontend
     depends_on:
       - backend
