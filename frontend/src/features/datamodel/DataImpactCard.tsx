@@ -36,7 +36,6 @@ import {
   deletarImpacto,
   obterModelo,
 } from '../../services/dataModelService';
-import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import {
   assinaturaAtributo,
   construirDiff,
@@ -167,16 +166,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      let requisitoIds: string[] = [];
-      try {
-        const requisitos = await listarRequisitosPorProjeto(projetoId);
-        requisitoIds = [...requisitos]
-          .sort((a, b) => (a.codigo ?? '').localeCompare(b.codigo ?? ''))
-          .map((r) => r.id);
-      } catch {
-        // Sem a listagem do projeto o modelo simplesmente não é semeado.
-      }
-      setModelo(await obterModelo(projetoId, requisitoIds));
+      setModelo(await obterModelo(projetoId));
     } catch (err) {
       notify(extractApiErrorMessage(err, 'Não foi possível carregar o modelo de dados.'), 'error');
     } finally {

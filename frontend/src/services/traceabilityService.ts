@@ -30,10 +30,7 @@ function toVinculo(dto: VinculoRequisitoResponseDTO): VinculoRequisitoAPI {
 }
 
 /** Lista os vínculos diretos de todos os requisitos do projeto. */
-export async function listarVinculos(
-  projetoId: string,
-  _requisitoIds: string[] = [],
-): Promise<VinculoRequisitoAPI[]> {
+export async function listarVinculos(projetoId: string): Promise<VinculoRequisitoAPI[]> {
   const res = await api.get<VinculoRequisitoResponseDTO[]>(`/vinculo-requisito/projeto/${projetoId}`);
   return res.data.map(toVinculo);
 }
@@ -54,11 +51,8 @@ export async function deletarVinculo(_projetoId: string, vinculoId: string): Pro
 }
 
 /** Recarrega os vínculos do servidor (o botão ↺ das telas). */
-export async function restaurarVinculos(
-  projetoId: string,
-  requisitoIds: string[],
-): Promise<VinculoRequisitoAPI[]> {
-  return listarVinculos(projetoId, requisitoIds);
+export async function restaurarVinculos(projetoId: string): Promise<VinculoRequisitoAPI[]> {
+  return listarVinculos(projetoId);
 }
 
 export default { listarVinculos, criarVinculo, deletarVinculo, restaurarVinculos };

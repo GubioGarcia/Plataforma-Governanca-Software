@@ -159,7 +159,7 @@ export default function DataModelPage() {
       const ordenados = [...lista].sort((a, b) => (a.codigo ?? '').localeCompare(b.codigo ?? ''));
       setRequisitos(ordenados);
 
-      const carregado = await obterModelo(projectId, ordenados.map((r) => r.id));
+      const carregado = await obterModelo(projectId);
       setModelo(carregado);
       setEntidadeSelecionadaId((atual) => atual ?? carregado.entidades[0]?.id ?? null);
     } catch (err) {
@@ -287,7 +287,7 @@ export default function DataModelPage() {
     if (!projectId) return;
     setCarregando(true);
     try {
-      const restaurado = await restaurarModelo(projectId, requisitos.map((r) => r.id));
+      const restaurado = await restaurarModelo(projectId);
       setModelo(restaurado);
       setEntidadeSelecionadaId((atual) => atual ?? restaurado.entidades[0]?.id ?? null);
       notify('Modelo recarregado do servidor', 'info');

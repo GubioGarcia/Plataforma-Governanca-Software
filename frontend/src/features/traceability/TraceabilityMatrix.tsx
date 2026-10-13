@@ -141,12 +141,11 @@ export default function TraceabilityMatrix() {
         notify('Não foi possível carregar os requisitos do projeto.', 'warning');
       }
       const ordenados = [...lista].sort((a, b) => (a.codigo ?? '').localeCompare(b.codigo ?? ''));
-      const ids = ordenados.map((r) => r.id);
       setRequisitos(ordenados);
 
       const [vinculosCarregados, modeloCarregado] = await Promise.all([
-        listarVinculos(projectId, ids),
-        obterModelo(projectId, ids),
+        listarVinculos(projectId),
+        obterModelo(projectId),
       ]);
       setVinculos(vinculosCarregados);
       setModelo(modeloCarregado);
@@ -253,7 +252,7 @@ export default function TraceabilityMatrix() {
     if (!projectId) return;
     setCarregando(true);
     try {
-      const restaurados = await restaurarVinculos(projectId, requisitos.map((r) => r.id));
+      const restaurados = await restaurarVinculos(projectId);
       setVinculos(restaurados);
       notify('Vínculos recarregados do servidor', 'info');
     } catch (err) {

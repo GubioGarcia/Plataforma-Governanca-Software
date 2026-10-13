@@ -94,12 +94,11 @@ export default function TraceabilityCard({
         // Sem a listagem não há como montar as relações; o card mostra vazio.
       }
       const ordenados = [...lista].sort((a, b) => (a.codigo ?? '').localeCompare(b.codigo ?? ''));
-      const ids = ordenados.map((r) => r.id);
       setRequisitos(ordenados);
 
       const [vinculosCarregados, modeloCarregado] = await Promise.all([
-        listarVinculos(projetoId, ids),
-        obterModelo(projetoId, ids),
+        listarVinculos(projetoId),
+        obterModelo(projetoId),
       ]);
       setVinculos(vinculosCarregados);
       setModelo(modeloCarregado);
