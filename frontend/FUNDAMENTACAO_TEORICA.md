@@ -127,7 +127,7 @@ O **OpenID Connect** é uma camada de identidade construída sobre o OAuth 2.0 (
 
 O **Keycloak** é uma solução open-source de Identity and Access Management (IAM) desenvolvida pela Red Hat. Fornece Single Sign-On (SSO), gerenciamento de usuários, suporte nativo ao OAuth 2.0 e OpenID Connect, além de federação de identidades com provedores externos (Red Hat, 2023).
 
-Na Plataforma Discovery, o Keycloak é utilizado como servidor de autenticação central. A integração é realizada através das bibliotecas `keycloak-js` e `@react-keycloak/web`, configuradas em `src/config/keycloak.ts`. Para o ambiente de demonstração do TCC, o fluxo de autenticação é simulado localmente por meio de mocks, mantendo a mesma interface de contratos que seria utilizada em produção.
+Na Plataforma Discovery, o Keycloak é utilizado como servidor de autenticação central. O frontend não se comunica diretamente com ele: o login é feito na API do backend, que obtém os tokens no Keycloak. O access token (JWT) é mantido apenas em memória no navegador, e o refresh token fica em um cookie HttpOnly, inacessível a scripts. O backend valida a assinatura de cada token com as chaves públicas do Keycloak.
 
 ---
 
