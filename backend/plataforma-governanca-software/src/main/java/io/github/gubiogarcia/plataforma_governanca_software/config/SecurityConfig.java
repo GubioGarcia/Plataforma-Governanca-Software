@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -21,8 +22,10 @@ import org.springframework.security.oauth2.server.resource.web.DefaultBearerToke
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.time.Duration;
 import java.util.List;
 
 @Configuration
@@ -82,7 +85,15 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder(RevogacaoTokenService revogacaoTokenService) {
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+        // O padrão do Nimbus é 500 ms de conexão/leitura. Com o Keycloak lento (VM pequena,
+        // após restart ou com a JVM em swap), a busca das chaves estourava o tempo e o
+        // request virava 500. As chaves ficam em cache por 5 min, então a espera é rara.
+        SimpleClientHttpRequestFactory jwksHttp = new SimpleClientHttpRequestFactory();
+        jwksHttp.setConnectTimeout(Duration.ofSeconds(5));
+        jwksHttp.setReadTimeout(Duration.ofSeconds(10));
+        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
+                .restOperations(new RestTemplate(jwksHttp))
+                .build();
         OAuth2TokenValidator<Jwt> validators = new DelegatingOAuth2TokenValidator<>(List.of(
                 new JwtTimestampValidator(),
                 new JwtIssuerValidator(keycloakIssuer),
