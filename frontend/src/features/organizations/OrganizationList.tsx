@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Box from '@mui/material/Box';
 import Button from '@mui/material/Button';
@@ -80,7 +80,7 @@ export default function OrganizationList() {
   const [fetchError, setFetchError] = useState(false);
 
   // Fetch only ACTIVE orgs (ativo=true)
-  const fetchOrgs = async () => {
+  const fetchOrgs = useCallback(async () => {
     try {
       setLoading(true);
       setFetchError(false);
@@ -92,7 +92,7 @@ export default function OrganizationList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [notify]);
 
   const fetchInactiveOrgs = async () => {
     try {
@@ -109,7 +109,7 @@ export default function OrganizationList() {
     }
   };
 
-  useEffect(() => { fetchOrgs(); }, []);
+  useEffect(() => { fetchOrgs(); }, [fetchOrgs]);
 
   const handleOpenInactive = () => {
     setInactiveOpen(true);

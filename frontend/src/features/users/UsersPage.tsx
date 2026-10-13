@@ -208,6 +208,8 @@ const PAPEL_LABELS: Record<PapelProjeto, string> = {
 
 const EMPTY_FORM = { nome: '', email: '', senha: '', papel: 'STAKEHOLDER' as PapelProjeto, isActive: true };
 
+type FormErrors = Partial<Record<'nome' | 'email' | 'senha', string>>;
+
 const INIT_PERFIS: PerfilSistema[] = [
   { id: 1, nome: 'Gestor',      descricao: 'Acesso completo ao sistema e a todos os projetos.', permissoes: [...ROLE_PERMISSIONS.GESTOR],      isDefault: true },
   { id: 2, nome: 'Analista',    descricao: 'Pode editar wiki, requisitos e ver relatórios.',    permissoes: [...ROLE_PERMISSIONS.ANALISTA],    isDefault: true },
@@ -232,7 +234,7 @@ export default function UsersPage() {
   const [activePermTab, setActivePermTab] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
-  const [formErrors, setFormErrors] = useState<Partial<typeof EMPTY_FORM>>({});
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
 
   // Perfis
   const [perfis, setPerfis] = useState<PerfilSistema[]>(INIT_PERFIS);
@@ -314,12 +316,12 @@ export default function UsersPage() {
   }
 
   function validateForm() {
-    const e: Partial<typeof EMPTY_FORM> = {};
-    if (!form.nome.trim()) e.nome = 'Nome obrigatório' as any;
-    if (!form.email.trim()) e.email = 'E-mail obrigatório' as any;
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'E-mail inválido' as any;
-    if (!form.senha) e.senha = 'Senha obrigatória' as any;
-    else if (form.senha.length < 8) e.senha = 'A senha deve ter no mínimo 8 caracteres' as any;
+    const e: FormErrors = {};
+    if (!form.nome.trim()) e.nome = 'Nome obrigatório';
+    if (!form.email.trim()) e.email = 'E-mail obrigatório';
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'E-mail inválido';
+    if (!form.senha) e.senha = 'Senha obrigatória';
+    else if (form.senha.length < 8) e.senha = 'A senha deve ter no mínimo 8 caracteres';
     return e;
   }
 
@@ -344,9 +346,9 @@ export default function UsersPage() {
       if (isApiError(err)) {
         const status = err.response?.status;
         if (status === 409) {
-          setFormErrors((prev) => ({ ...prev, email: 'E-mail já cadastrado' as any }));
+          setFormErrors((prev) => ({ ...prev, email: 'E-mail já cadastrado' }));
         } else if (status === 422) {
-          setFormErrors((prev) => ({ ...prev, senha: 'A senha deve ter no mínimo 8 caracteres' as any }));
+          setFormErrors((prev) => ({ ...prev, senha: 'A senha deve ter no mínimo 8 caracteres' }));
         } else {
           notify(err.response?.data?.detail || 'Erro ao incluir usuário', 'error');
         }
@@ -1065,7 +1067,7 @@ export default function UsersPage() {
             value={form.nome}
             onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))}
             error={!!formErrors.nome}
-            helperText={formErrors.nome as string}
+            helperText={formErrors.nome}
           />
           <TextField
             label="E-mail / Login *"
@@ -1074,7 +1076,7 @@ export default function UsersPage() {
             value={form.email}
             onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))}
             error={!!formErrors.email}
-            helperText={formErrors.email as string}
+            helperText={formErrors.email}
           />
           <TextField
             label="Senha *"
@@ -1086,7 +1088,7 @@ export default function UsersPage() {
             value={form.senha}
             onChange={(e) => setForm((f) => ({ ...f, senha: e.target.value }))}
             error={!!formErrors.senha}
-            helperText={formErrors.senha as string}
+            helperText={formErrors.senha}
           />
           <TextField
             select

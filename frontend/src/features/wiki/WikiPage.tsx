@@ -110,13 +110,14 @@ export default function WikiPage() {
   const { notify } = useSnackbar();
   const [wiki, setWiki] = useState<WikiProjetoApi | null>(null);
   const [projeto, setProjeto] = useState<ProjetoAPI | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Carregando enquanto os dados não forem do projeto da URL (cobre a troca de projeto)
+  const [carregadoPara, setCarregadoPara] = useState<string | null>(null);
+  const loading = carregadoPara !== projectId;
 
   const base = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   useEffect(() => {
     if (!projectId) return;
-    setLoading(true);
     Promise.all([
       fetchProjectWiki(projectId),
       buscarProjetoPorId(projectId),
@@ -130,7 +131,7 @@ export default function WikiPage() {
           notify('Falha ao carregar a Wiki do projeto', 'error');
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => setCarregadoPara(projectId));
   }, [projectId, notify]);
 
   if (loading) {
