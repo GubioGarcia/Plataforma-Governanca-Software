@@ -74,7 +74,7 @@ export default function ProfilePage() {
   const totalProjetos = organizacoes.reduce((acc, o) => acc + o.projetos.length, 0);
 
   return (
-    <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
+    <Box sx={{ flexGrow: 1, p: { xs: 2, sm: 3, md: 4 }, overflowY: 'auto' }}>
       <Typography variant="h2" sx={{ mb: 4 }}>Meu Perfil</Typography>
 
       <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'flex-start' }}>

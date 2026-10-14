@@ -270,7 +270,7 @@ export default function RequirementDetail() {
 
   if (error || !requisito) {
     return (
-      <Box sx={{ p: 4 }}>
+      <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
         <Button startIcon={<ArrowBackIcon />} onClick={() => navigate(-1)} sx={{ mb: 2 }}>
           Voltar
         </Button>

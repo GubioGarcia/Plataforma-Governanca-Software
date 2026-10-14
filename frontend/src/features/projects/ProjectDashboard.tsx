@@ -185,11 +185,12 @@ export default function ProjectDashboard() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       {/* Project header */}
       <Box sx={{ mb: 4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
-          <Typography variant="h2">{project?.nome ?? 'Projeto'}</Typography>
+        {/* Celular: o status vai para baixo do título (nomes de projeto costumam ser longos) */}
+        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'flex-start', sm: 'center' }, gap: { xs: 1, sm: 1.5 }, mb: { xs: 1, sm: 0.5 } }}>
+          <Typography variant="h2" sx={{ overflowWrap: 'anywhere' }}>{project?.nome ?? 'Projeto'}</Typography>
           {project?.status && <StatusChip status={project.status.nome} size="medium" />}
         </Box>
         <Typography variant="body2" color="text.secondary" sx={{ maxWidth: 640 }}>
@@ -200,7 +201,7 @@ export default function ProjectDashboard() {
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
 
         {/* KPI cards */}
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {[
             {
               icon: <ChecklistIcon />,
@@ -231,9 +232,9 @@ export default function ProjectDashboard() {
               bg: '#EDE9FE',
             },
           ].map((kpi) => (
-            <Grid key={kpi.label} size={{ xs: 12, sm: 6, md: 3 }}>
-              <Card elevation={0} variant="outlined">
-                <CardContent sx={{ p: 2.5 }}>
+            <Grid key={kpi.label} size={{ xs: 6, md: 3 }}>
+              <Card elevation={0} variant="outlined" sx={{ height: '100%' }}>
+                <CardContent sx={{ p: { xs: 2, sm: 2.5 } }}>
                   <Box
                     sx={{
                       width: 38,

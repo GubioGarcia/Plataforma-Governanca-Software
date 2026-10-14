@@ -48,6 +48,7 @@ import {
   inativarOrganizacao,
   ativarOrganizacao,
 } from '../../services/organizacaoService';
+import { PADDING_PAGINA, acoesCabecalho, cabecalhoPagina } from '../../theme/responsivo';
 
 export default function OrganizationList() {
   const navigate = useNavigate();
@@ -187,17 +188,17 @@ export default function OrganizationList() {
   };
 
   return (
-    <Box sx={{ flexGrow: 1, p: 4 }}>
+    <Box sx={{ flexGrow: 1, p: PADDING_PAGINA, overflowY: 'auto' }}>
       {/* Convites recebidos: ao aceitar, a organização passa a aparecer na lista */}
       <ConvitesPendentes onAceito={fetchOrgs} />
 
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', mb: 4 }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 4 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Suas Organizações</Typography>
           <Typography variant="body2">Selecione uma organização para acessar seus projetos e configurações.</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+        <Box sx={acoesCabecalho}>
           {/* Qualquer usuário autenticado pode criar organização (vira o Dono) */}
           {(
             <>
@@ -229,7 +230,7 @@ export default function OrganizationList() {
           <Button variant="outlined" onClick={fetchOrgs}>Tentar novamente</Button>
         </Box>
       ) : (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 3 }}>
           {orgs.map((org) => (
             <Grid key={org.id} size={{ xs: 12, sm: 6, md: 4 }}>
               <Card
@@ -240,7 +241,7 @@ export default function OrganizationList() {
                 }}
                 onClick={() => navigate(`/organizations/${org.id}/projects`)}
               >
-                <CardContent sx={{ p: 3 }}>
+                <CardContent sx={{ p: { xs: 2.5, sm: 3 } }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
                     <Box sx={{ width: 44, height: 44, borderRadius: '12px', bgcolor: '#EEF2FF', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <BusinessIcon sx={{ color: 'primary.main', fontSize: 22 }} />

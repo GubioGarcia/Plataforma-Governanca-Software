@@ -34,6 +34,7 @@ import {
   deleteFile,
   type ArquivoProjetoDTO,
 } from '../../services/fileService';
+import { cabecalhoPagina } from '../../theme/responsivo';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -185,9 +186,9 @@ export default function FileRepository() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       {/* Cabeçalho */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 4 }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 4 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Arquivos</Typography>
           <Typography variant="body2">Repositório de documentos e artefatos do projeto</Typography>
@@ -199,6 +200,7 @@ export default function FileRepository() {
             size="small"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
+            sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             {uploading ? 'Enviando...' : 'Enviar Arquivo'}
           </Button>

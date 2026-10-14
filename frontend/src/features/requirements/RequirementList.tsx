@@ -41,6 +41,7 @@ import {
   deletarRequisito,
 } from '../../services/requirementService';
 import type { RequisitoAPI, StatusRequisitoAPI, PrioridadeAPI, TipoRequisito } from '../../types/requirementAPI';
+import { cabecalhoPagina } from '../../theme/responsivo';
 
 const STATUS_NAME_COLOR_MAP: Record<string, string> = {
   TOTAL: '#374151',
@@ -249,15 +250,15 @@ export default function RequirementList() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 3 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Requisitos</Typography>
           <Typography variant="body2" color="text.secondary">
             Lista de requisitos do projeto com fluxo de aprovação
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate} sx={{ display: podeCriar ? undefined : 'none' }}>
+        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate} sx={{ display: podeCriar ? undefined : 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
           Novo Requisito
         </Button>
       </Box>

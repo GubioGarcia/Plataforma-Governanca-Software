@@ -42,6 +42,7 @@ import {
   deleteEvent,
 } from '../../services/eventService';
 import type { EventoProjeto } from '../../types/event';
+import { cabecalhoPagina, acoesCabecalho } from '../../theme/responsivo';
 
 const WEEKDAYS = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
@@ -98,7 +99,8 @@ function CalendarView({ events, onEdit, onDelete, podeEditar, podeExcluir }: {
     .replace(/^(\w)/, (c) => c.toUpperCase());
 
   return (
-    <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+    // Abaixo de 900px os eventos do dia ficam embaixo do calendário (lado a lado o painel sumia)
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, alignItems: { xs: 'stretch', md: 'flex-start' } }}>
       <Box sx={{ flex: '0 0 auto', width: { xs: '100%', md: 520 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <IconButton size="small" onClick={() => setCurrent(new Date(year, month - 1, 1))} sx={{ border: '1px solid #E8EAED', borderRadius: 1 }}>
@@ -128,7 +130,7 @@ function CalendarView({ events, onEdit, onDelete, podeEditar, podeExcluir }: {
                 key={i}
                 onClick={() => setSelectedDay(day === selectedDay ? null : day)}
                 sx={{
-                  height: 56, borderRadius: 1.5, cursor: 'pointer',
+                  height: { xs: 48, sm: 56 }, borderRadius: 1.5, cursor: 'pointer',
                   border: isSelected ? '2px solid #3F51B5' : '1px solid transparent',
                   bgcolor: isSelected ? '#EEF2FF' : isToday ? '#F0FDF4' : 'transparent',
                   display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-start', pt: 0.75, gap: 0.5,
@@ -311,14 +313,14 @@ export default function EventTimeline() {
   });
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 4 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 4 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Eventos</Typography>
           <Typography variant="body2">Reuniões, workshops, entregas e revisões do projeto</Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <ButtonGroup size="small" variant="outlined">
+        <Box sx={acoesCabecalho}>
+          <ButtonGroup size="small" variant="outlined" sx={{ flex: { xs: '1 1 auto', sm: '0 0 auto' }, '& .MuiButton-root': { flex: 1, whiteSpace: 'nowrap' } }}>
             <Button onClick={() => setView('timeline')} variant={view === 'timeline' ? 'contained' : 'outlined'} startIcon={<ViewListIcon />}>Timeline</Button>
             <Button onClick={() => setView('agenda')} variant={view === 'agenda' ? 'contained' : 'outlined'} startIcon={<CalendarMonthIcon />}>Agenda</Button>
           </ButtonGroup>
@@ -358,8 +360,8 @@ export default function EventTimeline() {
                         <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                           <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1 }}>
                             <Box sx={{ flex: 1, minWidth: 0 }}>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                                <Typography variant="h6" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{event.nome}</Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 1, rowGap: 0.5, mb: 0.5 }}>
+                                <Typography variant="h6" sx={{ overflowWrap: 'break-word' }}>{event.nome}</Typography>
                                 {event.status && event.status !== 'APROVADO' && (
                                   <Chip
                                     size="small"

@@ -16,6 +16,8 @@ import TextField from '@mui/material/TextField';
 import InputAdornment from '@mui/material/InputAdornment';
 import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import ManageSearchIcon from '@mui/icons-material/ManageSearch';
@@ -115,6 +117,9 @@ const ROWS_PER_PAGE_OPTIONS = [5, 10, 25];
 
 export default function AuditLog() {
   const { projectId } = useParams<{ projectId: string }>();
+  const theme = useTheme();
+  // Celular: cada registro vira um cartão (5 colunas não cabem em ~330px)
+  const emCartoes = useMediaQuery(theme.breakpoints.down('sm'));
   const [auditorias, setAuditorias] = useState<AuditoriaAPI[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -178,7 +183,7 @@ export default function AuditLog() {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Box sx={{ p: 4 }}>
+      <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
         {/* Header */}
         <Box sx={{ mb: 3 }}>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Auditoria</Typography>
@@ -192,7 +197,7 @@ export default function AuditLog() {
             placeholder="Buscar por usuário ou descrição..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setPage(0); }}
-            sx={{ minWidth: 280, flex: 1 }}
+            sx={{ flex: '1 1 260px' }}
             slotProps={{
               input: {
                 startAdornment: (
@@ -216,7 +221,7 @@ export default function AuditLog() {
             value={dateFrom}
             onChange={(v) => { setDateFrom(v); setPage(0); }}
             maxDate={dateTo ?? undefined}
-            slotProps={{ textField: { size: 'small', sx: { width: 160 } } }}
+            slotProps={{ textField: { size: 'small', sx: { flex: '1 1 140px', minWidth: 0, maxWidth: { sm: 180 } } } }}
           />
 
           <DatePicker
@@ -224,7 +229,7 @@ export default function AuditLog() {
             value={dateTo}
             onChange={(v) => { setDateTo(v); setPage(0); }}
             minDate={dateFrom ?? undefined}
-            slotProps={{ textField: { size: 'small', sx: { width: 160 } } }}
+            slotProps={{ textField: { size: 'small', sx: { flex: '1 1 140px', minWidth: 0, maxWidth: { sm: 180 } } } }}
           />
 
           <Select
@@ -232,7 +237,7 @@ export default function AuditLog() {
             value={filterEntidade}
             onChange={(e) => handleFilterEntidade(e.target.value)}
             displayEmpty
-            sx={{ minWidth: 160 }}
+            sx={{ flex: { xs: '1 1 150px', sm: '0 0 auto' }, minWidth: { sm: 160 } }}
           >
             <MenuItem value="">Todas as entidades</MenuItem>
             {entidadeOpcoes.map((e) => (
@@ -245,7 +250,7 @@ export default function AuditLog() {
             value={filterAcao}
             onChange={(e) => handleFilterAcao(e.target.value)}
             displayEmpty
-            sx={{ minWidth: 160 }}
+            sx={{ flex: { xs: '1 1 150px', sm: '0 0 auto' }, minWidth: { sm: 160 } }}
           >
             <MenuItem value="">Todas as ações</MenuItem>
             {(Object.entries(ACAO_LABELS) as [AcaoAuditoria, string][]).map(([key, label]) => (
@@ -277,7 +282,39 @@ export default function AuditLog() {
         )}
 
         {!loading && filtered.length > 0 && (
-          <Paper elevation={0} sx={{ border: '1px solid #E8EAED', borderRadius: 2 }}>
+          <Paper elevation={0} sx={{ border: '1px solid #E8EAED', borderRadius: 2, overflow: 'hidden' }}>
+            {emCartoes ? (
+              <Box>
+                {paginated.map((entry) => (
+                  <Box key={entry.id} sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mb: 0.75 }}>
+                      <Chip
+                        label={ACAO_LABELS[entry.acao] ?? entry.acao}
+                        color={ACAO_COLORS[entry.acao] ?? 'default'}
+                        size="small"
+                        variant="outlined"
+                        sx={{ fontWeight: 600 }}
+                      />
+                      <Chip
+                        label={ENTIDADE_LABELS[entry.entidadeTipo] ?? entry.entidadeTipo}
+                        size="small"
+                        sx={{ fontWeight: 600, fontSize: 11, bgcolor: 'action.hover', color: 'text.primary' }}
+                      />
+                      <Typography variant="caption" sx={{ color: 'text.secondary', ml: 'auto' }}>
+                        {new Date(entry.dataAlteracao).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ color: 'text.primary', whiteSpace: 'pre-line', overflowWrap: 'anywhere' }}>
+                      {buildDescricao(entry)}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                      {entry.usuarioNome ?? '—'}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            ) : (
+            <Box sx={{ overflowX: 'auto' }}>
             <Table>
               <TableHead>
                 <TableRow sx={{ bgcolor: 'background.paper' }}>
@@ -344,6 +381,8 @@ export default function AuditLog() {
                 })}
               </TableBody>
             </Table>
+            </Box>
+            )}
             <TablePagination
               component="div"
               count={filtered.length}
@@ -354,6 +393,10 @@ export default function AuditLog() {
               rowsPerPageOptions={ROWS_PER_PAGE_OPTIONS}
               labelRowsPerPage="Linhas por página:"
               labelDisplayedRows={({ from, to, count }) => `${from}–${to} de ${count}`}
+              sx={{
+                '& .MuiTablePagination-toolbar': { px: { xs: 1, sm: 2 } },
+                '& .MuiTablePagination-selectLabel': { display: { xs: 'none', sm: 'block' } },
+              }}
             />
           </Paper>
         )}

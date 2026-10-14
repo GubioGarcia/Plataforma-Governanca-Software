@@ -381,7 +381,17 @@ export default function DataModelPage() {
                 <Typography component="span" sx={{ ...ETIQUETA, color: 'text.secondary', px: 1, mb: 1.5, display: 'block' }}>
                   Entidades
                 </Typography>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                {/* Abaixo de 900px vira uma faixa horizontal com rolagem (a lista vertical empurrava o diagrama) */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    flexDirection: { xs: 'row', md: 'column' },
+                    gap: { xs: 1, md: 0.5 },
+                    overflowX: { xs: 'auto', md: 'visible' },
+                    pb: { xs: 0.5, md: 0 },
+                    scrollSnapType: { xs: 'x proximity', md: 'none' },
+                  }}
+                >
                   {modelo.entidades.map((entidade) => {
                     const selecionada = entidade.id === entidadeSelecionadaId;
                     const impactos = contagemImpactosPorEntidade.get(entidade.id) ?? 0;
@@ -394,8 +404,11 @@ export default function DataModelPage() {
                           py: 1,
                           borderRadius: 2,
                           cursor: 'pointer',
+                          flexShrink: 0,
+                          scrollSnapAlign: 'start',
+                          minWidth: { xs: 140, md: 0 },
                           border: '1px solid',
-                          borderColor: selecionada ? 'primary.main' : 'transparent',
+                          borderColor: selecionada ? 'primary.main' : { xs: 'divider', md: 'transparent' },
                           bgcolor: selecionada ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
                           '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.06) },
                           transition: 'all 0.12s',
@@ -436,7 +449,7 @@ export default function DataModelPage() {
           {/* ── Diagrama + detalhe ── */}
           <Grid size={{ xs: 12, md: 9 }}>
             <Card variant="outlined" sx={{ borderRadius: 2, mb: 3 }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                   <Typography component="span" sx={{ ...ETIQUETA, color: 'text.secondary' }}>
                     Diagrama entidade-relacionamento
@@ -457,11 +470,11 @@ export default function DataModelPage() {
 
             {entidadeSelecionada && (
               <Card variant="outlined" sx={{ borderRadius: 2 }}>
-                <CardContent sx={{ p: 3 }}>
+                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 2, mb: 1 }}>
-                    <Box>
+                    <Box sx={{ minWidth: 0 }}>
                       <Typography
-                        sx={{ fontFamily: FONTE_DADOS, fontSize: 19, fontWeight: 600, letterSpacing: '-0.01em' }}
+                        sx={{ fontFamily: FONTE_DADOS, fontSize: { xs: 17, sm: 19 }, fontWeight: 600, letterSpacing: '-0.01em', overflowWrap: 'anywhere' }}
                       >
                         {entidadeSelecionada.nome}
                       </Typography>
@@ -472,7 +485,7 @@ export default function DataModelPage() {
                       )}
                     </Box>
                     {podeEditar && (
-                      <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={abrirNovoAtributo}>
+                      <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={abrirNovoAtributo} sx={{ flexShrink: 0, whiteSpace: 'nowrap' }}>
                         Atributo
                       </Button>
                     )}
