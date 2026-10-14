@@ -1,16 +1,11 @@
 import api from '../config/axios';
 import type { AxiosError } from 'axios';
+import type { PapelNoProjeto, PapelOrganizacao } from '../types/acesso';
 
 export interface CadastrarUsuarioRequest {
   nome: string;
   email: string;
   senha: string;
-}
-
-export interface AtualizarUsuarioRequest {
-  nome?: string;
-  email?: string;
-  senha?: string;
 }
 
 /** Formato retornado pela API do backend */
@@ -44,15 +39,28 @@ export async function cadastrarUsuario(data: CadastrarUsuarioRequest): Promise<U
   return res.data;
 }
 
-/** GET /api/usuario — lista todos os usuários */
-export async function listarUsuarios(): Promise<UsuarioBackend[]> {
-  const res = await api.get<UsuarioBackend[]>('/usuario');
+/** GET /api/usuario — lista os usuários da plataforma (Admin da Plataforma); `ativo` filtra */
+export async function listarUsuarios(ativo?: boolean): Promise<UsuarioBackend[]> {
+  const res = await api.get<UsuarioBackend[]>('/usuario', { params: ativo === undefined ? {} : { ativo } });
   return res.data;
 }
 
-/** PUT /api/usuario/{id} — atualiza dados do usuário */
-export async function atualizarUsuario(id: string, data: AtualizarUsuarioRequest): Promise<UsuarioBackend> {
-  const res = await api.put<UsuarioBackend>(`/usuario/${id}`, data);
+/** Onde a pessoa atua: papel real em cada organização e projeto */
+export interface AcessosUsuario {
+  usuarioId: string;
+  organizacoes: {
+    id: string;
+    nome: string;
+    ativo: boolean;
+    /** null quando só participa de projetos da organização (convidada) */
+    papel: PapelOrganizacao | null;
+    projetos: { id: string; nome: string; ativo: boolean; papeis: PapelNoProjeto[] }[];
+  }[];
+}
+
+/** GET /api/usuario/{id}/acessos — papéis da pessoa, a partir dos grupos dela (Admin da Plataforma) */
+export async function obterAcessosUsuario(id: string): Promise<AcessosUsuario> {
+  const res = await api.get<AcessosUsuario>(`/usuario/${id}/acessos`);
   return res.data;
 }
 
@@ -68,7 +76,7 @@ export async function atualizarMeuPerfil(data: AtualizarPerfilRequest): Promise<
   return res.data;
 }
 
-/** DELETE /api/usuario/{id} — remove usuário */
+/** DELETE /api/usuario/{id} — exclui (inativa) a conta: a pessoa não entra mais e as sessões caem */
 export async function removerUsuario(id: string): Promise<void> {
   await api.delete(`/usuario/${id}`);
 }

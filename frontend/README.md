@@ -68,7 +68,7 @@ e2e/            # testes ponta a ponta com Playwright
 | `/organizations/:orgId/projects` | Tela da organização: dados e indicadores (`OrgResumo`), membros em card recolhível com o botão Convidar (`OrgMembers`, conforme o papel) e, após a divisória, filtros e lista de projetos (`ProjectList`). `/organizations/:orgId` redireciona para cá |
 | `/organizations/:orgId/projects/:projectId/...` | Projeto (`ProjectShell`): painel, visão do produto, requisitos, rastreabilidade, modelagem de dados, eventos, arquivos, participantes, solicitações, auditoria e analytics |
 | `/profile` | Dados do usuário e onde ele atua (papel em cada organização/projeto) |
-| `/users` | Gestão de usuários — só Admin da Plataforma |
+| `/users` | Usuários da plataforma: lista, onde cada pessoa atua e exclusão de conta — só Admin da Plataforma |
 
 ---
 
