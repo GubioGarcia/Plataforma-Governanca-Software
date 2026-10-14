@@ -87,7 +87,10 @@ export default function RequirementList() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeCriar = pode('REQ_CREATE');
+  const podeEditar = pode('REQ_EDIT');
+  const podeExcluir = pode('REQ_DELETE');
 
   const [requirements, setRequirements] = useState<RequisitoAPI[]>([]);
   const [statusList, setStatusList] = useState<StatusRequisitoAPI[]>([]);
@@ -254,7 +257,7 @@ export default function RequirementList() {
             Lista de requisitos do projeto com fluxo de aprovação
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate} sx={{ display: isStakeholder ? 'none' : undefined }}>
+        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate} sx={{ display: podeCriar ? undefined : 'none' }}>
           Novo Requisito
         </Button>
       </Box>
@@ -439,15 +442,15 @@ export default function RequirementList() {
                   </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                  {!isStakeholder && (
-                    <>
-                      <Tooltip title="Editar">
-                        <IconButton size="small" onClick={(e) => openEdit(r, e)}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton size="small" color="error" onClick={(e) => openDelete(r, e)}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
-                      </Tooltip>
-                    </>
+                  {podeEditar && (
+                    <Tooltip title="Editar">
+                      <IconButton size="small" onClick={(e) => openEdit(r, e)}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
+                    </Tooltip>
+                  )}
+                  {podeExcluir && (
+                    <Tooltip title="Excluir">
+                      <IconButton size="small" color="error" onClick={(e) => openDelete(r, e)}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+                    </Tooltip>
                   )}
                   <ArrowForwardIcon className="arrow-icon" sx={{ fontSize: 20, color: 'primary.main', opacity: 0, transform: 'translateX(-4px)', transition: 'all 0.15s', ml: 0.5 }} />
                 </Box>

@@ -18,7 +18,8 @@ export default function WikiEditPublico() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('WIKI_EDIT');
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -84,13 +85,13 @@ export default function WikiEditPublico() {
           onChange={(e) => setPublicoAlvo(e.target.value)}
           placeholder="Descreva os usuários finais do sistema, seus perfis, necessidades e características..."
           InputLabelProps={{ shrink: true }}
-          InputProps={{ readOnly: isStakeholder }}
-          disabled={isStakeholder}
+          InputProps={{ readOnly: !podeEditar }}
+          disabled={!podeEditar}
           inputProps={{ maxLength: MAX_CHARS }}
-          helperText={!isStakeholder ? `${publicoAlvo.length}/${MAX_CHARS}` : undefined}
+          helperText={podeEditar ? `${publicoAlvo.length}/${MAX_CHARS}` : undefined}
           FormHelperTextProps={{ sx: { textAlign: 'right' } }}
         />
-        {!isStakeholder && (
+        {podeEditar && (
         <Box sx={{ display: 'flex', gap: 2 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}

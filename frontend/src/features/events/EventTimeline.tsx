@@ -60,11 +60,12 @@ function toLocalDT(value?: string) {
 }
 
 // ── CalendarView ────────────────────────────────────────────────────────────
-function CalendarView({ events, onEdit, onDelete, isStakeholder }: {
+function CalendarView({ events, onEdit, onDelete, podeEditar, podeExcluir }: {
   events: EventoProjeto[];
   onEdit: (e: EventoProjeto) => void;
   onDelete: (e: EventoProjeto) => void;
-  isStakeholder: boolean;
+  podeEditar: boolean;
+  podeExcluir: boolean;
 }) {
   const today = new Date();
   const [current, setCurrent] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
@@ -185,11 +186,11 @@ function CalendarView({ events, onEdit, onDelete, isStakeholder }: {
                           {ev.descricao && <Typography variant="body2" sx={{ color: '#4B5563', fontSize: 13, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{ev.descricao}</Typography>}
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.25 }}>
-                          {!isStakeholder && (
-                            <>
-                              <Tooltip title="Editar"><IconButton size="small" onClick={() => onEdit(ev)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
-                              <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => onDelete(ev)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
-                            </>
+                          {podeEditar && (
+                            <Tooltip title="Editar"><IconButton size="small" onClick={() => onEdit(ev)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                          )}
+                          {podeExcluir && (
+                            <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => onDelete(ev)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
                           )}
                         </Box>
                       </Box>
@@ -214,9 +215,12 @@ function CalendarView({ events, onEdit, onDelete, isStakeholder }: {
 export default function EventTimeline() {
   const { orgId, projectId } = useParams();
   const { notify } = useSnackbar();
-  const { isStakeholder, pode } = usePermissions();
+  const { pode } = usePermissions();
+  const podeCriar = pode('EVENTO_CREATE');
+  const podeEditar = pode('EVENTO_EDIT');
+  const podeExcluir = pode('EVENTO_DELETE');
   // Stakeholder não cria evento: solicita (EVENTO_REQUEST)
-  const podeSolicitar = !pode('EVENTO_CREATE') && pode('EVENTO_REQUEST');
+  const podeSolicitar = !podeCriar && pode('EVENTO_REQUEST');
   const [allEvents, setAllEvents] = useState<EventoProjeto[]>([]);
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<'timeline' | 'agenda'>('timeline');
@@ -318,7 +322,7 @@ export default function EventTimeline() {
             <Button onClick={() => setView('timeline')} variant={view === 'timeline' ? 'contained' : 'outlined'} startIcon={<ViewListIcon />}>Timeline</Button>
             <Button onClick={() => setView('agenda')} variant={view === 'agenda' ? 'contained' : 'outlined'} startIcon={<CalendarMonthIcon />}>Agenda</Button>
           </ButtonGroup>
-          {!isStakeholder && (
+          {podeCriar && (
           <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate}>Novo Evento</Button>
           )}
           {podeSolicitar && (
@@ -332,7 +336,7 @@ export default function EventTimeline() {
       ) : events.length === 0 ? (
         <EmptyState icon={<EventIcon sx={{ fontSize: 64 }} />} title="Nenhum evento cadastrado" description="Adicione reuniões, workshops e entregas." />
       ) : view === 'agenda' ? (
-        <CalendarView events={events} onEdit={openEdit} onDelete={(ev) => setDeleteTarget(ev)} isStakeholder={isStakeholder} />
+        <CalendarView events={events} onEdit={openEdit} onDelete={(ev) => setDeleteTarget(ev)} podeEditar={podeEditar} podeExcluir={podeExcluir} />
       ) : (
         Object.entries(grouped).map(([month, monthEvents]) => (
           <Box key={month} sx={{ mb: 3 }}>
@@ -376,11 +380,11 @@ export default function EventTimeline() {
                               {event.descricao && <Typography variant="body2" sx={{ color: '#4B5563', lineHeight: 1.6, overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{event.descricao}</Typography>}
                             </Box>
                             <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              {!isStakeholder && (
-                                <>
-                                  <Tooltip title="Editar"><IconButton size="small" onClick={() => openEdit(event)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
-                                  <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => setDeleteTarget(event)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
-                                </>
+                              {podeEditar && (
+                                <Tooltip title="Editar"><IconButton size="small" onClick={() => openEdit(event)}><EditIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
+                              )}
+                              {podeExcluir && (
+                                <Tooltip title="Excluir"><IconButton size="small" color="error" onClick={() => setDeleteTarget(event)}><DeleteIcon sx={{ fontSize: 15 }} /></IconButton></Tooltip>
                               )}
                             </Box>
                           </Box>

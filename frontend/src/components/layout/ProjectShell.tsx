@@ -23,6 +23,8 @@ import InboxIcon from '@mui/icons-material/Inbox';
 import SemAcesso from '../common/SemAcesso';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useAcessoRota } from '../../hooks/useAcessoRota';
+import type { ReactNode } from 'react';
+import type { Permissao } from '../../types/acesso';
 
 const SIDEBAR_WIDTH = 220;
 
@@ -32,12 +34,11 @@ export default function ProjectShell() {
   const { pode, projetoAtual } = usePermissions();
   // Só abre projeto em que o usuário participa (direto ou herdado da organização)
   const acesso = useAcessoRota(!!projetoAtual, projectId);
-  // Tela completa de auditoria: AUDIT_VIEW (Dono/Gestor)
-  const isStakeholder = !pode('AUDIT_VIEW');
 
   const base = `/organizations/${orgId}/projects/${projectId}`;
 
-  const allNavItems = [
+  // Itens com `permissao` só aparecem para quem a tem (ex.: auditoria completa, Dono/Gestor)
+  const allNavItems: { label: string; icon: ReactNode; to: string; permissao?: Permissao }[] = [
     { label: 'Visão Geral',  icon: <DashboardIcon fontSize="small" />,   to: base },
     { label: 'WIKI',         icon: <AutoStoriesIcon fontSize="small" />,  to: `${base}/wiki` },
     { label: 'Requisitos',   icon: <ChecklistIcon fontSize="small" />,    to: `${base}/requirements` },
@@ -48,10 +49,10 @@ export default function ProjectShell() {
     { label: 'Stakeholders', icon: <GroupIcon fontSize="small" />,        to: `${base}/stakeholders` },
     { label: 'Solicitações', icon: <InboxIcon fontSize="small" />,        to: `${base}/solicitations` },
     { label: 'Analytics',    icon: <BarChartIcon fontSize="small" />,     to: `${base}/analytics` },
-    { label: 'Auditoria',    icon: <HistoryIcon fontSize="small" />,      to: `${base}/audit`, gestorOnly: true },
+    { label: 'Auditoria',    icon: <HistoryIcon fontSize="small" />,      to: `${base}/audit`, permissao: 'AUDIT_VIEW' },
   ];
 
-  const navItems = allNavItems.filter((item) => !item.gestorOnly || !isStakeholder);
+  const navItems = allNavItems.filter((item) => !item.permissao || pode(item.permissao));
 
   if (acesso !== 'ok') return <SemAcesso situacao={acesso} alvo="projeto" />;
 

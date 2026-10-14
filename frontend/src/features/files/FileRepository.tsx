@@ -59,7 +59,9 @@ function FileTypeIcon({ name }: { name: string }) {
 
 export default function FileRepository() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { canEdit } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEnviar = pode('ARQUIVO_UPLOAD');
+  const podeExcluir = pode('ARQUIVO_DELETE');
   const { notify } = useSnackbar();
 
   const [files, setFiles] = useState<ArquivoProjetoDTO[]>([]);
@@ -190,7 +192,7 @@ export default function FileRepository() {
           <Typography variant="h2" sx={{ mb: 0.5 }}>Arquivos</Typography>
           <Typography variant="body2">Repositório de documentos e artefatos do projeto</Typography>
         </Box>
-        {canEdit && (
+        {podeEnviar && (
           <Button
             variant="contained"
             startIcon={uploading ? <CircularProgress size={16} color="inherit" /> : <UploadFileIcon />}
@@ -223,7 +225,7 @@ export default function FileRepository() {
       )}
 
       {/* Zona de drag-and-drop */}
-      {canEdit && (
+      {podeEnviar && (
         <Box
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -321,7 +323,7 @@ export default function FileRepository() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    {canEdit && (
+                    {podeExcluir && (
                       <Tooltip title="Excluir">
                         <IconButton
                           size="small"

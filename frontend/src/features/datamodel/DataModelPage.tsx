@@ -92,7 +92,8 @@ export default function DataModelPage() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('MER_EDIT');
 
   const [modelo, setModelo] = useState<ModeloDadosProjeto>(MODELO_VAZIO);
   const [requisitos, setRequisitos] = useState<RequisitoAPI[]>([]);
@@ -319,12 +320,12 @@ export default function DataModelPage() {
             {projectId && <BotaoExportar projetoId={projectId} tipo="mer" />}
             <Tooltip title="Recarregar do servidor">
               <span>
-                <IconButton onClick={restaurarCenario} disabled={isStakeholder}>
+                <IconButton onClick={restaurarCenario}>
                   <RestartAltIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-            {!isStakeholder && (
+            {podeEditar && (
               <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogEntidadeAberto(true)}>
                 Nova entidade
               </Button>
@@ -363,7 +364,7 @@ export default function DataModelPage() {
             title="Nenhuma entidade cadastrada"
             description="Cadastre as entidades de negócio manipuladas pelos requisitos para habilitar o diagrama ER e a rastreabilidade indireta."
             action={
-              !isStakeholder && (
+              podeEditar && (
                 <Button variant="contained" startIcon={<AddIcon />} onClick={() => setDialogEntidadeAberto(true)}>
                   Nova entidade
                 </Button>
@@ -470,7 +471,7 @@ export default function DataModelPage() {
                         </Typography>
                       )}
                     </Box>
-                    {!isStakeholder && (
+                    {podeEditar && (
                       <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={abrirNovoAtributo}>
                         Atributo
                       </Button>
@@ -491,7 +492,7 @@ export default function DataModelPage() {
                           <TableCell sx={{ fontWeight: 700 }}>Tipo</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Obrigatório</TableCell>
                           <TableCell sx={{ fontWeight: 700 }}>Chave</TableCell>
-                          {!isStakeholder && <TableCell sx={{ fontWeight: 700 }} align="right" />}
+                          {podeEditar && <TableCell sx={{ fontWeight: 700 }} align="right" />}
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -512,7 +513,7 @@ export default function DataModelPage() {
                                 />
                               )}
                             </TableCell>
-                            {!isStakeholder && (
+                            {podeEditar && (
                               <TableCell align="right" sx={{ py: 0.5 }}>
                                 <Tooltip title="Editar atributo">
                                   <IconButton size="small" onClick={() => abrirEdicaoAtributo(atributo)}>

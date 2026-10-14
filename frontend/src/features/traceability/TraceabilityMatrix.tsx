@@ -100,7 +100,8 @@ export default function TraceabilityMatrix() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('RASTREABILIDADE_EDIT');
 
   const [requisitos, setRequisitos] = useState<RequisitoAPI[]>([]);
   const [vinculos, setVinculos] = useState<VinculoRequisitoAPI[]>([]);
@@ -211,7 +212,7 @@ export default function TraceabilityMatrix() {
       setSelecao({ origemId, destinoId, celula });
       return;
     }
-    if (isStakeholder) return;
+    if (!podeEditar) return;
     setFormVinculo({ requisitoOrigemId: origemId, requisitoDestinoId: destinoId, tipo: 'DEPENDE_DE' });
     setDialogVinculoAberto(true);
   }
@@ -283,12 +284,12 @@ export default function TraceabilityMatrix() {
             {projectId && <BotaoExportar projetoId={projectId} tipo="rastreabilidade" />}
             <Tooltip title="Recarregar do servidor">
               <span>
-                <IconButton onClick={restaurarCenario} disabled={isStakeholder}>
+                <IconButton onClick={restaurarCenario}>
                   <RestartAltIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-            {!isStakeholder && (
+            {podeEditar && (
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -975,7 +976,7 @@ export default function TraceabilityMatrix() {
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     vínculo direto, cadastrado manualmente
                   </Typography>
-                  {!isStakeholder && selecao.celula.relacaoDireta.vinculoId && (
+                  {podeEditar && selecao.celula.relacaoDireta.vinculoId && (
                     <Tooltip title="Remover vínculo">
                       <IconButton
                         size="small"

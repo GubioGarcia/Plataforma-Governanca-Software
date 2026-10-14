@@ -101,7 +101,8 @@ export default function RequirementDetail() {
   }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('REQ_EDIT');
 
   // Ref para forçar reload do card de auditoria após mutações
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -343,7 +344,7 @@ export default function RequirementDetail() {
                   </Box>
                 )}
                 <Box sx={{ ml: 'auto' }}>
-                  {!isStakeholder && (
+                  {podeEditar && (
                   <Tooltip title="Configurações — editar status, tipo, prioridade, título e descrição">
                     <IconButton size="small" onClick={openSettings}>
                       <EditIcon fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -435,7 +436,7 @@ export default function RequirementDetail() {
                     </Box>
                   )}
                 </Box>
-                {!isStakeholder && (
+                {podeEditar && (
                 <Tooltip title="Adicionar critério">
                   <IconButton size="small" onClick={openCreate}>
                     <AddIcon fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -458,7 +459,7 @@ export default function RequirementDetail() {
                   <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                     Nenhum critério de aceite cadastrado.
                   </Typography>
-                  <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={openCreate} sx={{ display: isStakeholder ? 'none' : undefined }}>
+                  <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={openCreate} sx={{ display: podeEditar ? undefined : 'none' }}>
                     Adicionar critério
                   </Button>
                 </Box>
@@ -491,7 +492,7 @@ export default function RequirementDetail() {
                           </Typography>
                         </Box>
                         <Box sx={{ display: 'flex', gap: 0.5, ml: 1, flexShrink: 0 }}>
-                          {!isStakeholder && (
+                          {podeEditar && (
                             <>
                               <Tooltip title="Editar">
                                 <IconButton size="small" onClick={() => openEdit(c)}>
@@ -532,7 +533,7 @@ export default function RequirementDetail() {
                     </Box>
                   ))}
 
-                  {!isStakeholder && (
+                  {podeEditar && (
                   <Button
                     variant="outlined"
                     startIcon={<AddIcon />}
