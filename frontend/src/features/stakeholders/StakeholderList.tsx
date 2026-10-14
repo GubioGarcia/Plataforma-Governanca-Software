@@ -45,6 +45,7 @@ import type { ResumoInteracaoUsuario } from '../../types/interacao';
 import { PAPEL_PROJETO_LABEL, type PapelNoProjeto } from '../../types/acesso';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
+import { cabecalhoPagina } from '../../theme/responsivo';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -78,8 +79,8 @@ function mensagemErro(err: unknown, padrao: string) {
 function StatCard({ value, label, color }: { value: number; label: string; color: string }) {
   return (
     <Card elevation={0} sx={{ border: '1px solid #E8EAED', height: '100%' }}>
-      <CardContent sx={{ p: 2.5, '&:last-child': { pb: 2.5 } }}>
-        <Typography sx={{ fontSize: 32, fontWeight: 700, color, lineHeight: 1, mb: 0.5 }}>
+      <CardContent sx={{ p: { xs: 1.5, sm: 2.5 }, '&:last-child': { pb: { xs: 1.5, sm: 2.5 } } }}>
+        <Typography sx={{ fontSize: { xs: 24, sm: 32 }, fontWeight: 700, color, lineHeight: 1, mb: 0.5 }}>
           {value.toLocaleString('pt-BR')}
         </Typography>
         <Typography variant="caption" color="text.secondary">{label}</Typography>
@@ -245,9 +246,9 @@ export default function StakeholderList() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 4 }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 4 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Stakeholders</Typography>
           <Typography variant="body2" color="text.secondary">
@@ -255,21 +256,21 @@ export default function StakeholderList() {
           </Typography>
         </Box>
         {podeConvidar && (
-          <Button variant="contained" startIcon={<PersonAddIcon />} size="small" onClick={openConvite}>
+          <Button variant="contained" startIcon={<PersonAddIcon />} size="small" onClick={openConvite} sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}>
             Convidar
           </Button>
         )}
       </Box>
 
       {/* Summary cards */}
-      <Grid container spacing={2} sx={{ mb: 4 }}>
-        <Grid size={{ xs: 12, sm: 4 }}>
+      <Grid container spacing={{ xs: 1, sm: 2 }} sx={{ mb: 4 }}>
+        <Grid size={{ xs: 4 }}>
           <StatCard value={totalMembros}    label="Participantes"       color="#3F51B5" />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 4 }}>
           <StatCard value={totalInteracoes} label="Total de interações" color="#059669" />
         </Grid>
-        <Grid size={{ xs: 12, sm: 4 }}>
+        <Grid size={{ xs: 4 }}>
           <StatCard value={media}           label="Média por participante" color="#D97706" />
         </Grid>
       </Grid>

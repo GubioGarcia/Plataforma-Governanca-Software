@@ -34,6 +34,7 @@ import {
   deleteFile,
   type ArquivoProjetoDTO,
 } from '../../services/fileService';
+import { cabecalhoPagina } from '../../theme/responsivo';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -59,7 +60,9 @@ function FileTypeIcon({ name }: { name: string }) {
 
 export default function FileRepository() {
   const { projectId } = useParams<{ projectId: string }>();
-  const { canEdit } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEnviar = pode('ARQUIVO_UPLOAD');
+  const podeExcluir = pode('ARQUIVO_DELETE');
   const { notify } = useSnackbar();
 
   const [files, setFiles] = useState<ArquivoProjetoDTO[]>([]);
@@ -183,20 +186,21 @@ export default function FileRepository() {
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       {/* Cabeçalho */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 4 }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 4 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Arquivos</Typography>
           <Typography variant="body2">Repositório de documentos e artefatos do projeto</Typography>
         </Box>
-        {canEdit && (
+        {podeEnviar && (
           <Button
             variant="contained"
             startIcon={uploading ? <CircularProgress size={16} color="inherit" /> : <UploadFileIcon />}
             size="small"
             onClick={() => fileInputRef.current?.click()}
             disabled={uploading}
+            sx={{ whiteSpace: 'nowrap', flexShrink: 0 }}
           >
             {uploading ? 'Enviando...' : 'Enviar Arquivo'}
           </Button>
@@ -223,7 +227,7 @@ export default function FileRepository() {
       )}
 
       {/* Zona de drag-and-drop */}
-      {canEdit && (
+      {podeEnviar && (
         <Box
           onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
           onDragLeave={() => setDragging(false)}
@@ -321,7 +325,7 @@ export default function FileRepository() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    {canEdit && (
+                    {podeExcluir && (
                       <Tooltip title="Excluir">
                         <IconButton
                           size="small"

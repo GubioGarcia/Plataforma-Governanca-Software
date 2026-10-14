@@ -53,7 +53,12 @@ export default function PageHeading({ etiqueta, titulo, descricao, acoes }: Page
             </Typography>
           )}
         </Box>
-        {acoes && <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>{acoes}</Box>}
+        {acoes && (
+          // Rótulos dos botões numa linha só; se não couberem, o grupo quebra de linha
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', '& .MuiButton-root': { whiteSpace: 'nowrap' } }}>
+            {acoes}
+          </Box>
+        )}
       </Box>
     </Box>
   );

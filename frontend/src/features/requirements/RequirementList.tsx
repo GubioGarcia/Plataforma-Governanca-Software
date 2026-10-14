@@ -41,6 +41,7 @@ import {
   deletarRequisito,
 } from '../../services/requirementService';
 import type { RequisitoAPI, StatusRequisitoAPI, PrioridadeAPI, TipoRequisito } from '../../types/requirementAPI';
+import { cabecalhoPagina } from '../../theme/responsivo';
 
 const STATUS_NAME_COLOR_MAP: Record<string, string> = {
   TOTAL: '#374151',
@@ -87,7 +88,10 @@ export default function RequirementList() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeCriar = pode('REQ_CREATE');
+  const podeEditar = pode('REQ_EDIT');
+  const podeExcluir = pode('REQ_DELETE');
 
   const [requirements, setRequirements] = useState<RequisitoAPI[]>([]);
   const [statusList, setStatusList] = useState<StatusRequisitoAPI[]>([]);
@@ -246,15 +250,15 @@ export default function RequirementList() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 3 }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Requisitos</Typography>
           <Typography variant="body2" color="text.secondary">
             Lista de requisitos do projeto com fluxo de aprovação
           </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate} sx={{ display: isStakeholder ? 'none' : undefined }}>
+        <Button variant="contained" startIcon={<AddIcon />} size="small" onClick={openCreate} sx={{ display: podeCriar ? undefined : 'none', whiteSpace: 'nowrap', flexShrink: 0 }}>
           Novo Requisito
         </Button>
       </Box>
@@ -439,15 +443,15 @@ export default function RequirementList() {
                   </Box>
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                  {!isStakeholder && (
-                    <>
-                      <Tooltip title="Editar">
-                        <IconButton size="small" onClick={(e) => openEdit(r, e)}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
-                      </Tooltip>
-                      <Tooltip title="Excluir">
-                        <IconButton size="small" color="error" onClick={(e) => openDelete(r, e)}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
-                      </Tooltip>
-                    </>
+                  {podeEditar && (
+                    <Tooltip title="Editar">
+                      <IconButton size="small" onClick={(e) => openEdit(r, e)}><EditIcon sx={{ fontSize: 16 }} /></IconButton>
+                    </Tooltip>
+                  )}
+                  {podeExcluir && (
+                    <Tooltip title="Excluir">
+                      <IconButton size="small" color="error" onClick={(e) => openDelete(r, e)}><DeleteIcon sx={{ fontSize: 16 }} /></IconButton>
+                    </Tooltip>
                   )}
                   <ArrowForwardIcon className="arrow-icon" sx={{ fontSize: 20, color: 'primary.main', opacity: 0, transform: 'translateX(-4px)', transition: 'all 0.15s', ml: 0.5 }} />
                 </Box>

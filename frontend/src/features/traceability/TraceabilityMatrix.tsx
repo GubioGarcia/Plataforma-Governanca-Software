@@ -69,6 +69,8 @@ const MODELO_VAZIO: ModeloDadosProjeto = {
 
 const LADO_CELULA = 54;
 const LARGURA_EIXO = 214;
+// Celular: a coluna fixa mostra só o código, para sobrar espaço às células da matriz
+const LARGURA_EIXO_RESPONSIVA = { xs: 92, sm: LARGURA_EIXO };
 const ALTURA_EIXO_VERTICAL = 104;
 /** Passo do escalonamento da plotagem inicial, em milissegundos. */
 const PASSO_PLOTAGEM = 18;
@@ -100,7 +102,8 @@ export default function TraceabilityMatrix() {
   const navigate = useNavigate();
   const theme = useTheme();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('RASTREABILIDADE_EDIT');
 
   const [requisitos, setRequisitos] = useState<RequisitoAPI[]>([]);
   const [vinculos, setVinculos] = useState<VinculoRequisitoAPI[]>([]);
@@ -211,7 +214,7 @@ export default function TraceabilityMatrix() {
       setSelecao({ origemId, destinoId, celula });
       return;
     }
-    if (isStakeholder) return;
+    if (!podeEditar) return;
     setFormVinculo({ requisitoOrigemId: origemId, requisitoDestinoId: destinoId, tipo: 'DEPENDE_DE' });
     setDialogVinculoAberto(true);
   }
@@ -283,12 +286,12 @@ export default function TraceabilityMatrix() {
             {projectId && <BotaoExportar projetoId={projectId} tipo="rastreabilidade" />}
             <Tooltip title="Recarregar do servidor">
               <span>
-                <IconButton onClick={restaurarCenario} disabled={isStakeholder}>
+                <IconButton onClick={restaurarCenario}>
                   <RestartAltIcon fontSize="small" />
                 </IconButton>
               </span>
             </Tooltip>
-            {!isStakeholder && (
+            {podeEditar && (
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -461,14 +464,14 @@ export default function TraceabilityMatrix() {
                             left: 0,
                             top: 0,
                             zIndex: 4,
-                            width: LARGURA_EIXO,
-                            minWidth: LARGURA_EIXO,
+                            width: LARGURA_EIXO_RESPONSIVA,
+                            minWidth: LARGURA_EIXO_RESPONSIVA,
                             height: alturaEixoVertical,
                             bgcolor: 'background.paper',
                             borderBottom: '1px solid',
                             borderRight: '1px solid',
                             borderColor: 'divider',
-                            p: 2,
+                            p: { xs: 1, sm: 2 },
                             textAlign: 'left',
                             verticalAlign: 'bottom',
                           }}
@@ -554,8 +557,8 @@ export default function TraceabilityMatrix() {
                                 position: 'sticky',
                                 left: 0,
                                 zIndex: 2,
-                                width: LARGURA_EIXO,
-                                minWidth: LARGURA_EIXO,
+                                width: LARGURA_EIXO_RESPONSIVA,
+                                minWidth: LARGURA_EIXO_RESPONSIVA,
                                 bgcolor: 'background.paper',
                                 borderRight: '1px solid',
                                 borderBottom: '1px solid',
@@ -568,7 +571,7 @@ export default function TraceabilityMatrix() {
                                   onClick={() => analisar(linha.id)}
                                   sx={{
                                     cursor: 'pointer',
-                                    px: 2,
+                                    px: { xs: 1, sm: 2 },
                                     py: 1.25,
                                     borderLeft: '2px solid',
                                     borderLeftColor: emAnalise
@@ -616,7 +619,7 @@ export default function TraceabilityMatrix() {
                                     variant="caption"
                                     sx={{
                                       color: 'text.secondary',
-                                      display: 'block',
+                                      display: { xs: 'none', sm: 'block' },
                                       overflow: 'hidden',
                                       textOverflow: 'ellipsis',
                                       whiteSpace: 'nowrap',
@@ -975,7 +978,7 @@ export default function TraceabilityMatrix() {
                   <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                     vínculo direto, cadastrado manualmente
                   </Typography>
-                  {!isStakeholder && selecao.celula.relacaoDireta.vinculoId && (
+                  {podeEditar && selecao.celula.relacaoDireta.vinculoId && (
                     <Tooltip title="Remover vínculo">
                       <IconButton
                         size="small"

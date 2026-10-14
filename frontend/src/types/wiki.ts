@@ -32,22 +32,3 @@ export interface WikiProjetoUpdateRequest {
   tecnologiasObrigatorias?: string;
   regulamentacoes?: string;
 }
-
-export type StatusWikiSection = 'RASCUNHO' | 'EM_VALIDACAO' | 'APROVADO' | 'REPROVADO' | 'VALIDADO';
-
-export interface WikiVoto {
-  userId: string;
-  userName: string;
-  voto: 'APROVADO' | 'REPROVADO' | null;
-  votadoEm?: string;
-}
-
-export interface WikiSection {
-  id: string;
-  conteudo: string;
-  status: StatusWikiSection;
-  votos: WikiVoto[];
-  totalStakeholders: number;
-  aprovacoes: number;
-  reprovacoes: number;
-}

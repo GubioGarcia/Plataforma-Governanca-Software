@@ -63,7 +63,7 @@ function BarSection({ title, subtitle, data }: {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <Card elevation={0} variant="outlined" sx={{ flex: '1 1 260px' }}>
-      <CardContent sx={{ p: 3 }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.25 }}>{title}</Typography>
         {subtitle && (
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2.5 }}>{subtitle}</Typography>
@@ -175,7 +175,7 @@ export default function ProjectAnalytics() {
   }
 
   return (
-    <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
+    <Box sx={{ flexGrow: 1, p: { xs: 2, sm: 3, md: 4 }, overflowY: 'auto' }}>
       {/* Header */}
       <Box sx={{ mb: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.5 }}>
@@ -248,7 +248,7 @@ export default function ProjectAnalytics() {
       {/* Engajamento por stakeholder */}
       {membros.length > 0 && (
         <Card elevation={0} variant="outlined">
-          <CardContent sx={{ p: 3 }}>
+          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.25 }}>
               Engajamento por Stakeholder
             </Typography>
@@ -265,7 +265,7 @@ export default function ProjectAnalytics() {
                   const inits = m.usuarioNome.split(' ').slice(0, 2).map((n) => n[0]).join('').toUpperCase();
                   return (
                     <Box key={m.usuarioId}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 0.75 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.25, sm: 2 }, mb: 0.75 }}>
                         {m.usuarioUrlFoto ? (
                           <Avatar src={m.usuarioUrlFoto} sx={{ width: 32, height: 32 }} />
                         ) : (
@@ -274,8 +274,9 @@ export default function ProjectAnalytics() {
                           </Avatar>
                         )}
                         <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.25 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 600 }}>{m.usuarioNome}</Typography>
+                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.25 }}>
+                            {/* Nome numa linha só (no celular ficava uma palavra por linha) */}
+                            <Typography variant="body2" sx={{ fontWeight: 600, minWidth: 0 }} noWrap title={m.usuarioNome}>{m.usuarioNome}</Typography>
                             <Typography variant="caption" sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
                               {m.totalInteracoes} interações
                             </Typography>
@@ -286,7 +287,7 @@ export default function ProjectAnalytics() {
                             sx={{ height: 6, borderRadius: 3, bgcolor: '#EEF2FF', '& .MuiLinearProgress-bar': { bgcolor: 'primary.main', borderRadius: 3 } }}
                           />
                         </Box>
-                        <Box sx={{ display: 'flex', gap: 0.75, ml: 1 }}>
+                        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 0.5, sm: 0.75 }, ml: { xs: 0, sm: 1 }, flexShrink: 0 }}>
                           <Tooltip title={`Wiki: ${m.interacoesWiki}`}>
                             <Chip label={`W: ${m.interacoesWiki}`} size="small" sx={{ fontSize: '10px', height: 20, bgcolor: '#E0F2FE', color: '#0891B2', cursor: 'default' }} />
                           </Tooltip>
