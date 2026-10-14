@@ -64,7 +64,17 @@ export default function AppShell() {
     .toUpperCase() ?? 'U';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        // dvh: no celular a altura útil descontando a barra do navegador (100vh fica atrás dela)
+        height: '100vh',
+        '@supports (height: 100dvh)': { height: '100dvh' },
+        overflow: 'hidden',
+        bgcolor: 'background.default',
+      }}
+    >
       <AppBar
         position="sticky"
         elevation={0}
@@ -78,7 +88,7 @@ export default function AppShell() {
         <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: '56px !important' }}>
           {/* Logo */}
           <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', mr: 4 }}
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', mr: { xs: 1, sm: 4 } }}
             onClick={() => navigate('/organizations')}
           >
             <Box
@@ -135,7 +145,8 @@ export default function AppShell() {
                 label={papelLabel}
                 size="small"
                 sx={{
-                  mr: 1.5,
+                  mr: { xs: 1, sm: 1.5 },
+                  maxWidth: { xs: 132, sm: 260 },
                   bgcolor: isGestor ? '#EDE9FE' : '#EFF6FF',
                   color: isGestor ? '#7C3AED' : '#3B82F6',
                   fontWeight: 600,
@@ -199,7 +210,7 @@ export default function AppShell() {
             onClose={() => setNotifAnchor(null)}
             transformOrigin={{ horizontal: 'right', vertical: 'top' }}
             anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            slotProps={{ paper: { elevation: 3, sx: { mt: 0.5, width: 360, borderRadius: 2 } } }}
+            slotProps={{ paper: { elevation: 3, sx: { mt: 0.5, width: 360, maxWidth: 'calc(100vw - 16px)', borderRadius: 2 } } }}
           >
             <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Pendências</Typography>
@@ -259,7 +270,8 @@ export default function AppShell() {
       </AppBar>
 
       {/* Page content */}
-      <Box sx={{ flexGrow: 1, display: 'flex', overflow: 'hidden' }}>
+      {/* min-width 0: a página (item flex) não cresce além da tela por causa de um filho largo */}
+      <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', overflow: 'hidden', '& > *': { minWidth: 0 } }}>
         <Outlet />
       </Box>
     </Box>
