@@ -1,7 +1,6 @@
 import { matchPath, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import type { OrganizacaoAcesso, Permissao, ProjetoAcesso } from '../types/acesso';
-import type { PapelProjeto } from '../types/stakeholder';
 
 /**
  * Ids da organização/projeto a partir da URL. Usa matchPath (e não useParams) para
@@ -20,7 +19,7 @@ function idsDaRota(pathname: string): { orgId?: string; projectId?: string } {
  * em /organizations/:orgId vale o papel na organização.
  *
  * Serve só para decidir o que mostrar — o backend checa tudo de novo (403).
- * Mantém os nomes antigos (isGestor, isStakeholder, canEdit...) usados pelas telas.
+ * Cada ação da tela usa `pode(...)` com a mesma permissão que o backend exige.
  */
 export function usePermissions() {
   const { user } = useAuth();
@@ -55,16 +54,10 @@ export function usePermissions() {
 
   const adminPlataforma = user?.adminPlataforma ?? false;
 
-  // Dono/Gestor no contexto atual → visão de gestão; qualquer outro participante → visão de stakeholder
+  // Dono/Gestor no contexto atual (só para apresentação, ex.: cor do papel no cabeçalho)
   const isGestor = projectId
     ? (projetoAtual?.papeis.some((p) => p === 'DONO' || p === 'GESTOR') ?? false)
     : (organizacaoAtual?.papel === 'DONO' || organizacaoAtual?.papel === 'GESTOR');
-  const participa = projectId ? (projetoAtual?.papeis.length ?? 0) > 0 : !!organizacaoAtual;
-  const isStakeholder = participa && !isGestor;
-  const isAnalista = false; // papel da simulação antiga; não existe no modelo de autorização
-
-  const hasRole = (role: PapelProjeto): boolean =>
-    (role === 'GESTOR' && isGestor) || (role === 'STAKEHOLDER' && isStakeholder);
 
   return {
     user,
@@ -74,21 +67,6 @@ export function usePermissions() {
     pode,
     podeNaOrganizacao,
     podeNoProjeto,
-    hasRole,
     isGestor,
-    isStakeholder,
-    isAnalista,
-    // Pode criar/editar conteúdo do projeto
-    canEdit: isGestor,
-    // Pode enviar requisito para validação
-    canSendToValidation: isGestor,
-    // Pode se manifestar sobre requisitos (aprovar como gestor ou solicitar como stakeholder)
-    canVote: participa,
-    // Pode aprovar/reprovar em definitivo
-    canValidateFinal: pode('REQ_APPROVE'),
-    // Pode gerenciar participantes do projeto
-    canManageMembers: pode('PROJETO_INVITE_USER'),
-    // Pode ver a tela completa de auditoria
-    canViewAudit: pode('AUDIT_VIEW'),
   };
 }
