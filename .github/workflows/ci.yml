@@ -25,7 +25,7 @@ jobs:
           java-version: '21'
           cache: maven
       - name: Build e testes
-        run: ./mvnw -B verify
+        run: sh ./mvnw -B verify
 
   frontend:
     name: Frontend (lint e build)
