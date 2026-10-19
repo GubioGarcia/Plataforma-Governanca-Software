@@ -19,7 +19,7 @@ public class VisaoProduto {
     @GeneratedValue
     private UUID id;
 
-    @OneToOne
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "projeto_id")
     private Projeto projeto;
 

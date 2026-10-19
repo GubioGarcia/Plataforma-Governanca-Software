@@ -23,7 +23,7 @@ public class Requisito {
     @GeneratedValue
     private UUID id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "projeto_id")
     private Projeto projeto;
 
@@ -43,25 +43,25 @@ public class Requisito {
     @Column(name = "tipo_requisito")
     private TipoRequisito tipoRequisito;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "status_id")
     private StatusRequisito status;
 
     private Integer versao;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "prioridade_id")
     private Prioridade prioridade;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "criado_por")
     private Usuario criadoPor;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "aprovado_por")
     private Usuario aprovadoPor;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "solicitado_por")
     private Usuario solicitadoPor;
 
