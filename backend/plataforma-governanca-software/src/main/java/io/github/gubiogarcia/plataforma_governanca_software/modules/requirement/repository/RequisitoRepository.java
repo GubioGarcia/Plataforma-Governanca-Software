@@ -1,6 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository;
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.domain.Requisito;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,8 @@ import java.util.UUID;
 
 @Repository
 public interface RequisitoRepository extends JpaRepository<Requisito, UUID> {
+    /** Traz status, prioridade e autores no mesmo SELECT: o mapeamento para DTO lê esses nomes em cada linha. */
+    @EntityGraph(attributePaths = {"status", "prioridade", "criadoPor", "solicitadoPor", "aprovadoPor"})
     List<Requisito> findAllByProjetoId(UUID projetoId);
     boolean existsByStatusId(UUID statusId);
     boolean existsByPrioridadeId(UUID prioridadeId);

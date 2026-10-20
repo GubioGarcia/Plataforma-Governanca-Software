@@ -22,11 +22,11 @@ public class ArquivoProjeto {
     @GeneratedValue
     private UUID id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "projeto_id", nullable = false)
     private Projeto projeto;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organizacao organizacao;
 
@@ -48,7 +48,7 @@ public class ArquivoProjeto {
     @Column(name = "tamanho_bytes", nullable = false)
     private Long tamanhoBytes;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "criado_por_usuario_id")
     private Usuario criadoPor;
 
