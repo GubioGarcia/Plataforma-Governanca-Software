@@ -4,8 +4,12 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 import HubIcon from '@mui/icons-material/Hub';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../context/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
@@ -35,6 +39,7 @@ export default function LoginPage() {
   // login
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -42,6 +47,7 @@ export default function LoginPage() {
   const [cadNome, setCadNome]   = useState('');
   const [cadEmail, setCadEmail] = useState('');
   const [cadSenha, setCadSenha] = useState('');
+  const [mostrarCadSenha, setMostrarCadSenha] = useState(false);
   const [cadErros, setCadErros] = useState<{ nome?: string; email?: string; senha?: string }>({});
   const [cadSucesso, setCadSucesso] = useState(false);
 
@@ -139,6 +145,30 @@ export default function LoginPage() {
       caretColor: inputText,
     },
   };
+
+  // O "olho" nativo do Edge (::-ms-reveal) some depois que o campo perde o
+  // foco ou é preenchido pelo navegador. Ele é escondido e substituído por um
+  // botão próprio, sempre disponível.
+  const senhaSx = {
+    ...autoFillSx,
+    '& input::-ms-reveal, & input::-ms-clear': { display: 'none' },
+  };
+
+  function adornoSenha(visivel: boolean, alternar: () => void) {
+    return (
+      <InputAdornment position="end">
+        <IconButton
+          aria-label={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+          onClick={alternar}
+          onMouseDown={(e) => e.preventDefault()}
+          edge="end"
+          disabled={loading}
+        >
+          {visivel ? <VisibilityOff /> : <Visibility />}
+        </IconButton>
+      </InputAdornment>
+    );
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'stretch', bgcolor: 'background.default' }}>
@@ -255,7 +285,7 @@ export default function LoginPage() {
                 />
                 <TextField
                   label="Senha"
-                  type="password"
+                  type={mostrarSenha ? 'text' : 'password'}
                   size="medium"
                   fullWidth
                   value={senha}
@@ -265,7 +295,12 @@ export default function LoginPage() {
                   error={!!erro}
                   helperText={erro || undefined}
                   InputProps={{ sx: inputSx }}
-                  slotProps={{ input: { sx: autoFillSx } }}
+                  slotProps={{
+                    input: {
+                      sx: senhaSx,
+                      endAdornment: adornoSenha(mostrarSenha, () => setMostrarSenha((v) => !v)),
+                    },
+                  }}
                 />
                 <Button
                   type="submit"
@@ -352,7 +387,7 @@ export default function LoginPage() {
                   />
                   <TextField
                     label="Senha *"
-                    type="password"
+                    type={mostrarCadSenha ? 'text' : 'password'}
                     size="medium"
                     fullWidth
                     value={cadSenha}
@@ -362,7 +397,12 @@ export default function LoginPage() {
                     error={!!cadErros.senha}
                     helperText={cadErros.senha || 'Mínimo 8 caracteres com letras e números'}
                     InputProps={{ sx: { ...inputSx, height: 'auto', py: 1.5 } }}
-                    slotProps={{ input: { sx: autoFillSx } }}
+                    slotProps={{
+                      input: {
+                        sx: senhaSx,
+                        endAdornment: adornoSenha(mostrarCadSenha, () => setMostrarCadSenha((v) => !v)),
+                      },
+                    }}
                   />
                   <Button
                     type="submit"

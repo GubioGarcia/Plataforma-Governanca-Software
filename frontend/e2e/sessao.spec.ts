@@ -26,10 +26,22 @@ test.describe('Sessão', () => {
   test('senha errada mostra erro e não entra', async ({ page }) => {
     await page.goto('/login');
     await page.getByLabel('E-mail').fill(pessoa.email);
-    await page.getByLabel('Senha').fill('senhaErrada999');
+    await page.getByLabel('Senha', { exact: true }).fill('senhaErrada999');
     await page.getByRole('button', { name: 'Entrar' }).click();
     await expect(page.locator('.MuiFormHelperText-root.Mui-error')).toBeVisible();
     await expect(page).toHaveURL(/\/login$/);
+  });
+
+  test('o botão de mostrar a senha fica sempre disponível', async ({ page }) => {
+    await page.goto('/login');
+    const senha = page.getByLabel('Senha', { exact: true });
+    await senha.fill('qualquer123');
+    // Fora de foco e com valor: é aqui que o "olho" nativo do navegador sumia
+    await page.getByLabel('E-mail').click();
+    await page.getByRole('button', { name: 'Mostrar senha' }).click();
+    await expect(senha).toHaveAttribute('type', 'text');
+    await page.getByRole('button', { name: 'Ocultar senha' }).click();
+    await expect(senha).toHaveAttribute('type', 'password');
   });
 
   test('login entra, o F5 mantém a sessão e o logout encerra', async ({ page }) => {

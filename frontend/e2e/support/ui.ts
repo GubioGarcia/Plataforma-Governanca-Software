@@ -10,7 +10,7 @@ export async function entrar(page: Page, p: Pessoa): Promise<void> {
   await page.context().clearCookies();
   await page.goto('/login');
   await page.getByLabel('E-mail').fill(p.email);
-  await page.getByLabel('Senha').fill(p.senha);
+  await page.getByLabel('Senha', { exact: true }).fill(p.senha);
   await page.getByRole('button', { name: 'Entrar' }).click();
   await expect(page).toHaveURL(/\/organizations$/);
 }
