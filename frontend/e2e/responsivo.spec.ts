@@ -89,4 +89,17 @@ test.describe('Responsividade no celular', () => {
       });
     }
   });
+
+  test('arquivos: com arquivo enviado a lista vira cartões e cabe na tela', async ({ page }) => {
+    await entrar(page, c.dono);
+    await page.goto(rota.modulo(c, 'files'));
+    const nome = 'especificacao_de_requisitos_versao_final_revisada_pelo_cliente.pdf';
+    await page.locator('input[type="file"]').setInputFiles({ name: nome, mimeType: 'application/pdf', buffer: Buffer.from('%PDF-1.4 teste') });
+
+    await expect(page.getByText(nome)).toBeVisible();
+    await expect(page.getByText(`Enviado por ${c.dono.nome}`)).toBeVisible();
+    await expect(page.getByRole('button', { name: `Baixar ${nome}` })).toBeVisible();
+    await expect(page.getByRole('table')).toHaveCount(0);
+    await semRolagemHorizontal(page);
+  });
 });

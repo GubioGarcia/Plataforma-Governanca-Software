@@ -14,6 +14,8 @@ import IconButton from '@mui/material/IconButton';
 import CircularProgress from '@mui/material/CircularProgress';
 import Alert from '@mui/material/Alert';
 import LinearProgress from '@mui/material/LinearProgress';
+import useMediaQuery from '@mui/material/useMediaQuery';
+import { useTheme } from '@mui/material/styles';
 import DownloadIcon from '@mui/icons-material/Download';
 import DeleteIcon from '@mui/icons-material/Delete';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -64,6 +66,9 @@ export default function FileRepository() {
   const podeEnviar = pode('ARQUIVO_UPLOAD');
   const podeExcluir = pode('ARQUIVO_DELETE');
   const { notify } = useSnackbar();
+  const theme = useTheme();
+  // Celular: cada arquivo vira um cartão (6 colunas não cabem em ~330px)
+  const emCartoes = useMediaQuery(theme.breakpoints.down('sm'));
 
   const [files, setFiles] = useState<ArquivoProjetoDTO[]>([]);
   const [loading, setLoading] = useState(true);
@@ -185,6 +190,37 @@ export default function FileRepository() {
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
+  const acoes = (file: ArquivoProjetoDTO) => (
+    <>
+      <Tooltip title="Baixar">
+        <span>
+          <IconButton
+            size="small"
+            aria-label={`Baixar ${file.nomeOriginal}`}
+            onClick={() => handleDownload(file)}
+            disabled={downloadingId === file.id}
+          >
+            {downloadingId === file.id
+              ? <CircularProgress size={16} />
+              : <DownloadIcon fontSize="small" />}
+          </IconButton>
+        </span>
+      </Tooltip>
+      {podeExcluir && (
+        <Tooltip title="Excluir">
+          <IconButton
+            size="small"
+            aria-label={`Excluir ${file.nomeOriginal}`}
+            onClick={() => setDeleteTarget(file)}
+            sx={{ color: '#EF4444' }}
+          >
+            <DeleteIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      )}
+    </>
+  );
+
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       {/* Cabeçalho */}
@@ -236,7 +272,7 @@ export default function FileRepository() {
           sx={{
             border: `2px dashed ${dragging ? '#3F51B5' : '#D1D5DB'}`,
             borderRadius: 2,
-            p: 4,
+            p: { xs: 3, sm: 4 },
             textAlign: 'center',
             bgcolor: dragging ? '#EEF2FF' : '#FAFAFA',
             cursor: uploading ? 'not-allowed' : 'pointer',
@@ -266,8 +302,34 @@ export default function FileRepository() {
           title="Nenhum arquivo enviado"
           description="Faça upload de documentos e artefatos do projeto."
         />
-      ) : (
+      ) : emCartoes ? (
         <Paper elevation={0} sx={{ border: '1px solid #E8EAED', borderRadius: 2 }}>
+          {files.map((file, i) => (
+            <Box
+              key={file.id}
+              sx={{
+                display: 'flex', alignItems: 'flex-start', gap: 1.5, p: 2,
+                borderTop: i > 0 ? '1px solid #E8EAED' : 'none',
+              }}
+            >
+              <Box sx={{ pt: 0.25 }}><FileTypeIcon name={file.nomeOriginal} /></Box>
+              <Box sx={{ flex: 1, minWidth: 0 }}>
+                <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
+                  {file.nomeOriginal}
+                </Typography>
+                <Typography variant="caption" component="div" sx={{ color: '#6B7280' }}>
+                  {file.extensao?.toUpperCase()} · {formatFileSize(file.tamanhoBytes)} · {new Date(file.dataUpload).toLocaleDateString('pt-BR')}
+                </Typography>
+                <Typography variant="caption" component="div" sx={{ color: '#6B7280', overflowWrap: 'anywhere' }}>
+                  Enviado por {file.usuarioUpload}
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', flexShrink: 0 }}>{acoes(file)}</Box>
+            </Box>
+          ))}
+        </Paper>
+      ) : (
+        <Paper elevation={0} sx={{ border: '1px solid #E8EAED', borderRadius: 2, overflowX: 'auto' }}>
           <Table>
             <TableHead>
               <TableRow sx={{ bgcolor: '#F8FAFC' }}>
@@ -285,7 +347,7 @@ export default function FileRepository() {
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <FileTypeIcon name={file.nomeOriginal} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500, overflowWrap: 'anywhere' }}>
                         {file.nomeOriginal}
                       </Typography>
                     </Box>
@@ -311,31 +373,8 @@ export default function FileRepository() {
                       {new Date(file.dataUpload).toLocaleDateString('pt-BR')}
                     </Typography>
                   </TableCell>
-                  <TableCell align="center">
-                    <Tooltip title="Baixar">
-                      <span>
-                        <IconButton
-                          size="small"
-                          onClick={() => handleDownload(file)}
-                          disabled={downloadingId === file.id}
-                        >
-                          {downloadingId === file.id
-                            ? <CircularProgress size={16} />
-                            : <DownloadIcon fontSize="small" />}
-                        </IconButton>
-                      </span>
-                    </Tooltip>
-                    {podeExcluir && (
-                      <Tooltip title="Excluir">
-                        <IconButton
-                          size="small"
-                          onClick={() => setDeleteTarget(file)}
-                          sx={{ color: '#EF4444' }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    )}
+                  <TableCell align="center" sx={{ whiteSpace: 'nowrap' }}>
+                    {acoes(file)}
                   </TableCell>
                 </TableRow>
               ))}
