@@ -149,6 +149,9 @@ public class VinculoRequisitoService {
                     vinculo.getTipo().name(), request.tipo().name()
             );
             vinculo.setTipo(request.tipo());
+            interacaoService.registrar(usuario, origem.getProjeto(), ModuloInteracao.RASTREABILIDADE,
+                    TipoInteracao.EDICAO, id, "Vínculo alterado: " + origem.getCodigo() + " " + request.tipo()
+                            + " " + vinculo.getRequisitoDestino().getCodigo());
         }
 
         vinculo = vinculoRequisitoRepository.save(vinculo);
@@ -173,6 +176,8 @@ public class VinculoRequisitoService {
         );
 
         vinculoRequisitoRepository.deleteById(id);
+        interacaoService.registrar(usuario, origem.getProjeto(), ModuloInteracao.RASTREABILIDADE,
+                TipoInteracao.EXCLUSAO, id, "Vínculo removido: " + descricao);
         log.info("VinculoRequisito {} removido.", id);
     }
 

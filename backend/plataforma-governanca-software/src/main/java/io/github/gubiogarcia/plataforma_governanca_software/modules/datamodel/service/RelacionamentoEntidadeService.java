@@ -179,8 +179,10 @@ public class RelacionamentoEntidadeService {
         Projeto projeto = rel.getEntidadeOrigem().getProjeto();
         autorizacao.exigir(projeto, Permissao.MER_EDIT);
         Usuario usuario = resolverUsuario(jwt);
+        boolean alterou = false;
 
         if (!request.tipo().equals(rel.getTipo())) {
+            alterou = true;
             auditoriaService.registrar(
                     usuario, projeto.getOrganizacao(), projeto,
                     "RELACIONAMENTO_ENTIDADE", id, AcaoAuditoria.EDICAO, "tipo",
@@ -191,6 +193,7 @@ public class RelacionamentoEntidadeService {
 
         UUID atributoFkAtualId = rel.getAtributoFk() != null ? rel.getAtributoFk().getId() : null;
         if (request.atributoFkId() != null && !request.atributoFkId().equals(atributoFkAtualId)) {
+            alterou = true;
             AtributoEntidade novoAtributoFk = resolverAtributoFk(request.atributoFkId());
             garantirMesmoProjeto(novoAtributoFk, projeto);
             auditoriaService.registrar(
@@ -203,6 +206,10 @@ public class RelacionamentoEntidadeService {
         }
 
         rel = relacionamentoEntidadeRepository.save(rel);
+        if (alterou) {
+            interacaoService.registrar(usuario, projeto, ModuloInteracao.MODELAGEM_DADOS, TipoInteracao.EDICAO, id,
+                    "Relacionamento alterado: " + rel.getEntidadeOrigem().getNome() + " -> " + rel.getEntidadeDestino().getNome());
+        }
         log.info("RelacionamentoEntidade {} atualizado.", id);
         return mapToResponseDTO(rel);
     }
@@ -225,6 +232,8 @@ public class RelacionamentoEntidadeService {
         );
 
         relacionamentoEntidadeRepository.deleteById(id);
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.MODELAGEM_DADOS, TipoInteracao.EXCLUSAO, id,
+                "Relacionamento removido: " + rel.getEntidadeOrigem().getNome() + " -> " + rel.getEntidadeDestino().getNome());
         log.info("RelacionamentoEntidade {} removido.", id);
     }
 
