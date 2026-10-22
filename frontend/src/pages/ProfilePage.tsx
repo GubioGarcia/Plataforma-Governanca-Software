@@ -19,12 +19,14 @@ import AlternateEmailIcon from '@mui/icons-material/AlternateEmail';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
 import BusinessIcon from '@mui/icons-material/Business';
 import HistoryIcon from '@mui/icons-material/History';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CircularProgress from '@mui/material/CircularProgress';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/useAuth';
 import { useSnackbar } from '../context/SnackbarContext';
 import { atualizarMeuPerfil, isApiError } from '../services/userService';
 import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../types/acesso';
+import { PADDING_PAGINA } from '../theme/responsivo';
 
 
 export default function ProfilePage() {
@@ -53,6 +55,13 @@ export default function ProfilePage() {
     }
   };
 
+  // O perfil abre pelo menu do usuário em qualquer tela: volta para onde estava.
+  // Aberto direto pela URL (sem histórico no app), vai para as organizações.
+  const handleVoltar = () => {
+    if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
+    else navigate('/organizations');
+  };
+
   const handleCancel = () => {
     setForm({ nome: displayName, email: displayEmail });
     setEditing(false);
@@ -74,12 +83,26 @@ export default function ProfilePage() {
   const totalProjetos = organizacoes.reduce((acc, o) => acc + o.projetos.length, 0);
 
   return (
-    <Box sx={{ flexGrow: 1, p: { xs: 2, sm: 3, md: 4 }, overflowY: 'auto' }}>
+    <Box sx={{ flexGrow: 1, p: PADDING_PAGINA, overflowY: 'auto' }}>
+      {/* Botão Voltar */}
+      <Box sx={{ mb: 1 }}>
+        <Button
+          variant="text"
+          startIcon={<ArrowBackIcon />}
+          onClick={handleVoltar}
+          sx={{ color: 'text.secondary', pl: 0 }}
+        >
+          Voltar
+        </Button>
+      </Box>
+
       <Typography variant="h2" sx={{ mb: 4 }}>Meu Perfil</Typography>
 
-      <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      {/* Abaixo de 900px os cards empilham com a largura da tela; acima, o card do
+          perfil é uma coluna de largura fixa que não cresce com o conteúdo (nem ao editar). */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, alignItems: { xs: 'stretch', md: 'flex-start' } }}>
         {/* Profile card */}
-        <Card sx={{ minWidth: 300, flex: '0 0 auto' }}>
+        <Card sx={{ width: { md: 320 }, flexShrink: 0, minWidth: 0 }}>
           <CardContent sx={{ p: 3, textAlign: 'center' }}>
             <Avatar
               sx={{
@@ -94,8 +117,8 @@ export default function ProfilePage() {
 
             {!editing ? (
               <>
-                <Typography variant="h4" sx={{ mb: 0.5 }}>{displayName}</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>{user?.email}</Typography>
+                <Typography variant="h4" sx={{ mb: 0.5, overflowWrap: 'anywhere' }}>{displayName}</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5, overflowWrap: 'anywhere' }}>{user?.email}</Typography>
                 <Chip
                   label={roleCfg.label}
                   size="small"
@@ -105,11 +128,11 @@ export default function ProfilePage() {
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, textAlign: 'left' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <EmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                    <Typography variant="body2">{displayEmail}</Typography>
+                    <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>{displayEmail}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <AlternateEmailIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                    <Typography variant="body2">{displayName}</Typography>
+                    <Typography variant="body2" sx={{ minWidth: 0, overflowWrap: 'anywhere' }}>{displayName}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                     <BadgeIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
@@ -170,7 +193,7 @@ export default function ProfilePage() {
         </Card>
 
         {/* Stats + Activity */}
-        <Box sx={{ flex: 1, minWidth: 280, display: 'flex', flexDirection: 'column', gap: 3 }}>
+        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
           {/* Activity stats */}
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             {[

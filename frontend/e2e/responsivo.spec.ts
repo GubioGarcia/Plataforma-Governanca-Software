@@ -90,6 +90,28 @@ test.describe('Responsividade no celular', () => {
     }
   });
 
+  test('meu perfil: card na largura da tela, edição sem estouro e Voltar', async ({ page }) => {
+    await entrar(page, c.dono);
+    await page.goto('/organizations');
+    await page.waitForLoadState('networkidle');
+    await page.goto('/profile');
+    await expect(page.getByRole('heading', { name: 'Meu Perfil' })).toBeVisible();
+
+    // O card do perfil acompanha a largura dos demais cards (empilhados no celular)
+    const larguras = await page.locator('.MuiCard-root').evaluateAll((cards) =>
+      cards.map((el) => Math.round(el.getBoundingClientRect().width)));
+    expect(larguras[0]).toBe(larguras[larguras.length - 1]);
+    await semRolagemHorizontal(page);
+
+    await page.getByRole('button', { name: 'Editar perfil' }).click();
+    await expect(page.getByLabel('Nome completo')).toBeVisible();
+    await semRolagemHorizontal(page);
+    await page.getByRole('button', { name: 'Cancelar' }).click();
+
+    await page.getByRole('button', { name: 'Voltar' }).click();
+    await expect(page).toHaveURL(/\/organizations$/);
+  });
+
   test('arquivos: com arquivo enviado a lista vira cartões e cabe na tela', async ({ page }) => {
     await entrar(page, c.dono);
     await page.goto(rota.modulo(c, 'files'));

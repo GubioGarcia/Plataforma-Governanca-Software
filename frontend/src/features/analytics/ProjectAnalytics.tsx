@@ -15,24 +15,18 @@ import AutoStoriesIcon from '@mui/icons-material/AutoStories';
 import AssignmentTurnedInIcon from '@mui/icons-material/AssignmentTurnedIn';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import HourglassTopIcon from '@mui/icons-material/HourglassTop';
-import EditNoteIcon from '@mui/icons-material/EditNote';
-import ThumbDownIcon from '@mui/icons-material/ThumbDown';
-import PendingIcon from '@mui/icons-material/Pending';
 import { buscarResumoPorProjeto } from '../../services/interacaoService';
 import type { ResumoInteracaoProjeto } from '../../types/interacao';
-import { listarRequisitosPorProjeto } from '../../services/requirementService';
-import type { RequisitoAPI } from '../../types/requirementAPI';
-
-// ─── Status config ────────────────────────────────────────────────────────────
-
-const STATUS_CFG: Record<string, { label: string; color: string; bg: string; icon: React.ReactNode }> = {
-  VALIDADO:     { label: 'Validado',     color: '#7C3AED', bg: '#EDE9FE', icon: <AssignmentTurnedInIcon sx={{ fontSize: 14 }} /> },
-  APROVADO:     { label: 'Aprovado',     color: '#16A34A', bg: '#DCFCE7', icon: <CheckCircleIcon sx={{ fontSize: 14 }} /> },
-  EM_VALIDACAO: { label: 'Em Validação', color: '#D97706', bg: '#FEF3C7', icon: <HourglassTopIcon sx={{ fontSize: 14 }} /> },
-  EM_ANALISE:   { label: 'Em Análise',   color: '#3B82F6', bg: '#EFF6FF', icon: <PendingIcon sx={{ fontSize: 14 }} /> },
-  RASCUNHO:     { label: 'Rascunho',     color: '#6B7280', bg: '#F3F4F6', icon: <EditNoteIcon sx={{ fontSize: 14 }} /> },
-  REPROVADO:    { label: 'Reprovado',    color: '#DC2626', bg: '#FEE2E2', icon: <ThumbDownIcon sx={{ fontSize: 14 }} /> },
-};
+import { listarRequisitosPorProjeto, listarStatusRequisito } from '../../services/requirementService';
+import type { RequisitoAPI, StatusRequisitoAPI } from '../../types/requirementAPI';
+import {
+  MODULOS_INTERACAO,
+  STATUS_DECIDIDOS,
+  interacoesPorModulo,
+  requisitosPorStatus,
+  requisitosPorTipo,
+  type Fatia,
+} from '../../utils/indicadores';
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -58,7 +52,7 @@ function KpiCard({ icon, label, value, sub, color, bg }: {
 function BarSection({ title, subtitle, data }: {
   title: string;
   subtitle?: string;
-  data: { label: string; value: number; color: string; bg: string }[];
+  data: Fatia[];
 }) {
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
@@ -69,10 +63,11 @@ function BarSection({ title, subtitle, data }: {
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2.5 }}>{subtitle}</Typography>
         )}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {data.filter((d) => d.value > 0).map((d) => {
+          {/* Todas as opções aparecem, inclusive as com zero */}
+          {data.map((d) => {
             const pct = total > 0 ? Math.round((d.value / total) * 100) : 0;
             return (
-              <Box key={d.label}>
+              <Box key={d.chave}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.4 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: d.color, flexShrink: 0 }} />
@@ -90,7 +85,7 @@ function BarSection({ title, subtitle, data }: {
               </Box>
             );
           })}
-          {data.every((d) => d.value === 0) && (
+          {data.length === 0 && (
             <Typography variant="body2" color="text.disabled">Sem dados</Typography>
           )}
         </Box>
@@ -113,18 +108,21 @@ export default function ProjectAnalytics() {
 
   const [resumo, setResumo]   = useState<ResumoInteracaoProjeto | null>(null);
   const [reqs, setReqs]       = useState<RequisitoAPI[]>([]);
+  const [statuses, setStatuses] = useState<StatusRequisitoAPI[]>([]);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     if (!projectId) return;
     try {
       setLoading(true);
-      const [r, req] = await Promise.allSettled([
+      const [r, req, st] = await Promise.allSettled([
         buscarResumoPorProjeto(projectId),
         listarRequisitosPorProjeto(projectId),
+        listarStatusRequisito(),
       ]);
       if (r.status === 'fulfilled')   setResumo(r.value);
       if (req.status === 'fulfilled') setReqs(req.value);
+      if (st.status === 'fulfilled')  setStatuses(st.value);
     } finally {
       setLoading(false);
     }
@@ -134,37 +132,20 @@ export default function ProjectAnalytics() {
 
   // ── Derived: requisitos ───────────────────────────────────────────────────
   const total = reqs.length;
-  const aprovados = reqs.filter((r) => r.statusNome === 'APROVADO' || r.statusNome === 'VALIDADO').length;
-  const pendentes = reqs.filter((r) => r.statusNome === 'EM_VALIDACAO' || r.statusNome === 'EM_ANALISE').length;
+  const aprovados = reqs.filter((r) => r.statusNome === 'APROVADO').length;
+  const pendentes = reqs.filter((r) => !STATUS_DECIDIDOS.includes(r.statusNome ?? '')).length;
   const aprovPct = total > 0 ? Math.round((aprovados / total) * 100) : 0;
 
-  // status breakdown
-  const statusCounts: Record<string, number> = {};
-  reqs.forEach((r) => { if (r.statusNome) statusCounts[r.statusNome] = (statusCounts[r.statusNome] ?? 0) + 1; });
-  const reqStatusData = Object.entries(STATUS_CFG).map(([key, cfg]) => ({
-    label: cfg.label, value: statusCounts[key] ?? 0, color: cfg.color, bg: cfg.bg,
-  }));
-
-  // type breakdown
-  const funcional    = reqs.filter((r) => r.tipoRequisito === 'FUNCIONAL').length;
-  const naoFuncional = reqs.filter((r) => r.tipoRequisito === 'NAO_FUNCIONAL').length;
-  const reqTypeData = [
-    { label: 'Funcional',     value: funcional,    color: '#3F51B5', bg: '#EEF2FF' },
-    { label: 'Não Funcional', value: naoFuncional, color: '#0891B2', bg: '#E0F2FE' },
-  ];
+  const reqStatusData = requisitosPorStatus(reqs, statuses);
+  const reqTypeData   = requisitosPorTipo(reqs);
 
   // ── Derived: interações ───────────────────────────────────────────────────
+  // Inclui quem já saiu do projeto: as ações continuam no histórico
   const totalInteracoes = resumo?.totalInteracoes ?? 0;
   const membros         = resumo?.porUsuario ?? [];
   const maxInt          = Math.max(...membros.map((m) => m.totalInteracoes), 1);
   const modulos         = resumo?.interacoesPorModulo ?? {};
-
-  const moduloData = [
-    { label: 'WIKI',        value: modulos['WIKI']       ?? 0, color: '#0891B2', bg: '#E0F2FE' },
-    { label: 'Requisitos',  value: modulos['REQUISITO']  ?? 0, color: '#7C3AED', bg: '#EDE9FE' },
-    { label: 'Comentários', value: modulos['COMENTARIO'] ?? 0, color: '#059669', bg: '#DCFCE7' },
-    { label: 'Eventos',     value: modulos['EVENTO']     ?? 0, color: '#D97706', bg: '#FEF3C7' },
-  ];
+  const moduloData      = interacoesPorModulo(modulos);
 
   if (loading) {
     return (
@@ -193,19 +174,19 @@ export default function ProjectAnalytics() {
           icon={<AssignmentTurnedInIcon />}
           label="Total de Requisitos"
           value={total}
-          sub={`${aprovados} aprovados / validados`}
+          sub={`${aprovados} aprovado${aprovados !== 1 ? 's' : ''}`}
           color="#3F51B5" bg="#EEF2FF"
         />
         <KpiCard
           icon={<CheckCircleIcon />}
           label="Aprovação"
           value={`${aprovPct}%`}
-          sub={`${pendentes} pendentes`}
+          sub={`${pendentes} aguardando decisão`}
           color="#16A34A" bg="#DCFCE7"
         />
         <KpiCard
           icon={<PeopleIcon />}
-          label="Stakeholders"
+          label="Pessoas que interagiram"
           value={membros.length}
           sub={`${totalInteracoes} interações`}
           color="#D97706" bg="#FEF3C7"
@@ -253,7 +234,7 @@ export default function ProjectAnalytics() {
               Engajamento por Stakeholder
             </Typography>
             <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 3 }}>
-              Total de interações nos módulos de WIKI e Requisitos
+              Total de interações em todos os módulos (inclui quem já saiu do projeto)
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -287,13 +268,13 @@ export default function ProjectAnalytics() {
                             sx={{ height: 6, borderRadius: 3, bgcolor: '#EEF2FF', '& .MuiLinearProgress-bar': { bgcolor: 'primary.main', borderRadius: 3 } }}
                           />
                         </Box>
-                        <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 0.5, sm: 0.75 }, ml: { xs: 0, sm: 1 }, flexShrink: 0 }}>
-                          <Tooltip title={`Wiki: ${m.interacoesWiki}`}>
-                            <Chip label={`W: ${m.interacoesWiki}`} size="small" sx={{ fontSize: '10px', height: 20, bgcolor: '#E0F2FE', color: '#0891B2', cursor: 'default' }} />
-                          </Tooltip>
-                          <Tooltip title={`Requisitos: ${m.interacoesRequisito}`}>
-                            <Chip label={`R: ${m.interacoesRequisito}`} size="small" sx={{ fontSize: '10px', height: 20, bgcolor: '#EDE9FE', color: '#7C3AED', cursor: 'default' }} />
-                          </Tooltip>
+                        {/* Um chip por módulo com interação: a soma bate com o total */}
+                        <Box sx={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 0.5, ml: { xs: 0, sm: 1 }, flexShrink: 0, maxWidth: { xs: 96, sm: 'none' } }}>
+                          {MODULOS_INTERACAO.filter((mod) => Number(m[mod.campo] ?? 0) > 0).map((mod) => (
+                            <Tooltip key={mod.chave} title={`${mod.label}: ${m[mod.campo]}`}>
+                              <Chip label={`${mod.sigla}: ${m[mod.campo]}`} size="small" sx={{ fontSize: '10px', height: 20, bgcolor: mod.bg, color: mod.color, cursor: 'default' }} />
+                            </Tooltip>
+                          ))}
                         </Box>
                       </Box>
                     </Box>
