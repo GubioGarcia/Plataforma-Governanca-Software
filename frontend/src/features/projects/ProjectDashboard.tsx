@@ -35,6 +35,7 @@ import type { EventoProjeto } from '../../types/event';
 import type { AuditoriaAPI } from '../../types/auditoriaAPI';
 import type { InteracaoAPI, ResumoInteracaoProjeto } from '../../types/interacao';
 import { usePermissions } from '../../hooks/usePermissions';
+import { requisitosPorStatus } from '../../utils/indicadores';
 
 const activityColor: Record<string, string> = {
   CRIACAO: '#16A34A',
@@ -122,37 +123,9 @@ export default function ProjectDashboard() {
   useEffect(() => { load(); }, [load]);
 
   // ── Derived: requisitos ───────────────────────────────────────────────────
-  // Contagens por status (para os summary cards)
-  const reqByStatus = {
-    rascunho:    reqs.filter((r) => r.statusNome === 'RASCUNHO').length,
-    emAnalise:   reqs.filter((r) => r.statusNome === 'EM_ANALISE').length,
-    emValidacao: reqs.filter((r) => r.statusNome === 'EM_VALIDACAO').length,
-    aprovado:    reqs.filter((r) => r.statusNome === 'APROVADO').length,
-    validado:    reqs.filter((r) => r.statusNome === 'VALIDADO').length,
-  };
-
-  // Cores por nome de status (fallback para cinza)
-  const STATUS_COLORS: Record<string, { color: string; bg: string }> = {
-    RASCUNHO:      { color: '#94A3B8', bg: '#F1F5F9' },
-    EM_ANALISE:    { color: '#3B82F6', bg: '#EFF6FF' },
-    EM_VALIDACAO:  { color: '#D97706', bg: '#FFFBEB' },
-    APROVADO:      { color: '#16A34A', bg: '#F0FDF4' },
-    VALIDADO:      { color: '#7C3AED', bg: '#EDE9FE' },
-  };
-
-  // Funil dinâmico baseado na API de status de requisitos
-  const funnelSteps = [...statusRequisito]
-    .sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0))
-    .map((s) => {
-      const palette = STATUS_COLORS[s.nome] ?? { color: '#6B7280', bg: '#F9FAFB' };
-      const label = s.nome.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
-      return {
-        label,
-        count: reqs.filter((r) => r.statusNome === s.nome).length,
-        color: palette.color,
-        bg:    palette.bg,
-      };
-    });
+  // Funil com todos os status cadastrados (API), na ordem do cadastro
+  const funnelSteps = requisitosPorStatus(reqs, statusRequisito);
+  const contagemStatus = (nome: string) => funnelSteps.find((s) => s.chave === nome)?.value ?? 0;
   const totalReqs = reqs.length || 1;
 
   // ── Derived: eventos ──────────────────────────────────────────────────────
@@ -212,21 +185,21 @@ export default function ProjectDashboard() {
             },
             {
               icon: <ChecklistIcon />,
-              label: 'Aprovados / Validados',
-              value: reqByStatus.aprovado + reqByStatus.validado,
+              label: 'Aprovados',
+              value: contagemStatus('APROVADO'),
               color: '#16A34A',
               bg: '#F0FDF4',
             },
             {
               icon: <ChecklistIcon />,
-              label: 'Em Validação',
-              value: reqByStatus.emValidacao,
+              label: 'Em Revisão',
+              value: contagemStatus('EM_REVISAO'),
               color: '#D97706',
               bg: '#FFFBEB',
             },
             {
               icon: <TouchAppIcon />,
-              label: 'Total de Interações Stakeholders',
+              label: 'Total de Interações',
               value: totalInteracoes,
               color: '#7C3AED',
               bg: '#EDE9FE',
@@ -391,17 +364,17 @@ export default function ProjectDashboard() {
                   </Button>
                 </Box>
                 {funnelSteps.map((step) => (
-                  <Box key={step.label} sx={{ mb: 1.5 }}>
+                  <Box key={step.chave} sx={{ mb: 1.5 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
                       <Typography variant="caption" sx={{ fontWeight: 500, color: step.color }}>{step.label}</Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                        {step.count} / {reqs.length}
+                        {step.value} / {reqs.length}
                       </Typography>
                     </Box>
-                    <Tooltip title={`${Math.round((step.count / totalReqs) * 100)}%`} placement="top">
+                    <Tooltip title={`${Math.round((step.value / totalReqs) * 100)}%`} placement="top">
                       <LinearProgress
                         variant="determinate"
-                        value={(step.count / totalReqs) * 100}
+                        value={(step.value / totalReqs) * 100}
                         sx={{
                           height: 8,
                           borderRadius: 4,

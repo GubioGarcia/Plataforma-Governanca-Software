@@ -1,4 +1,11 @@
-export type ModuloInteracao = 'WIKI' | 'REQUISITO' | 'COMENTARIO' | 'EVENTO';
+export type ModuloInteracao =
+  | 'WIKI'
+  | 'REQUISITO'
+  | 'COMENTARIO'
+  | 'EVENTO'
+  | 'ARQUIVO'
+  | 'MODELAGEM_DADOS'
+  | 'RASTREABILIDADE';
 export type TipoInteracao =
   | 'CRIACAO'
   | 'EDICAO'
@@ -31,6 +38,9 @@ export interface ResumoInteracaoUsuario {
   interacoesRequisito: number;
   interacoesComentario: number;
   interacoesEvento: number;
+  interacoesArquivo: number;
+  interacoesModelagemDados: number;
+  interacoesRastreabilidade: number;
 }
 
 export interface ResumoInteracaoProjeto {

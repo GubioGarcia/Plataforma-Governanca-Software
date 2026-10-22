@@ -46,6 +46,7 @@ import { PAPEL_PROJETO_LABEL, type PapelNoProjeto } from '../../types/acesso';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import { cabecalhoPagina } from '../../theme/responsivo';
+import { MODULOS_INTERACAO } from '../../utils/indicadores';
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
@@ -130,6 +131,7 @@ export default function StakeholderList() {
   const [membros, setMembros]           = useState<Membro[]>([]);
   const [convites, setConvites]         = useState<Convite[]>([]);
   const [totalInteracoes, setTotal]     = useState(0);
+  const [pessoasQueInteragiram, setPessoasQueInteragiram] = useState(0);
   const [loading, setLoading]           = useState(true);
   const [search, setSearch]             = useState('');
 
@@ -158,7 +160,9 @@ export default function StakeholderList() {
       ]);
       const porUsuario = new Map((resumo?.porUsuario ?? []).map((r) => [r.usuarioId, r]));
       setMembros(participantes.map((p) => ({ participante: p, interacoes: porUsuario.get(p.usuarioId) ?? null })));
+      // Total do projeto: inclui quem já saiu (as ações continuam no histórico)
       setTotal(resumo?.totalInteracoes ?? 0);
+      setPessoasQueInteragiram(resumo?.porUsuario.length ?? 0);
       setConvites(pendentes);
     } catch (err) {
       notify(mensagemErro(err, 'Erro ao carregar os participantes do projeto'), 'error');
@@ -175,12 +179,13 @@ export default function StakeholderList() {
   });
 
   const totalMembros = membros.length;
-  const media = totalMembros > 0 ? Math.round(totalInteracoes / totalMembros) : 0;
+  const media = pessoasQueInteragiram > 0 ? Math.round(totalInteracoes / pessoasQueInteragiram) : 0;
 
   const n = (m: Membro, campo: keyof ResumoInteracaoUsuario) => Number(m.interacoes?.[campo] ?? 0);
-  const maxWiki = Math.max(...membros.map((m) => n(m, 'interacoesWiki')), 1);
-  const maxReq  = Math.max(...membros.map((m) => n(m, 'interacoesRequisito')), 1);
-  const maxCom  = Math.max(...membros.map((m) => n(m, 'interacoesComentario')), 1);
+  // Maior valor de cada módulo entre os participantes (escala das barras)
+  const maxPorModulo = Object.fromEntries(
+    MODULOS_INTERACAO.map((mod) => [mod.chave, Math.max(...membros.map((m) => n(m, mod.campo)), 1)]),
+  );
 
   // ── Ações ────────────────────────────────────────────────────────────────────
 
@@ -271,7 +276,7 @@ export default function StakeholderList() {
           <StatCard value={totalInteracoes} label="Total de interações" color="#059669" />
         </Grid>
         <Grid size={{ xs: 4 }}>
-          <StatCard value={media}           label="Média por participante" color="#D97706" />
+          <StatCard value={media}           label="Média por pessoa que interagiu" color="#D97706" />
         </Grid>
       </Grid>
 
@@ -410,11 +415,19 @@ export default function StakeholderList() {
                       />
                     </Box>
 
+                    {/* Um item por módulo com interação: a soma bate com o total do chip */}
                     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                      <EngRow label="Interações WIKI"        value={n(m, 'interacoesWiki')}      max={maxWiki} color="#3F51B5" />
-                      <EngRow label="Interações Requisitos"  value={n(m, 'interacoesRequisito')} max={maxReq}  color="#7C3AED" />
-                      {n(m, 'interacoesComentario') > 0 && (
-                        <EngRow label="Interações Comentários" value={n(m, 'interacoesComentario')} max={maxCom} color="#059669" />
+                      {MODULOS_INTERACAO.filter((mod) => n(m, mod.campo) > 0).map((mod) => (
+                        <EngRow
+                          key={mod.chave}
+                          label={`Interações ${mod.label}`}
+                          value={n(m, mod.campo)}
+                          max={maxPorModulo[mod.chave]}
+                          color={mod.color}
+                        />
+                      ))}
+                      {n(m, 'totalInteracoes') === 0 && (
+                        <Typography variant="caption" color="text.disabled">Ainda sem interações no projeto</Typography>
                       )}
                     </Box>
                   </CardContent>
