@@ -381,6 +381,40 @@ try:
           admin.status("GET", f"/projeto/{pa}") == 403)
 
     # ─────────────────────────────────────────────────────────────────────────
+    secao("9b. Área administrativa (/api/admin) e dados de referência de sistema")
+    anonimo = urllib.request.build_opener()
+    for rota in ("/admin/resumo", "/admin/usuarios", "/admin/auditoria"):
+        check(f"{rota} sem token → 401", chamar(anonimo, "GET", API + rota)[0] == 401)
+        check(f"{rota} Dono → 403", dono.status("GET", rota) == 403)
+        check(f"{rota} Gestor → 403", gestor.status("GET", rota) == 403)
+        check(f"{rota} admin → 200", admin.status("GET", rota) == 200)
+    s, resumo = admin.req("GET", "/admin/resumo")
+    check("resumo só tem contagens", s == 200 and set(resumo) == {"usuariosAtivos", "usuariosInativos", "organizacoes",
+          "projetos", "requisitosPorStatus", "solicitacoesPendentes"}, detalhe(resumo))
+    s, pag = admin.req("GET", f"/admin/usuarios?busca=.e2e.{SUF}&tamanho=100")
+    marcado = next((u for u in (pag or {}).get("itens", []) if u["email"] == admin.email), None)
+    check("lista de usuários marca o admin e a própria conta", s == 200 and marcado and marcado["adminPlataforma"] and marcado["propria"])
+    check("parâmetro inválido → 400", admin.status("GET", "/admin/auditoria?acao=QUALQUER") == 400)
+
+    _, statuses = admin.req("GET", "/status-requisito")
+    aprovado = next(x for x in statuses if x["nome"] == "APROVADO")
+    check("APROVADO é de sistema", aprovado["sistema"] is True)
+    s, b = admin.req("PUT", f"/status-requisito/{aprovado['id']}", {"nome": "OK", "descricao": aprovado["descricao"], "ordem": aprovado["ordem"]})
+    check("renomear APROVADO → 409", s == 409, f"HTTP {s} {detalhe(b)}")
+    check("excluir APROVADO → 409", admin.status("DELETE", f"/status-requisito/{aprovado['id']}") == 409)
+    s, b = admin.req("PUT", f"/status-requisito/{aprovado['id']}", {"nome": "APROVADO", "descricao": aprovado["descricao"], "ordem": aprovado["ordem"]})
+    check("editar APROVADO sem mudar o nome → 200", s == 200, f"HTTP {s} {detalhe(b)}")
+    if extras_status:
+        s, b = admin.req("PUT", f"/status-requisito/{extras_status[0]}", {"nome": f"E2E_{SUF}_R", "descricao": "e2e", "ordem": novo_status["ordem"]})
+        check("renomear status que não é de sistema → 200", s == 200, f"HTTP {s} {detalhe(b)}")
+    s, aud = admin.req("GET", "/admin/auditoria?tamanho=100")
+    meus = [a for a in (aud or {}).get("itens", []) if a["usuarioId"] == admin.id]
+    check("auditoria administrativa registra as ações do admin (sem organização/projeto)",
+          s == 200 and any(a["entidadeTipo"] == "STATUS_REQUISITO" and a["acao"] == "CRIACAO" for a in meus)
+          and any(a["entidadeTipo"] == "PRIORIDADE" for a in meus)
+          and all(a["organizacaoId"] is None and a["projetoId"] is None for a in aud["itens"]), detalhe(aud))
+
+    # ─────────────────────────────────────────────────────────────────────────
     secao("10. Aprovação de requisito")
     s, sts = dono.req("GET", "/status-requisito")
     id_aprovado = next(x["id"] for x in sts if x["nome"] == "APROVADO")
@@ -486,7 +520,11 @@ try:
     check("não vê conta alheia → 403", dono.status("GET", f"/usuario/{gestor.id}") == 403)
     check("admin vê conta alheia → 200", admin.status("GET", f"/usuario/{gestor.id}") == 200)
     check("não inativa conta alheia → 403", estranho.status("DELETE", f"/usuario/{gestor.id}") == 403)
+    check("admin não inativa a própria conta → 409", admin.status("DELETE", f"/usuario/{admin.id}") == 409)
     check("admin inativa conta alheia → 204", admin.status("DELETE", f"/usuario/{convidado.id}") == 204)
+    _, aud = admin.req("GET", "/admin/auditoria?acao=EDICAO&tamanho=100")
+    check("inativação aparece na auditoria administrativa",
+          any(a["entidadeTipo"] == "USUARIO" and a["entidadeId"] == convidado.id for a in (aud or {}).get("itens", [])))
     check("conta inativada não loga", convidado.login()[0] != 200)
     check("usuário inativa a própria conta → 204", estranho.status("DELETE", f"/usuario/{estranho.id}") == 204)
     check("…e não loga mais", estranho.login(SENHA_NOVA)[0] != 200)
@@ -542,6 +580,8 @@ finally:
         print("  status extra:", psql(f"delete from status_requisito where id='{sid}'"))
     for pid in extras_prioridade:
         print("  prioridade extra:", psql(f"delete from prioridade where id='{pid}'"))
+    contas = f"(select id from usuario where email like '%.e2e.{SUF}@exemplo.com')"
+    print("  auditoria administrativa:", psql(f"delete from auditoria where usuario_id in {contas} or entidade_id in {contas}"))
     print("  banco (usuários):", psql(f"delete from usuario where email like '%.e2e.{SUF}@exemplo.com'"))
 
 falhas = [n for n, ok in resultados if not ok]

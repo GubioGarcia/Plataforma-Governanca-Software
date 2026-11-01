@@ -5,14 +5,19 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.dto.AuditoriaResponseDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.repository.AuditoriaRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.ProjetoService;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.PaginaDTO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -28,6 +33,7 @@ public class AuditoriaService {
     private final AuditoriaRepository auditoriaRepository;
     private final ProjetoRepository   projetoRepository;
     private final AutorizacaoService  autorizacao;
+    private final UsuarioRepository   usuarioRepository;
 
     // ── Listagens ─────────────────────────────────────────────────────────────
 
@@ -54,6 +60,25 @@ public class AuditoriaService {
                 ? auditoriaRepository.findByProjetoIdAndEntidadeTipo(projetoId, entidadeTipo.toUpperCase())
                 : auditoriaRepository.findByProjetoId(projetoId);
         return result.stream().map(this::mapToDTO).toList();
+    }
+
+    /**
+     * Auditoria administrativa: só os registros sem organização e sem projeto (ações
+     * do Admin da Plataforma), do mais recente ao mais antigo. Filtros opcionais.
+     */
+    @Transactional(readOnly = true)
+    public PaginaDTO<AuditoriaResponseDTO> listarAdministrativa(int pagina, int tamanho, AcaoAuditoria acao,
+                                                                Instant de, Instant ate) {
+        autorizacao.exigirAdminPlataforma();
+        Specification<Auditoria> filtro = (root, query, cb) -> cb.and(
+                cb.isNull(root.get("organizacao")), cb.isNull(root.get("projeto")));
+        if (acao != null) filtro = filtro.and((root, query, cb) -> cb.equal(root.get("acao"), acao));
+        if (de != null) filtro = filtro.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("dataAlteracao"), de));
+        if (ate != null) filtro = filtro.and((root, query, cb) -> cb.lessThan(root.get("dataAlteracao"), ate));
+
+        var page = auditoriaRepository.findAll(filtro, PageRequest.of(
+                Math.max(pagina, 0), Math.clamp(tamanho, 1, 100), Sort.by("dataAlteracao").descending()));
+        return PaginaDTO.de(page, this::mapToDTO);
     }
 
     @Transactional(readOnly = true)
@@ -116,6 +141,17 @@ public class AuditoriaService {
         auditoriaRepository.save(auditoria);
         log.debug("Auditoria: entidade={}/{} acao={} campo={} anterior='{}' novo='{}'",
                 entidadeTipo, entidadeId, acao, campoAlterado, valorAnterior, valorNovo);
+    }
+
+    /**
+     * Registro de uma ação administrativa (sem organização nem projeto), feita pelo
+     * usuário autenticado — aparece na auditoria da área administrativa.
+     */
+    @Transactional
+    public void registrarAdministrativa(String entidadeTipo, UUID entidadeId, AcaoAuditoria acao,
+                                        String campoAlterado, String valorAnterior, String valorNovo) {
+        Usuario autor = usuarioRepository.findByExternalIdentityId(autorizacao.keycloakIdAtual()).orElse(null);
+        registrar(autor, null, null, entidadeTipo, entidadeId, acao, campoAlterado, valorAnterior, valorNovo);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

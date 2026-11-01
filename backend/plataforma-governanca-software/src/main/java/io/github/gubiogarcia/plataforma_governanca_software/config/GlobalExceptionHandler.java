@@ -34,6 +34,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -123,6 +125,15 @@ public class GlobalExceptionHandler {
     }
 
     // Sem este handler o fallback de Exception devolvia 500 para metodo HTTP inexistente
+    // Parametro de URL com tipo ou valor invalido (ex.: acao=XYZ, data mal formatada)
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    public ProblemDetail handleParametroInvalido(Exception ex) {
+        String nome = ex instanceof MethodArgumentTypeMismatchException m ? m.getName()
+                : ((MissingServletRequestParameterException) ex).getParameterName();
+        return problem(HttpStatus.BAD_REQUEST, "Parametro invalido",
+                "O parametro '" + nome + "' esta ausente ou tem um valor invalido.", "/errors/parametro-invalido");
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ProblemDetail handleMetodoNaoSuportado(HttpRequestMethodNotSupportedException ex) {
         return problem(HttpStatus.METHOD_NOT_ALLOWED, "Metodo nao suportado",
@@ -163,6 +174,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthService.CredenciaisInvalidasException.class)
     public ProblemDetail handleCredenciaisInvalidas(AuthService.CredenciaisInvalidasException ex) {
         return problem(HttpStatus.UNAUTHORIZED, "Credenciais invalidas", ex.getMessage(), "/errors/credenciais-invalidas");
+    }
+
+    @ExceptionHandler(UsuarioService.AdminNaoPodeSeInativarException.class)
+    public ProblemDetail handleAdminNaoPodeSeInativar(UsuarioService.AdminNaoPodeSeInativarException ex) {
+        return problem(HttpStatus.CONFLICT, "Operacao nao permitida", ex.getMessage(), "/errors/admin-nao-pode-se-inativar");
     }
 
     @ExceptionHandler(UsuarioService.SenhaForaDaPoliticaException.class)

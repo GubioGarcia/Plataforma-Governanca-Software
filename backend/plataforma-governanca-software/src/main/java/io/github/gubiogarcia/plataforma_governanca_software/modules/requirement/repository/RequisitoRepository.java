@@ -24,4 +24,8 @@ public interface RequisitoRepository extends JpaRepository<Requisito, UUID> {
      */
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(r.codigo, 5) AS int)), 0) FROM Requisito r WHERE r.projeto.id = :projetoId")
     long findMaxSequencialByProjetoId(@Param("projetoId") UUID projetoId);
+
+    /** Requisitos ativos por nome do status (contagem global, área administrativa). */
+    @Query("SELECT r.status.nome, COUNT(r) FROM Requisito r WHERE r.ativo = true GROUP BY r.status.nome")
+    List<Object[]> contarAtivosPorStatus();
 }

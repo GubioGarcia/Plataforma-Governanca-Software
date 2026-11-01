@@ -32,7 +32,12 @@ const SolicitationList = lazy(() => import('./features/solicitations/Solicitatio
 const AuditLog = lazy(() => import('./features/audit/AuditLog'));
 const ProjectAnalytics = lazy(() => import('./features/analytics/ProjectAnalytics'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
-const UsersPage = lazy(() => import('./features/users/UsersPage'));
+const AdminShell = lazy(() => import('./components/layout/AdminShell'));
+const AdminVisaoGeral = lazy(() => import('./features/admin/AdminVisaoGeral'));
+const AdminUsuarios = lazy(() => import('./features/admin/AdminUsuarios'));
+const AdminDadosReferencia = lazy(() => import('./features/admin/AdminDadosReferencia'));
+const AdminAuditoria = lazy(() => import('./features/admin/AdminAuditoria'));
+const AdminPesquisas = lazy(() => import('./features/admin/AdminPesquisas'));
 
 export default function App() {
   return (
@@ -48,9 +53,15 @@ export default function App() {
         <Route element={<ProtectedRoute><AppShell /></ProtectedRoute>}>
           <Route path="organizations" element={<OrganizationList />} />
           <Route path="profile" element={<ProfilePage />} />
-          {/* Área administrativa: só o Admin da Plataforma (por enquanto, a tela de usuários) */}
-          <Route path="admin" element={<ProtectedRoute requireAdminPlataforma><Navigate to="/users" replace /></ProtectedRoute>} />
-          <Route path="users" element={<ProtectedRoute requireAdminPlataforma><UsersPage /></ProtectedRoute>} />
+          {/* Área administrativa: o AdminShell mostra "sem acesso" a quem não é Admin da Plataforma */}
+          <Route path="admin" element={<AdminShell />}>
+            <Route index element={<AdminVisaoGeral />} />
+            <Route path="usuarios" element={<AdminUsuarios />} />
+            <Route path="dados-referencia" element={<AdminDadosReferencia />} />
+            <Route path="auditoria" element={<AdminAuditoria />} />
+            <Route path="pesquisas" element={<AdminPesquisas />} />
+          </Route>
+          <Route path="users" element={<Navigate to="/admin/usuarios" replace />} />
           {/* Organização/projeto: só para quem tem vínculo (o ProjectShell checa o projeto) */}
           {/* A tela da organização é a própria lista de projetos (dados e membros no topo) */}
           <Route path="organizations/:orgId" element={<Navigate to="projects" replace />} />

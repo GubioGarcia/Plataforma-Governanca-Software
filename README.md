@@ -119,7 +119,7 @@ A autorização é por **organização e projeto**, com os papéis mantidos em *
 | Projeto | **Dono / Gestor** | Edita o conteúdo do projeto, aprova requisitos, responde solicitações, exporta |
 | Projeto | **Stakeholder Técnico** | Consulta, comenta e faz solicitações (alteração, reprovação, evento, exportação) |
 | Projeto | **Stakeholder Cliente** | Como o Técnico, e também solicita a aprovação de requisitos |
-| Plataforma | **Admin da Plataforma** | Mantém status e prioridades e as contas; não tem acesso automático aos projetos |
+| Plataforma | **Admin da Plataforma** | Área administrativa (`/admin`): visão geral só com contagens, contas (ver acessos, inativar), dados de referência e auditoria administrativa. Não tem acesso ao conteúdo dos projetos e é criado só pelo `criar_admin` |
 
 - O login é feito pela API; o token de acesso fica em memória e a sessão é renovada por um **refresh token em cookie HttpOnly** (`/api/auth/refresh`).
 - Quando os papéis de alguém mudam (entrou, foi promovido ou removido), os tokens dessa pessoa são **revogados** na hora e a sessão é renovada com os papéis novos.
@@ -215,7 +215,7 @@ Como publicar, a configuração de produção e a operação estão em [`infrast
 | O quê | Como executar | Cobertura |
 |---|---|---|
 | Backend (unitários e integração) | `./mvnw clean test` em `backend/plataforma-governanca-software` | Regras de negócio e de acesso (H2, Keycloak simulado) |
-| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 160 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação |
+| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 183 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa e status de sistema |
 | Interface ponta a ponta | `npm run test:e2e` em `frontend` | Navegador real (Playwright): o que cada papel vê e faz nas telas |
 
 Os testes ponta a ponta criam usuários e organizações descartáveis e apagam tudo no fim — não interferem nos dados de demonstração.

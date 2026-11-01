@@ -71,7 +71,7 @@ e2e/            # testes ponta a ponta com Playwright
 | `/organizations/:orgId/projects` | Tela da organização: dados e indicadores (`OrgResumo`), membros em card recolhível com o botão Convidar (`OrgMembers`, conforme o papel) e, após a divisória, filtros e lista de projetos (`ProjectList`). `/organizations/:orgId` redireciona para cá |
 | `/organizations/:orgId/projects/:projectId/...` | Projeto (`ProjectShell`): painel, visão do produto, requisitos, rastreabilidade, modelagem de dados, eventos, arquivos, participantes, solicitações, auditoria e analytics |
 | `/profile` | Dados do usuário e onde ele atua (papel em cada organização/projeto) |
-| `/users` | Usuários da plataforma: lista, onde cada pessoa atua e exclusão de conta — só Admin da Plataforma (`/admin` leva para cá) |
+| `/admin/...` | Área administrativa (`AdminShell`, telas em `features/admin/`): visão geral (contagens), usuários (busca, paginação, ver acessos, inativar), dados de referência (status de sistema com nome fixo), auditoria administrativa e pesquisas (reservado). Quem não é Admin da Plataforma vê "sem acesso"; o item "Área administrativa" aparece no menu do usuário só para o admin. `/users` redireciona para `/admin/usuarios` |
 
 As telas da aplicação são carregadas sob demanda (`React.lazy`): a landing não baixa o bundle inteiro.
 
