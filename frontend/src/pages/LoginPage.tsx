@@ -14,6 +14,7 @@ import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../context/useAuth';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { cadastrarUsuario, isApiError } from '../services/userService';
+import { MENSAGEM_LIMITE_REQUISICOES } from '../utils/apiError';
 
 // Critério de senha: mínimo 8 caracteres, ao menos 1 letra e 1 número
 const SENHA_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
@@ -101,6 +102,7 @@ export default function LoginPage() {
     }
     const senhaErro = validarSenha(cadSenha);
     if (senhaErro) erros.senha = senhaErro;
+    else if (cadSenha.toLowerCase() === cadEmail.trim().toLowerCase()) erros.senha = 'A senha não pode ser igual ao e-mail';
 
     if (Object.keys(erros).length) { setCadErros(erros); return; }
 
@@ -113,10 +115,14 @@ export default function LoginPage() {
     } catch (err) {
       if (isApiError(err)) {
         const status = err.response?.status;
-        if (status === 409) {
+        if (status === 429) {
+          setCadErros({ nome: MENSAGEM_LIMITE_REQUISICOES });
+        } else if (status === 409) {
           setCadErros({ email: 'Já existe uma conta com este e-mail' });
         } else if (status === 422) {
           setCadErros({ senha: 'A senha não atende aos requisitos mínimos' });
+        } else if (status === 400 && err.response?.data?.type?.endsWith('/senha-fora-da-politica')) {
+          setCadErros({ senha: err.response.data.detail });
         } else {
           setCadErros({ nome: err.response?.data?.detail || 'Erro ao criar conta. Tente novamente.' });
         }

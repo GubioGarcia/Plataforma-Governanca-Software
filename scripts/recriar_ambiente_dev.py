@@ -1,6 +1,8 @@
 """
-Recria do zero o ambiente de desenvolvimento (banco + identidades no Keycloak)
-e carrega o projeto de demonstração do TCC (scripts/seed_tcc_projeto_demo.sql).
+Recria do zero o ambiente de DESENVOLVIMENTO LOCAL (banco + identidades no
+Keycloak) e carrega o projeto de demonstração do TCC. Não é enviado à VM: no
+ambiente hospedado use carregar_demo.sh / remover_demo.sh, que não apagam nada
+fora da demo.
 
 DESTRUTIVO: apaga o banco da aplicação inteiro, todos os usuários do realm e os
 grupos de organização (/org-*) no Keycloak. O realm em si (roles, clients,
@@ -10,118 +12,20 @@ Passos:
   1. para o backend;
   2. limpa o Keycloak (usuários e grupos /org-*);
   3. recria o banco da aplicação (DROP/CREATE DATABASE);
-  4. sobe o backend: o Hibernate cria as tabelas e o data.sql os dados de referência;
-  5. cria as contas da demo no Keycloak e roda o seed, ligando usuario.external_identity_id;
-  6. reinicia o backend: a migração de grupos cria /org-{id} e /org-{id}/proj-{id}
-     e põe o criador (Gubio) no _dono;
-  7. põe os demais nos grupos: Luiz e Thiago gestores da organização, Plínio
-     stakeholder técnico + cliente do projeto, Gubio também em /_admin;
-  8. confere entrando com cada conta e lendo /api/auth/me.
+  4. sobe o backend: o Flyway cria as tabelas e os dados de referência;
+  5. carrega a demo (carregar_demo em demo_comum.py): contas, seed, grupos e
+     conferência com login. Nenhuma conta da demo é Admin da Plataforma — para
+     isso, rode depois scripts/criar_admin.py.
 
 Uso (com `docker compose up -d` em infrastructure/):
     py scripts/recriar_ambiente_dev.py --confirmar
 
-Variáveis de ambiente (opcionais):
-    DEV_API_URL         http://localhost:8081/api
-    DEV_KEYCLOAK_URL    http://localhost:8080
-    DEV_REALM           plataforma_discovery
-    DEV_KC_ADMIN_USER   admin
-    DEV_KC_ADMIN_PASS   admin
-    DEV_PG_CONTAINER    postgres-db
-    DEV_PG_USER         admin
-    DEV_PG_DB           plataforma
-    DEV_BACKEND         backend        (nome do container do backend)
-    DEV_SENHA_DEMO      TCC@{nome}2026 (senha das contas da demo; "{nome}" vira o primeiro
-                                        nome da pessoa, sem acento: TCC@Gubio2026, TCC@Luiz2026...)
+Variáveis de ambiente: ver demo_comum.py (a senha da demo vem de DEV_SENHA_DEMO
+ou é digitada no terminal).
 """
-import json, os, pathlib, subprocess, sys, time, unicodedata, urllib.error, urllib.parse, urllib.request
+import sys
 
-API = os.getenv("DEV_API_URL", "http://localhost:8081/api")
-KC = os.getenv("DEV_KEYCLOAK_URL", "http://localhost:8080")
-REALM = os.getenv("DEV_REALM", "plataforma_discovery")
-KC_ADMIN = (os.getenv("DEV_KC_ADMIN_USER", "admin"), os.getenv("DEV_KC_ADMIN_PASS", "admin"))
-PG_CONTAINER = os.getenv("DEV_PG_CONTAINER", "postgres-db")
-PG_USER = os.getenv("DEV_PG_USER", "admin")
-PG_DB = os.getenv("DEV_PG_DB", "plataforma")
-BACKEND = os.getenv("DEV_BACKEND", "backend")
-SENHA = os.getenv("DEV_SENHA_DEMO", "TCC@{nome}2026")
-
-SEED = pathlib.Path(__file__).with_name("seed_tcc_projeto_demo.sql")
-A = f"{KC}/admin/realms/{REALM}"
-ORG = "0f000000-0000-0000-0000-0000000000fa"      # Fatesg (seed)
-PROJ = "20000000-0000-0000-0000-000000000001"     # projeto do TCC (seed)
-
-# e-mail → (nome, grupos além dos criados pela migração)
-PESSOAS = {
-    "gubio@email.com":        ("Gubio Garcia dos Santos",                  ["/_admin"]),
-    "luizfernando@email.com": ("Luiz Fernando De Pádua Paixão",            [f"/org-{ORG}/_gestores"]),
-    "thiago@email.com":       ("Thiago Matheus Onorio Ribeiro Pinheiro",   [f"/org-{ORG}/_gestores"]),
-    "plinio@email.com":       ("Prof. Esp. Plínio Marcos Mendes Carneiro", [f"/org-{ORG}/proj-{PROJ}/_stakeholders_tecnicos",
-                                                                            f"/org-{ORG}/proj-{PROJ}/_stakeholders_clientes"]),
-}
-
-
-def senha_de(email):
-    """Aplica o primeiro nome (sem títulos como "Prof." e sem acento) no lugar de {nome}."""
-    primeiro = next(p for p in PESSOAS[email][0].split() if not p.endswith("."))
-    sem_acento = unicodedata.normalize("NFKD", primeiro).encode("ascii", "ignore").decode()
-    return SENHA.replace("{nome}", sem_acento)
-
-
-def passo(texto):
-    print(f"\n── {texto}")
-
-
-def chamar(metodo, url, corpo=None, token=None, form=False):
-    h, d = {}, None
-    if corpo is not None:
-        d = urllib.parse.urlencode(corpo).encode() if form else json.dumps(corpo).encode()
-        h["Content-Type"] = "application/x-www-form-urlencoded" if form else "application/json"
-    if token:
-        h["Authorization"] = f"Bearer {token}"
-    try:
-        with urllib.request.urlopen(urllib.request.Request(url, data=d, method=metodo, headers=h)) as r:
-            raw = r.read()
-            return r.status, (json.loads(raw) if raw else None), r.headers
-    except urllib.error.HTTPError as e:
-        raw = e.read()
-        try:
-            return e.code, json.loads(raw), e.headers
-        except Exception:
-            return e.code, raw.decode(errors="replace"), e.headers
-
-
-def token_admin():
-    s, b, _ = chamar("POST", f"{KC}/realms/master/protocol/openid-connect/token",
-                     {"grant_type": "password", "client_id": "admin-cli", "username": KC_ADMIN[0], "password": KC_ADMIN[1]},
-                     form=True)
-    if s != 200:
-        sys.exit(f"Não consegui autenticar no Keycloak como admin (HTTP {s}). O Keycloak está no ar?")
-    return b["access_token"]
-
-
-def docker(*args, entrada=None):
-    r = subprocess.run(["docker", *args], input=entrada, capture_output=True, text=True, encoding="utf-8")
-    if r.returncode != 0:
-        sys.exit(f"docker {' '.join(args[:3])}... falhou:\n{r.stderr.strip()}")
-    return r.stdout.strip()
-
-
-def psql(sql, banco=PG_DB):
-    return docker("exec", PG_CONTAINER, "psql", "-v", "ON_ERROR_STOP=1", "-U", PG_USER, "-d", banco, "-t", "-A", "-c", sql)
-
-
-def esperar_backend(limite=240):
-    inicio = time.time()
-    while time.time() - inicio < limite:
-        try:
-            s, _, _ = chamar("GET", f"{API}/organizacao")
-            if s == 401:   # no ar e exigindo autenticação
-                return
-        except Exception:
-            pass
-        time.sleep(3)
-    sys.exit(f"O backend não respondeu em {limite}s — veja `docker logs {BACKEND}`.")
+from demo_comum import A, BACKEND, PG_DB, SEED, carregar_demo, chamar, docker, esperar_backend, passo, psql, senha_demo, token_admin
 
 
 def main():
@@ -129,6 +33,7 @@ def main():
         sys.exit(__doc__ + "\nNada foi feito: rode de novo com --confirmar.")
     if not SEED.exists():
         sys.exit(f"Seed não encontrado: {SEED}")
+    modelo_senha = senha_demo()   # pergunta antes de apagar qualquer coisa
 
     passo(f"1. Parando o backend ({BACKEND})")
     docker("stop", BACKEND)
@@ -151,72 +56,14 @@ def main():
     psql('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"; CREATE EXTENSION IF NOT EXISTS pgcrypto;')
     print("   banco vazio criado")
 
-    passo("4. Subindo o backend (Hibernate cria as tabelas; data.sql carrega status e prioridades)")
+    passo("4. Subindo o backend (o Flyway cria as tabelas e os dados de referência)")
     docker("start", BACKEND)
     esperar_backend()
-    print("   tabelas:", psql("SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public'"),
+    print("   versão do schema:", psql("SELECT max(version) FROM flyway_schema_history WHERE success"),
           "| status de requisito:", psql("SELECT count(*) FROM status_requisito"))
 
-    passo("5. Contas da demo no Keycloak + seed do projeto do TCC")
-    t = token_admin()
-    ids = {}
-    for email, (nome, _) in PESSOAS.items():
-        s, b, h = chamar("POST", f"{A}/users", {
-            "username": email, "email": email, "firstName": nome, "lastName": nome,
-            "enabled": True, "emailVerified": True, "requiredActions": [],
-            "credentials": [{"type": "password", "value": senha_de(email), "temporary": False}]}, token=t)
-        if s != 201:
-            sys.exit(f"Falha ao criar {email} no Keycloak: HTTP {s} {b}")
-        ids[email] = h["Location"].rsplit("/", 1)[1]
-    docker("exec", "-i", PG_CONTAINER, "psql", "-v", "ON_ERROR_STOP=1", "-q", "-U", PG_USER, "-d", PG_DB,
-           entrada=SEED.read_text(encoding="utf-8"))
-    for email, kc_id in ids.items():
-        psql(f"UPDATE usuario SET external_identity_id = '{kc_id}' WHERE email = '{email}'")
-    print("   requisitos:", psql(f"SELECT count(*) FROM requisito WHERE projeto_id = '{PROJ}'"),
-          "| solicitações:", psql("SELECT count(*) FROM solicitacao"),
-          "| usuários ligados ao Keycloak:", psql("SELECT count(*) FROM usuario WHERE external_identity_id IS NOT NULL"))
-
-    passo("6. Reiniciando o backend (migração cria os grupos e põe o criador no _dono)")
-    docker("restart", BACKEND)
-    esperar_backend()
-    # A migração roda depois de o backend já responder; em máquina lenta leva mais de um minuto.
-    for _ in range(60):
-        sem_grupo = psql("SELECT (SELECT count(*) FROM organizacao WHERE keycloak_group_id IS NULL)"
-                         " + (SELECT count(*) FROM projeto WHERE keycloak_group_id IS NULL)")
-        if sem_grupo == "0":
-            break
-        time.sleep(5)
-    if sem_grupo != "0":
-        sys.exit(f"{sem_grupo} organização/projeto sem grupo no Keycloak — veja `docker logs {BACKEND}`.")
-    print("   grupos da organização e do projeto criados")
-
-    passo("7. Papéis da demo")
-    t = token_admin()
-    for email, (_, caminhos) in PESSOAS.items():
-        for caminho in caminhos:
-            s, g, _ = chamar("GET", f"{A}/group-by-path{caminho}", token=t)
-            if s != 200:
-                sys.exit(f"Grupo {caminho} não encontrado (HTTP {s})")
-            chamar("PUT", f"{A}/users/{ids[email]}/groups/{g['id']}", token=t)
-            print(f"   {email:<34} → {caminho.replace(ORG, '{fatesg}').replace(PROJ, '{tcc}')}")
-
-    passo("8. Conferência (login + /api/auth/me)")
-    ok = True
-    for email in PESSOAS:
-        s, b, _ = chamar("POST", f"{API}/auth/login", {"email": email, "senha": senha_de(email)})
-        if s != 200:
-            print(f"   [FALHA] {email}: login HTTP {s}"); ok = False; continue
-        _, me, _ = chamar("GET", f"{API}/auth/me", token=b["token"])
-        org = next((o for o in me["organizacoes"] if o["id"] == ORG), None)
-        proj = next((p for p in (org or {}).get("projetos", []) if p["id"] == PROJ), None)
-        papel_org = org["papel"] if org else None
-        papeis_proj = sorted(proj["papeis"]) if proj else []
-        print(f"   {email:<34} admin={me['adminPlataforma']!s:<5} org={papel_org!s:<7} projeto={','.join(papeis_proj)}")
-        if not proj:
-            ok = False
-    if not ok:
-        sys.exit("\nAlguma conta não ficou com acesso ao projeto do TCC.")
-    print(f"\nPronto. Senha das contas da demo: '{SENHA}'.")
+    passo("5. Projeto de demonstração do TCC")
+    carregar_demo(modelo_senha)
 
 
 if __name__ == "__main__":

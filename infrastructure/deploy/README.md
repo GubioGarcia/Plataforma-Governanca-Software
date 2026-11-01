@@ -23,11 +23,13 @@ internet ──443/80──► nginx ──┬── /            → frontend (
 | Arquivo | Função |
 |---|---|
 | `docker-compose.prod.yml` | Serviços do ambiente hospedado (vira `~/plataforma/docker-compose.yml` na VM) |
-| `nginx/default.conf.template` | HTTPS, redirecionamento 80 → 443 e proxy reverso |
+| `nginx/default.conf.template` | HTTPS, redirecionamento 80 → 443, proxy reverso, limite de requisições e cabeçalhos de segurança |
 | `backend/Dockerfile`, `frontend/Dockerfile` | Imagens de runtime a partir do jar e do dist já compilados |
 | `publicar.sh` | **Roda na sua máquina:** compila, monta o pacote, confere os e-mails, envia e sobe |
 | `subir.sh` | **Roda na VM:** segredos, realm, certificado e `docker compose up` |
-| `carregar_demo.sh` | **Roda na VM:** carrega o projeto de demonstração do TCC (destrutivo) |
+| `criar_admin.sh` | **Roda na VM:** cria a conta de Admin da Plataforma (senha digitada no terminal) |
+| `carregar_demo.sh` | **Roda na VM:** carrega o projeto de demonstração do TCC (aditivo, não apaga nada) |
+| `remover_demo.sh` | **Roda na VM:** remove só o projeto e as contas da demonstração |
 
 ---
 
@@ -43,18 +45,24 @@ As senhas do PostgreSQL e do admin do Keycloak, e os client secrets do Keycloak,
 
 > O `.env` é gerado uma única vez. Não o apague: o banco e o Keycloak já foram criados com essas senhas.
 
-### E-mails da demonstração
+### Contas de pessoas
 
-As contas da demo usam **e-mails fictícios**, os mesmos do ambiente local (o seed e o `recriar_ambiente_dev.py` são compartilhados). O `publicar.sh` **aborta o envio** se encontrar, nos scripts da demo ou nos fontes do backend, algum e-mail que não seja `@email.com`:
+Nenhuma senha de conta fica no repositório nem nos scripts:
 
-| Conta | Papel | Senha |
-|---|---|---|
-| gubio@email.com | Dono da organização e do projeto + Admin da Plataforma | `TCC@Gubio2026` |
-| luizfernando@email.com | Gestor da organização | `TCC@Luiz2026` |
-| thiago@email.com | Gestor da organização | `TCC@Thiago2026` |
-| plinio@email.com | Stakeholder Técnico + Cliente do projeto | `TCC@Plinio2026` |
+- **Admin da Plataforma:** conta própria, criada pelo `criar_admin.sh` com a senha digitada no terminal. É o único caminho para o grupo `/_admin`; nenhuma tela dá esse papel.
+- **Contas da demonstração:** só têm papéis na organização e no projeto da demo, nunca de Admin. A senha é digitada na carga (`carregar_demo.sh`) e repassada à banca **fora do repositório**.
+- As senhas usadas antes de nov/2026 estão no histórico do git. Por isso a demo foi recarregada com uma senha nova, e não só apagada do texto.
 
-A senha segue o padrão `TCC@<PrimeiroNome>2026`, com o primeiro nome sem acento.
+As contas da demo usam **e-mails fictícios** (`@email.com`), os mesmos do ambiente local. O `publicar.sh` **aborta o envio** se encontrar, nos scripts da demo ou nos fontes do backend, algum e-mail que não seja `@email.com`. Por isso o e-mail do admin é só argumento do `criar_admin.sh`, nunca escrito em arquivo.
+
+### Proteções de acesso
+
+- **Força bruta (Keycloak):** 5 senhas erradas seguidas bloqueiam a conta por 1 minuto, crescendo até 15 minutos. O login responde igual para senha errada, conta bloqueada e e-mail inexistente.
+- **Política de senha:** mínimo de 8 caracteres e diferente do e-mail.
+- **Limite de requisições (nginx, por IP):** login e cadastro a 20/min com rajada de 10; demais chamadas à API a 30/s com rajada de 60. O excesso recebe HTTP 429.
+- **Cabeçalhos:** HSTS, CSP (`script-src 'self'`, sem scripts de terceiros), `X-Frame-Options: DENY`, `Permissions-Policy`, `nosniff` e `Referrer-Policy`. As exceções da CSP estão comentadas no template.
+- **Swagger:** público até a banca (`SPRINGDOC_*_ENABLED=true` no `docker-compose.prod.yml`); trocar para `false` depois.
+- **Dados de referência de sistema:** os status usados pelas regras não podem ser renomeados nem excluídos (HTTP 409).
 
 ---
 
@@ -98,13 +106,27 @@ bash infrastructure/deploy/publicar.sh --sem-build  # reaproveita o jar e o dist
 
 Requer JDK 21 (padrão `~/.jdks/ms-21.0.10`, ou defina `JAVA_HOME`) e Node. Os dados da VM (banco, arquivos, `.env` e certificado) são preservados entre publicações. Se o Keycloak precisar subir de novo, a publicação leva alguns minutos.
 
-### Carregar a demonstração
+Um ambiente novo sobe **sem nenhuma conta, organização ou projeto**: só o schema e os dados de referência (migrations do Flyway).
 
-> ⚠️ **Destrutivo:** apaga o banco da aplicação e todos os usuários do realm antes de carregar.
+### Conta de Admin da Plataforma
 
 ```bash
-ssh -i ~/.ssh/oracle_tcc ubuntu@129.148.55.171 'bash ~/plataforma/carregar_demo.sh --confirmar'
+ssh -t -i ~/.ssh/oracle_tcc ubuntu@129.148.55.171 'bash ~/plataforma/criar_admin.sh <email-do-admin>'
 ```
+
+A senha é pedida duas vezes, sem eco (o `-t` dá o terminal para isso). Se a conta já existe, o script só confere o grupo `/_admin`.
+
+### Demonstração do TCC
+
+```bash
+# carrega (não apaga nada; pede a senha das contas — "{nome}" vira o primeiro nome)
+ssh -t -i ~/.ssh/oracle_tcc ubuntu@129.148.55.171 'bash ~/plataforma/carregar_demo.sh'
+
+# remove só a demo (organização, projeto, contas e arquivos)
+ssh -i ~/.ssh/oracle_tcc ubuntu@129.148.55.171 'bash ~/plataforma/remover_demo.sh --confirmar'
+```
+
+Se a organização da demo ainda não tem grupo no Keycloak, a carga reinicia o backend uma vez (cerca de 2 minutos fora do ar).
 
 ---
 

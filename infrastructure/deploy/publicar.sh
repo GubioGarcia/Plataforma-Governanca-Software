@@ -6,7 +6,8 @@
 #
 #  1. compila o backend (jar) e o frontend (dist) aqui — a VM tem só 1 GB de RAM;
 #  2. monta o pacote: compose, nginx, Dockerfiles, realm, keycloak-init e os
-#     scripts da demo;
+#     scripts de contas (admin e demo). O recriar_ambiente_dev.py (destrutivo)
+#     é só do ambiente local e não vai para a VM;
 #  3. confere que os scripts da demo e os fontes do backend só têm e-mails
 #     fictícios (@email.com) — aborta se aparecer outro;
 #  4. envia para ~/plataforma na VM e roda o subir.sh lá.
@@ -47,7 +48,7 @@ trap 'rm -rf "$PACOTE"' EXIT
 mkdir -p "$PACOTE"/{backend,frontend,nginx,keycloak,keycloak-init,postgres,scripts}
 
 cp "$DEPLOY/docker-compose.prod.yml"            "$PACOTE/docker-compose.yml"
-cp "$DEPLOY/subir.sh" "$DEPLOY/carregar_demo.sh" "$PACOTE/"
+cp "$DEPLOY/subir.sh" "$DEPLOY/criar_admin.sh" "$DEPLOY/carregar_demo.sh" "$DEPLOY/remover_demo.sh" "$PACOTE/"
 cp "$DEPLOY/nginx/default.conf.template"        "$PACOTE/nginx/"
 cp "$DEPLOY/backend/Dockerfile" "$JAR"          "$PACOTE/backend/" && mv "$PACOTE/backend/$(basename "$JAR")" "$PACOTE/backend/app.jar"
 cp "$DEPLOY/frontend/Dockerfile"                "$PACOTE/frontend/"
@@ -55,7 +56,7 @@ cp -r "$FRONTEND/dist"                          "$PACOTE/frontend/dist"
 cp "$RAIZ/infrastructure/docker/keycloak/realm-export.json" "$PACOTE/keycloak/"
 cp "$RAIZ/infrastructure/docker/keycloak-init/"*            "$PACOTE/keycloak-init/"
 cp "$RAIZ/infrastructure/docker/postgres/init.sql"          "$PACOTE/postgres/"
-cp "$RAIZ/scripts/recriar_ambiente_dev.py" "$RAIZ/scripts/seed_tcc_projeto_demo.sql" "$PACOTE/scripts/"
+cp "$RAIZ/scripts/"{demo_comum,criar_admin,carregar_demo,remover_demo}.py "$RAIZ/scripts/seed_tcc_projeto_demo.sql" "$PACOTE/scripts/"
 
 # finais de linha LF (checkout no Windows pode trazer CRLF)
 find "$PACOTE" -maxdepth 2 -type f \( -name '*.sh' -o -name '*.yml' -o -name '*.template' -o -name '*.py' -o -name '*.sql' -o -name 'Dockerfile' \) \
@@ -71,7 +72,8 @@ echo "== pacote conferido: só e-mails fictícios"
 
 # ── 4. Envio e subida ──────────────────────────────────────────────────────────
 echo "== enviando para $VM:~/plataforma"
-tar -czf - -C "$PACOTE" . | ssh -i "$CHAVE" "$VM" 'mkdir -p ~/plataforma && chmod 700 ~/plataforma && tar -xzf - -C ~/plataforma --no-same-owner'
+# o rm tira o script destrutivo que publicações antigas deixaram na VM
+tar -czf - -C "$PACOTE" . | ssh -i "$CHAVE" "$VM" 'mkdir -p ~/plataforma && chmod 700 ~/plataforma && tar -xzf - -C ~/plataforma --no-same-owner && rm -f ~/plataforma/scripts/recriar_ambiente_dev.py'
 
 echo "== subindo na VM"
 ssh -i "$CHAVE" "$VM" "DOMINIO='$DOMINIO' bash ~/plataforma/subir.sh"

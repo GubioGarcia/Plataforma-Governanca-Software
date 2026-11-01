@@ -101,7 +101,8 @@
 		<dependency>
 			<groupId>org.springdoc</groupId>
 			<artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
-			<version>2.5.0</version>
+			<!-- 3.0.x = linha do springdoc para o Spring Boot 4.0 (a 2.x quebra o /v3/api-docs) -->
+			<version>3.0.3</version>
 		</dependency>
 
 		<!-- OAUTH2 -->
@@ -110,10 +111,11 @@
 			<artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
 		</dependency>
 
-		<!-- FLYWAY - Controle de versão e migração de schema do banco de dados -->
+		<!-- FLYWAY - Controle de versão e migração de schema do banco de dados.
+		     No Spring Boot 4 a autoconfiguração do Flyway fica no starter próprio. -->
 		<dependency>
-			<groupId>org.flywaydb</groupId>
-			<artifactId>flyway-core</artifactId>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-flyway</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.flywaydb</groupId>

@@ -7,6 +7,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.RequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository.StatusRequisitoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.DadoReferenciaSistemaException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -69,6 +70,10 @@ public class StatusRequisitoService {
         boolean nomeAlterado = !status.getNome().equalsIgnoreCase(request.nome());
         boolean ordemAlterada = !status.getOrdem().equals(request.ordem());
 
+        // Status de sistema são usados pelo nome nas regras (aprovação, status inicial)
+        if (nomeAlterado && Boolean.TRUE.equals(status.getSistema())) {
+            throw new DadoReferenciaSistemaException("status de requisito", status.getNome());
+        }
         if (nomeAlterado && statusRequisitoRepository.existsByNomeIgnoreCase(request.nome())) {
             throw new StatusRequisitoNomeJaExisteException(request.nome());
         }
@@ -88,8 +93,10 @@ public class StatusRequisitoService {
     @Transactional
     public void deletar(UUID id) {
         autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
-        if (!statusRequisitoRepository.existsById(id)) {
-            throw new StatusRequisitoNaoEncontradoException(id);
+        StatusRequisito status = statusRequisitoRepository.findById(id)
+                .orElseThrow(() -> new StatusRequisitoNaoEncontradoException(id));
+        if (Boolean.TRUE.equals(status.getSistema())) {
+            throw new DadoReferenciaSistemaException("status de requisito", status.getNome());
         }
         // Impede remoção de status que está vinculado a requisitos existentes.
         // Deletar um status em uso quebraria a integridade referencial e
@@ -103,7 +110,7 @@ public class StatusRequisitoService {
     }
 
     private StatusRequisitoResponseDTO mapToResponseDTO(StatusRequisito s) {
-        return new StatusRequisitoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem());
+        return new StatusRequisitoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem(), s.getSistema());
     }
 
     // Exceções de domínio
