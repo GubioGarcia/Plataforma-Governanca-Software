@@ -47,6 +47,17 @@ test.describe('Responsividade no celular', () => {
     expect(fora, 'elementos passando da borda da tela').toEqual([]);
   }
 
+  test('landing e privacidade cabem na tela, sem login', async ({ page }) => {
+    await page.context().clearCookies();
+    await page.goto('/');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await page.getByRole('link', { name: 'Política de privacidade' }).scrollIntoViewIfNeeded();
+    await semRolagemHorizontal(page);
+    await page.goto('/privacidade');
+    await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
+    await semRolagemHorizontal(page);
+  });
+
   test('menu do projeto em gaveta: abre, navega e fecha', async ({ page }) => {
     await entrar(page, c.dono);
     await page.goto(rota.projeto(c));

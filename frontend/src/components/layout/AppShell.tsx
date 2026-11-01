@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { Suspense, useState, type ReactNode } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
+import CarregandoPagina from '../common/CarregandoPagina';
 import AppBar from '@mui/material/AppBar';
 import Badge from '@mui/material/Badge';
 import Avatar from '@mui/material/Avatar';
@@ -195,7 +196,7 @@ export default function AppShell() {
               Meu Perfil
             </MenuItem>
             <MenuItem
-              onClick={() => { setAnchorEl(null); logout().finally(() => navigate('/login')); }}
+              onClick={() => { setAnchorEl(null); logout(); }}
               sx={{ fontSize: '13px', color: 'error.main' }}
             >
               <ListItemIcon><LogoutIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
@@ -272,7 +273,9 @@ export default function AppShell() {
       {/* Page content */}
       {/* min-width 0: a página (item flex) não cresce além da tela por causa de um filho largo */}
       <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', overflow: 'hidden', '& > *': { minWidth: 0 } }}>
-        <Outlet />
+        <Suspense fallback={<CarregandoPagina />}>
+          <Outlet />
+        </Suspense>
       </Box>
     </Box>
   );

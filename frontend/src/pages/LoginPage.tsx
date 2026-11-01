@@ -12,9 +12,12 @@ import Visibility from '@mui/icons-material/Visibility';
 import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../context/useAuth';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
+import Link from '@mui/material/Link';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { cadastrarUsuario, isApiError } from '../services/userService';
 import { MENSAGEM_LIMITE_REQUISICOES } from '../utils/apiError';
+import { destinoSeguro } from '../utils/sessao';
 
 // Critério de senha: mínimo 8 caracteres, ao menos 1 letra e 1 número
 const SENHA_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
@@ -35,7 +38,9 @@ export default function LoginPage() {
   const inputBg = isDark ? '#1E2334' : '#FFFFFF';
   const inputText = isDark ? '#F1F5F9' : '#1A1D23';
 
-  const [modo, setModo] = useState<'login' | 'cadastro'>('login');
+  // /login e /cadastro são a mesma tela; o modo vem da rota
+  const modo: 'login' | 'cadastro' = location.pathname === '/cadastro' ? 'cadastro' : 'login';
+  const next = new URLSearchParams(location.search).get('next');
 
   // login
   const [email, setEmail] = useState('');
@@ -52,16 +57,13 @@ export default function LoginPage() {
   const [cadErros, setCadErros] = useState<{ nome?: string; email?: string; senha?: string }>({});
   const [cadSucesso, setCadSucesso] = useState(false);
 
-  // Redireciona para a rota de origem após login (ou para /organizations)
+  // Após o login (ou com sessão já ativa) vai para ?next=, se for um caminho interno
   useEffect(() => {
-    if (isAuthenticated) {
-      const from = (location.state as { from?: Location })?.from?.pathname ?? '/organizations';
-      navigate(from, { replace: true });
-    }
-  }, [isAuthenticated, navigate, location.state]);
+    if (isAuthenticated) navigate(destinoSeguro(next), { replace: true });
+  }, [isAuthenticated, navigate, next]);
 
   function alternarModo(m: 'login' | 'cadastro') {
-    setModo(m);
+    navigate({ pathname: `/${m}`, search: location.search }, { replace: true });
     setErro('');
     setCadErros({});
     setCadSucesso(false);
@@ -255,6 +257,15 @@ export default function LoginPage() {
             bgcolor: 'background.paper',
           }}
         >
+          <Link
+            component={RouterLink}
+            to="/"
+            underline="hover"
+            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 3, fontSize: 14, color: 'text.secondary' }}
+          >
+            <ArrowBackIcon sx={{ fontSize: 16 }} /> Voltar ao início
+          </Link>
+
           {/* Logo mobile */}
           <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1, mb: 4 }}>
             <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

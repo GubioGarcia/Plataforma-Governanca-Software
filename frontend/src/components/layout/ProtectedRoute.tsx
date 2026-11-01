@@ -1,6 +1,7 @@
 import { Box, CircularProgress } from '@mui/material';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/useAuth';
+import { DESTINO_PADRAO } from '../../utils/sessao';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -9,7 +10,7 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, requireAdminPlataforma }: ProtectedRouteProps) {
-  const { isAuthenticated, carregando, user } = useAuth();
+  const { isAuthenticated, carregando, user, saiu } = useAuth();
   const location = useLocation();
 
   // Restaurando a sessão pelo cookie de refresh (abertura/recarga da página)
@@ -21,13 +22,19 @@ export default function ProtectedRoute({ children, requireAdminPlataforma }: Pro
     );
   }
 
-  // Não autenticado: redireciona para login preservando a rota original
+  // Saiu pelo menu: volta para a landing
+  if (!isAuthenticated && saiu) {
+    return <Navigate to="/" replace />;
+  }
+
+  // Não autenticado (sessão expirada, link direto): vai ao login e volta para a rota original depois (?next=)
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    const next = encodeURIComponent(location.pathname + location.search);
+    return <Navigate to={`/login?next=${next}`} replace />;
   }
 
   if (requireAdminPlataforma && !user?.adminPlataforma) {
-    return <Navigate to="/" replace />;
+    return <Navigate to={DESTINO_PADRAO} replace />;
   }
 
   return <>{children}</>;
