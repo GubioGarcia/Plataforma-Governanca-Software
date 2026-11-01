@@ -137,6 +137,10 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
                             "Já existe um usuário com este e-mail no Keycloak: " + email, 409
                     );
                 })
+                // 400 na criação com credencial = senha recusada pelo passwordPolicy do realm
+                .onStatus(status -> status.value() == 400, (req, res) -> {
+                    throw new KeycloakAdminException("Senha recusada pela política do realm", 400);
+                })
                 .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
                     throw new KeycloakAdminException(
                             "Falha ao criar usuário no Keycloak: HTTP " + res.getStatusCode(),
@@ -215,6 +219,9 @@ public class KeycloakAdminClientImpl implements KeycloakAdminClient {
                     throw new KeycloakAdminException(
                             "Usuário não encontrado no Keycloak ao redefinir senha: " + keycloakId, 404
                     );
+                })
+                .onStatus(status -> status.value() == 400, (req, res) -> {
+                    throw new KeycloakAdminException("Senha recusada pela política do realm", 400);
                 })
                 .onStatus(status -> !status.is2xxSuccessful(), (req, res) -> {
                     throw new KeycloakAdminException(

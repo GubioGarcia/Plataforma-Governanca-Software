@@ -6,5 +6,6 @@ public record StatusProjetoResponseDTO(
         UUID id,
         String nome,
         String descricao,
-        Integer ordem
+        Integer ordem,
+        Boolean sistema
 ) {}

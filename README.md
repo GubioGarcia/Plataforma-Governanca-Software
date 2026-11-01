@@ -47,7 +47,8 @@ Principais funcionalidades:
 | Java | 21 | Linguagem principal |
 | Spring Boot | 4.0.3 | Framework de aplicação |
 | Spring Security + OAuth2 Resource Server | — | Validação do JWT e autorização por grupos |
-| Spring Data JPA / Hibernate | — | Persistência (schema gerado pelas entidades) |
+| Spring Data JPA / Hibernate | — | Persistência (o Hibernate valida o schema contra as entidades) |
+| Flyway | — | Migrations do schema e dos dados de referência |
 | Keycloak | 24.0.2 | Identidade, sessão e grupos de acesso |
 | SpringDoc OpenAPI (Swagger) | 2.5.0 | Documentação da API REST |
 | Lombok | — | Redução de boilerplate |
@@ -137,10 +138,11 @@ O modelo completo (decisões, matriz de permissões, sessão) está no documento
 
 **Passo a passo:**
 
-1. Clone o repositório e acesse a pasta de infraestrutura:
+1. Clone o repositório, acesse a pasta de infraestrutura e crie o `.env` a partir do modelo:
 
 ```bash
 cd infrastructure
+cp .env.example .env
 ```
 
 2. Suba todos os serviços com build das imagens:
@@ -174,30 +176,35 @@ http://localhost
 
 ---
 
-## Dados de demonstração
+## Dados iniciais e demonstração
 
-O script `scripts/recriar_ambiente_dev.py` recria o ambiente de desenvolvimento do zero e carrega o projeto do próprio TCC (`scripts/seed_tcc_projeto_demo.sql`): organização Fatesg, o projeto com 27 requisitos, rastreabilidade, modelagem de dados, eventos e solicitações.
+Ao subir, a plataforma tem **só os dados necessários para funcionar**: o Flyway (`backend/.../db/migration`) cria o schema e os dados de referência (status de projeto, status de requisito e prioridades). Não há usuários, organizações nem projetos.
 
-```bash
-py scripts/recriar_ambiente_dev.py --confirmar
-```
+O projeto de demonstração (o próprio TCC: organização Fatesg, projeto com 27 requisitos, rastreabilidade, modelagem de dados, eventos e solicitações — `scripts/seed_tcc_projeto_demo.sql`) é carregado à parte, quando se quer:
 
-> ⚠️ **Destrutivo:** apaga o banco da aplicação, todos os usuários do realm e os grupos de organização no Keycloak. Use apenas no ambiente local.
+| Script | O que faz |
+|---|---|
+| `py scripts/carregar_demo.py` | Carga **aditiva** e idempotente: contas da demo, seed e papéis. Não apaga nada. |
+| `py scripts/remover_demo.py --confirmar` | Remove só a organização, os projetos, as contas e os arquivos da demo. |
+| `py scripts/criar_admin.py <email>` | Cria a conta de Admin da Plataforma (único caminho para esse papel). |
+| `py scripts/recriar_ambiente_dev.py --confirmar` | **Só local e destrutivo:** apaga banco e usuários do Keycloak e carrega a demo. |
 
-Contas criadas, iguais às do ambiente hospedado (e-mails fictícios; senha padrão `TCC@{nome}2026`, configurável por `DEV_SENHA_DEMO`, onde `{nome}` vira o primeiro nome da pessoa, sem acento):
+Contas da demo (e-mails fictícios, os mesmos do ambiente hospedado):
 
-| Conta | Papel | Senha |
-|---|---|---|
-| gubio@email.com | Dono da organização e do projeto + Admin da Plataforma | `TCC@Gubio2026` |
-| luizfernando@email.com | Gestor da organização | `TCC@Luiz2026` |
-| thiago@email.com | Gestor da organização | `TCC@Thiago2026` |
-| plinio@email.com | Stakeholder Técnico + Cliente do projeto | `TCC@Plinio2026` |
+| Conta | Papel |
+|---|---|
+| gubio@email.com | Dono da organização e do projeto |
+| luizfernando@email.com | Gestor da organização |
+| thiago@email.com | Gestor da organização |
+| plinio@email.com | Stakeholder Técnico + Cliente do projeto |
+
+**Senhas não ficam no repositório.** A das contas da demo é definida na carga (variável `DEV_SENHA_DEMO` ou digitada no terminal; `{nome}` vira o primeiro nome da pessoa, sem acento) e a do Admin da Plataforma é digitada no terminal pelo `criar_admin.py`. As do ambiente hospedado são repassadas à banca fora do repositório. Nenhuma conta da demo é Admin da Plataforma.
 
 ---
 
 ## Hospedagem
 
-A plataforma está publicada em **https://129-148-55-171.sslip.io**, numa VM Oracle Cloud Always Free, com HTTPS do Let's Encrypt. As contas da demonstração usam **e-mails fictícios** (`gubio@email.com`, `luizfernando@email.com`, `thiago@email.com`, `plinio@email.com`). As senhas do banco e do Keycloak são geradas na própria VM e não ficam no repositório.
+A plataforma está publicada em **https://129-148-55-171.sslip.io**, numa VM Oracle Cloud Always Free, com HTTPS do Let's Encrypt. As contas da demonstração usam **e-mails fictícios**. As senhas do banco, do Keycloak, das contas da demo e do Admin da Plataforma são definidas na própria VM e não ficam no repositório.
 
 Como publicar, a configuração de produção e a operação estão em [`infrastructure/deploy/README.md`](infrastructure/deploy/README.md).
 
@@ -217,11 +224,9 @@ Os testes ponta a ponta criam usuários e organizações descartáveis e apagam 
 
 ## Variáveis de Ambiente (.env)
 
-> ⚠️ **Atenção:** O arquivo `.env` disponível neste repositório contém **dados de ambiente de desenvolvimento** (senhas e credenciais genéricas para execução local). Esses valores **não devem ser replicados em ambientes de produção**.
->
-> O arquivo está disponibilizado no repositório **apenas para fins de demonstração de preenchimento**, facilitando a execução local do projeto sem configurações adicionais. Em ambientes de produção, todas as variáveis devem ser redefinidas com valores seguros e não devem ser versionadas.
->
-> Em produção, defina também `AUTH_COOKIE_SECURE=true` para o cookie de sessão só trafegar em HTTPS.
+O `infrastructure/.env` **não é versionado**. O repositório traz só o modelo `infrastructure/.env.example`, com valores para a máquina de desenvolvimento (copie com `cp .env.example .env`). Esses valores não servem para produção: no ambiente hospedado, o `deploy/subir.sh` gera um `.env` próprio com senhas aleatórias, que não saem da VM.
+
+Em produção, defina também `AUTH_COOKIE_SECURE=true` para o cookie de sessão só trafegar em HTTPS.
 
 ---
 
@@ -231,7 +236,7 @@ Os testes ponta a ponta criam usuários e organizações descartáveis e apagam 
 backend/          # API Spring Boot (Java 21 + Spring Boot 4)
 frontend/         # SPA React 19 + TypeScript + Vite (+ testes Playwright em e2e/)
 infrastructure/   # Docker Compose, Nginx, Keycloak e PostgreSQL (+ deploy/: ambiente hospedado)
-scripts/          # Seed de demonstração, recriação do ambiente de dev e e2e da API
+scripts/          # Demo (carregar/remover), conta admin, recriação do ambiente de dev e e2e da API
 ```
 
 ---

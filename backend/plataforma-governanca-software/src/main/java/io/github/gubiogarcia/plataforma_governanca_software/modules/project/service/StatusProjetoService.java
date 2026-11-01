@@ -7,6 +7,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.DadoReferenciaSistemaException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -69,6 +70,10 @@ public class StatusProjetoService {
         boolean nomeAlterado = !status.getNome().equalsIgnoreCase(request.nome());
         boolean ordemAlterada = !status.getOrdem().equals(request.ordem());
 
+        // Status de sistema são usados pelo nome nas regras (status inicial do projeto)
+        if (nomeAlterado && Boolean.TRUE.equals(status.getSistema())) {
+            throw new DadoReferenciaSistemaException("status de projeto", status.getNome());
+        }
         if (nomeAlterado && statusProjetoRepository.existsByNomeIgnoreCase(request.nome())) {
             throw new StatusProjetoNomeJaExisteException(request.nome());
         }
@@ -88,8 +93,10 @@ public class StatusProjetoService {
     @Transactional
     public void deletar(UUID id) {
         autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
-        if (!statusProjetoRepository.existsById(id)) {
-            throw new StatusProjetoNaoEncontradoException("Nenhum status encontrado com o id: " + id);
+        StatusProjeto status = statusProjetoRepository.findById(id)
+                .orElseThrow(() -> new StatusProjetoNaoEncontradoException("Nenhum status encontrado com o id: " + id));
+        if (Boolean.TRUE.equals(status.getSistema())) {
+            throw new DadoReferenciaSistemaException("status de projeto", status.getNome());
         }
         // Impede remoção de status que está vinculado a projetos existentes.
         // Deletar um status em uso quebraria a integridade referencial e
@@ -103,7 +110,7 @@ public class StatusProjetoService {
     }
 
     public StatusProjetoResponseDTO mapToResponseDTO(StatusProjeto s) {
-        return new StatusProjetoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem());
+        return new StatusProjetoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem(), s.getSistema());
     }
 
     // Exceções de domínio

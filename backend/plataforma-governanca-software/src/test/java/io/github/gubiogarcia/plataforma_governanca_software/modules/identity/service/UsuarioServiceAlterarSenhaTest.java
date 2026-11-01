@@ -2,7 +2,9 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.se
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AlterarSenhaRequestDTO;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.CadastroUsuarioRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminClient;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminException;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakTokenClient;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -109,5 +111,50 @@ class UsuarioServiceAlterarSenhaTest {
                 .isInstanceOf(UsuarioService.UsuarioNaoEncontradoException.class);
 
         verifyNoInteractions(keycloakTokenClient, keycloakAdminClient);
+    }
+
+    // ─── política de senha (passwordPolicy do realm) ─────────────────────────
+
+    @Test
+    void alterarSenha_deveLancarExcecao_eNaoRedefinir_quandoNovaSenhaIgualAoEmail() {
+        when(keycloakTokenClient.credenciaisValidas(EMAIL, "senhaAtual123")).thenReturn(true);
+
+        assertThatThrownBy(() -> usuarioService.alterarSenha(jwtMock,
+                new AlterarSenhaRequestDTO("senhaAtual123", EMAIL.toUpperCase(), EMAIL.toUpperCase())))
+                .isInstanceOf(UsuarioService.SenhaForaDaPoliticaException.class);
+
+        verify(keycloakAdminClient, never()).redefinirSenha(any(), anyString());
+    }
+
+    @Test
+    void alterarSenha_deveTraduzirRecusaDoKeycloak_paraSenhaForaDaPolitica() {
+        when(keycloakTokenClient.credenciaisValidas(EMAIL, "senhaAtual123")).thenReturn(true);
+        doThrow(new KeycloakAdminException("Senha recusada pela política do realm", 400))
+                .when(keycloakAdminClient).redefinirSenha(keycloakId, "novaSenha123");
+
+        assertThatThrownBy(() -> usuarioService.alterarSenha(jwtMock,
+                new AlterarSenhaRequestDTO("senhaAtual123", "novaSenha123", "novaSenha123")))
+                .isInstanceOf(UsuarioService.SenhaForaDaPoliticaException.class);
+    }
+
+    @Test
+    void cadastrar_deveLancarExcecao_eNaoCriarNoKeycloak_quandoSenhaIgualAoEmail() {
+        String email = "nova-conta@exemplo.com";
+
+        assertThatThrownBy(() -> usuarioService.cadastrar(new CadastroUsuarioRequestDTO("Nova Conta", email, email)))
+                .isInstanceOf(UsuarioService.SenhaForaDaPoliticaException.class);
+
+        verifyNoInteractions(keycloakAdminClient);
+        assertThat(usuarioRepository.existsByEmail(email)).isFalse();
+    }
+
+    @Test
+    void cadastrar_deveTraduzirRecusaDoKeycloak_paraSenhaForaDaPolitica() {
+        when(keycloakAdminClient.criarUsuario(anyString(), anyString(), anyString()))
+                .thenThrow(new KeycloakAdminException("Senha recusada pela política do realm", 400));
+
+        assertThatThrownBy(() -> usuarioService.cadastrar(
+                new CadastroUsuarioRequestDTO("Outra Conta", "outra-conta@exemplo.com", "senhaQualquer1")))
+                .isInstanceOf(UsuarioService.SenhaForaDaPoliticaException.class);
     }
 }

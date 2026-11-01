@@ -88,9 +88,10 @@ Os valores sensíveis (datasource, clients e segredos do Keycloak) vêm de vari�
 
 ## Banco de dados
 
-* O schema é gerado pelo **Hibernate** a partir das entidades (`ddl-auto=update`) e os dados de referência (status e prioridades) vêm do `data.sql`, executado a cada inicialização de forma idempotente.
-* O Flyway está **desligado**. Os scripts em `src/main/resources/db/migration` (V1–V3) são mantidos como **referência do modelo** e correspondem ao schema atual (MER V3).
-* Para recriar o banco de desenvolvimento com o projeto de demonstração, use `scripts/recriar_ambiente_dev.py` (ver README principal).
+* O schema e os dados de referência (status e prioridades) vêm das migrations do **Flyway** em `src/main/resources/db/migration`, aplicadas na inicialização. O Hibernate só **valida** o schema (`ddl-auto=validate`): o backend não sobe se uma entidade não bater com as tabelas, então toda mudança de entidade exige uma migration nova (`V5__...sql` em diante). As migrations já aplicadas não devem ser editadas.
+* `V4__dados_referencia_sistema.sql` marca os status usados pelas regras (`sistema = true`): eles não podem ser renomeados nem excluídos (HTTP 409); descrição e ordem continuam editáveis.
+* Os testes usam H2 com `create-drop` (as migrations usam sintaxe do PostgreSQL). O CI aplica as migrations num PostgreSQL de verdade e sobe o app com `validate`.
+* O projeto de demonstração não faz parte das migrations: é carregado à parte por `scripts/carregar_demo.py` (ver README principal).
 
 ---
 

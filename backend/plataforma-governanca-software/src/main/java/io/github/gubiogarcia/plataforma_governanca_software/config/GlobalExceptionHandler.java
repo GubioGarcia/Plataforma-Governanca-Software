@@ -9,6 +9,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.product.serv
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.EventoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.ProjetoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.StatusProjetoService;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.DadoReferenciaSistemaException;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.PrioridadeService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.StatusRequisitoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.RequisitoService;
@@ -164,6 +165,11 @@ public class GlobalExceptionHandler {
         return problem(HttpStatus.UNAUTHORIZED, "Credenciais invalidas", ex.getMessage(), "/errors/credenciais-invalidas");
     }
 
+    @ExceptionHandler(UsuarioService.SenhaForaDaPoliticaException.class)
+    public ProblemDetail handleSenhaForaDaPolitica(UsuarioService.SenhaForaDaPoliticaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Senha invalida", ex.getMessage(), "/errors/senha-fora-da-politica");
+    }
+
     @ExceptionHandler(UsuarioService.SenhasNaoConferemException.class)
     public ProblemDetail handleSenhasNaoConferem(UsuarioService.SenhasNaoConferemException ex) {
         return problem(HttpStatus.BAD_REQUEST, "Senha invalida", ex.getMessage(), "/errors/senhas-nao-conferem");
@@ -252,6 +258,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProjetoService.UsuarioNaoAutorizadoException.class)
     public ProblemDetail handleUsuarioNaoAutorizadoProjeto(ProjetoService.UsuarioNaoAutorizadoException ex) {
         return problem(HttpStatus.UNAUTHORIZED, "Usuario nao autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
+    }
+
+    // Dados de referencia de sistema (status usados pelas regras)
+    @ExceptionHandler(DadoReferenciaSistemaException.class)
+    public ProblemDetail handleDadoReferenciaSistema(DadoReferenciaSistemaException ex) {
+        return problem(HttpStatus.CONFLICT, "Dado de referencia de sistema", ex.getMessage(), "/errors/dado-referencia-sistema");
     }
 
     // StatusProjeto

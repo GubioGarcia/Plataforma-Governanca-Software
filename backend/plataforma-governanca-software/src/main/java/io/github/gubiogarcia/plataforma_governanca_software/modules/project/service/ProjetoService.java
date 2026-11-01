@@ -248,7 +248,8 @@ public class ProjetoService {
                 p.getStatus().getId(),
                 p.getStatus().getNome(),
                 p.getStatus().getDescricao(),
-                p.getStatus().getOrdem());
+                p.getStatus().getOrdem(),
+                p.getStatus().getSistema());
         return new ProjetoResponseDTO(
                 p.getId(),
                 p.getOrganizacao().getId(),

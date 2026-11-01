@@ -12,25 +12,27 @@
 --   - MER_V2.txt / DER_V4.drawio (estrutura do banco)
 --
 -- Banco alvo : PostgreSQL (usa gen_random_uuid via pgcrypto — já habilitado no schema)
--- Pré-requisito: schema V1 criado + dados de referência do data.sql carregados
+-- Pré-requisito: migrations do Flyway aplicadas (schema + dados de referência)
 --   (status_projeto, status_requisito e prioridade, com os UUIDs
 --    'a1000001-...', 'b2000002-...', 'c3000003-...').
 --
 -- Escopo: só dados da aplicação. Quem é quem (Dono, Gestor, Stakeholder...) NÃO
 --   fica no banco: é pertencimento a grupos do Keycloak. Por isso este script
---   não é rodado sozinho — use scripts/recriar_ambiente_dev.py, que:
+--   não é rodado sozinho — use scripts/carregar_demo.py, que:
 --     1) cria as contas no Keycloak e preenche usuario.external_identity_id;
 --     2) reinicia o backend, cuja migração de grupos cria /org-{id} e
 --        /org-{id}/proj-{id} e põe o criador (Gubio) no _dono;
 --     3) põe os demais nos grupos (Luiz/Thiago gestores da org, Plínio
---        stakeholder técnico + cliente do projeto, Gubio em /_admin).
+--        stakeholder técnico + cliente do projeto). Nenhuma conta da demo é
+--        Admin da Plataforma.
 --
 -- Códigos: REQ-001..REQ-027, no formato gerado pelo backend (sequencial por
 --   projeto). O identificador do documento de requisitos (RF01..RF15,
 --   RNF01..RNF12) fica no início do título.
 --
 -- Idempotente: todo INSERT usa ON CONFLICT (id) DO NOTHING e UUIDs fixos.
--- Para reexecutar do zero, descomente o bloco LIMPEZA e rode antes do restante.
+-- Para remover a demo (inclusive o que foi criado depois da carga), use
+-- scripts/remover_demo.py; o bloco LIMPEZA abaixo apaga só as linhas do seed.
 -- =============================================================================
 
 BEGIN;

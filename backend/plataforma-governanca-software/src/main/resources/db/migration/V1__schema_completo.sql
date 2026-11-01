@@ -4,10 +4,8 @@
 -- Cria todas as tabelas mapeadas pelas entidades JPA (exceto as de
 -- rastreabilidade/modelagem de dados, que estão no V3).
 --
--- NOTA: o Flyway está DESABILITADO nesta aplicação (spring.flyway.enabled=false);
--- o schema real é gerado pelo Hibernate (ddl-auto=update) a partir das entities
--- JPA e os dados de referência vêm do data.sql. Este arquivo é mantido como
--- documentação/referência do modelo (MER_V3), espelhando as entities.
+-- Aplicado pelo Flyway na inicialização. O Hibernate só valida o schema
+-- (ddl-auto=validate): toda mudança de entidade exige uma nova migration.
 --
 -- Ordem de criação respeita as dependências de FK.
 -- =============================================================================
@@ -59,8 +57,8 @@ CREATE TABLE usuario (
     nome                      VARCHAR(150) NOT NULL,
     email                     VARCHAR(150) NOT NULL UNIQUE,
     ativo                     BOOLEAN     NOT NULL,
-    data_criacao              TIMESTAMP   NOT NULL,
-    data_atualizacao          TIMESTAMP,
+    data_criacao              TIMESTAMPTZ   NOT NULL,
+    data_atualizacao          TIMESTAMPTZ,
     url_midia_perfil          TEXT,
     -- Tokens emitidos até este instante são recusados (grupos mudaram ou conta inativada)
     tokens_revogados_antes_de TIMESTAMPTZ
@@ -77,8 +75,8 @@ CREATE TABLE organizacao (
     plano            VARCHAR(50),
     ativo            BOOLEAN     NOT NULL,
     criado_por       UUID        REFERENCES usuario(id),
-    data_criacao     TIMESTAMP,
-    data_atualizacao TIMESTAMP,
+    data_criacao     TIMESTAMPTZ,
+    data_atualizacao TIMESTAMPTZ,
     keycloak_group_id UUID       -- grupo /org-{id} no Keycloak
 );
 
@@ -94,8 +92,8 @@ CREATE TABLE projeto (
     status_id        UUID        REFERENCES status_projeto(id),
     ativo            BOOLEAN     NOT NULL,
     criado_por       UUID        REFERENCES usuario(id),
-    data_criacao     TIMESTAMP,
-    data_atualizacao TIMESTAMP,
+    data_criacao     TIMESTAMPTZ,
+    data_atualizacao TIMESTAMPTZ,
     keycloak_group_id UUID       -- grupo /org-{id}/proj-{id} no Keycloak
 );
 
@@ -115,8 +113,8 @@ CREATE TABLE visao_produto (
     restricoes_orcamento     VARCHAR(1000),
     tecnologias_obrigatorias VARCHAR(1000),
     regulamentacoes          VARCHAR(1000),
-    data_criacao             TIMESTAMP,
-    data_atualizacao         TIMESTAMP
+    data_criacao             TIMESTAMPTZ,
+    data_atualizacao         TIMESTAMPTZ
 );
 
 -- =============================================================================
@@ -137,10 +135,10 @@ CREATE TABLE requisito (
     aprovado_por     UUID        REFERENCES usuario(id),
     solicitado_por   UUID        REFERENCES usuario(id),
     ativo            BOOLEAN,
-    data_criacao     TIMESTAMP,
-    data_solicitacao TIMESTAMP,
-    data_aprovacao   TIMESTAMP,
-    data_atualizacao TIMESTAMP,
+    data_criacao     TIMESTAMPTZ,
+    data_solicitacao TIMESTAMPTZ,
+    data_aprovacao   TIMESTAMPTZ,
+    data_atualizacao TIMESTAMPTZ,
     CONSTRAINT uk_requisito_projeto_codigo UNIQUE (projeto_id, codigo)
 );
 
@@ -174,8 +172,8 @@ CREATE TABLE comentario (
     conteudo         TEXT,
     ativo            BOOLEAN,
     editado          BOOLEAN     NOT NULL DEFAULT FALSE,
-    data_criacao     TIMESTAMP,
-    data_atualizacao TIMESTAMP
+    data_criacao     TIMESTAMPTZ,
+    data_atualizacao TIMESTAMPTZ
 );
 
 -- =============================================================================
@@ -193,7 +191,7 @@ CREATE TABLE auditoria (
     valor_anterior TEXT,
     valor_novo     TEXT,
     usuario_id     UUID        REFERENCES usuario(id),
-    data_alteracao TIMESTAMP
+    data_alteracao TIMESTAMPTZ
 );
 
 CREATE INDEX idx_auditoria_entidade ON auditoria (entidade_tipo, entidade_id);
@@ -210,9 +208,9 @@ CREATE TABLE evento (
     criado_por       UUID        REFERENCES usuario(id),
     organizacao_id   UUID        REFERENCES organizacao(id),   -- a organização do projeto
     projeto_id       UUID        REFERENCES projeto(id),
-    data_hora_inicio TIMESTAMP,
-    data_hora_fim    TIMESTAMP,
-    data_criacao     TIMESTAMP,
+    data_hora_inicio TIMESTAMPTZ,
+    data_hora_fim    TIMESTAMPTZ,
+    data_criacao     TIMESTAMPTZ,
     -- SOLICITADO (pedido de stakeholder) | APROVADO | REJEITADO; nulo em dados antigos = APROVADO
     status           VARCHAR(20) CHECK (status IN ('SOLICITADO', 'APROVADO', 'REJEITADO'))
 );
@@ -232,7 +230,7 @@ CREATE TABLE arquivo_projeto (
     mime_type             VARCHAR(100),
     tamanho_bytes         BIGINT       NOT NULL,
     criado_por_usuario_id UUID         REFERENCES usuario(id),
-    data_upload           TIMESTAMP    NOT NULL,
+    data_upload           TIMESTAMPTZ    NOT NULL,
     ativo                 BOOLEAN      NOT NULL DEFAULT TRUE
 );
 
@@ -250,7 +248,7 @@ CREATE TABLE interacao (
     tipo            VARCHAR(20) NOT NULL,
     entidade_id     UUID,
     descricao       TEXT,
-    data_interacao  TIMESTAMP   NOT NULL
+    data_interacao  TIMESTAMPTZ   NOT NULL
 );
 
 CREATE INDEX idx_interacao_projeto         ON interacao (projeto_id);

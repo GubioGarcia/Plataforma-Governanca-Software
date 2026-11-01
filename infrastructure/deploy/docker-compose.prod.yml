@@ -104,6 +104,9 @@ services:
       SERVER_FORWARD_HEADERS_STRATEGY: native
       FILE_STORAGE_ROOT: /files
       FILE_STORAGE_MAX_MB: 20
+      # Swagger público até a banca (a monografia cita o endereço); depois, false
+      SPRINGDOC_API_DOCS_ENABLED: "true"
+      SPRINGDOC_SWAGGER_UI_ENABLED: "true"
       JAVA_TOOL_OPTIONS: "-Xms64m -Xmx256m -XX:+UseSerialGC"
     volumes:
       - project_files:/files

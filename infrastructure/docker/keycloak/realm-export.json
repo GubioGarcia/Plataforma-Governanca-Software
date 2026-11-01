@@ -1,6 +1,12 @@
 {
   "realm": "plataforma_discovery",
   "enabled": true,
+  "bruteForceProtected": true,
+  "failureFactor": 5,
+  "waitIncrementSeconds": 60,
+  "maxFailureWaitSeconds": 900,
+  "permanentLockout": false,
+  "passwordPolicy": "length(8) and notUsername and notEmail",
   "clients": [
     {
       "clientId": "plataforma-api-client",
