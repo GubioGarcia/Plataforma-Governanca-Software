@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.domain.Prioridade;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.dto.AtualizarPrioridadeRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.dto.CriarPrioridadeRequestDTO;
@@ -22,6 +24,7 @@ public class PrioridadeService {
 
     private final PrioridadeRepository prioridadeRepository;
     private final AutorizacaoService autorizacao;
+    private final AuditoriaService auditoria;
     private final RequisitoRepository requisitoRepository;
 
     @Transactional
@@ -43,6 +46,11 @@ public class PrioridadeService {
                 .build();
 
         prioridade = prioridadeRepository.save(prioridade);
+        UUID id = prioridade.getId();
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.CRIACAO, "codigo", null, prioridade.getCodigo());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.CRIACAO, "nome", null, prioridade.getNome());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.CRIACAO, "descricao", null, prioridade.getDescricao());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.CRIACAO, "ordem", null, String.valueOf(prioridade.getOrdem()));
         log.info("Prioridade '{}' criada com sucesso. ID: {}", prioridade.getNome(), prioridade.getId());
         return mapToResponseDTO(prioridade);
     }
@@ -76,11 +84,18 @@ public class PrioridadeService {
         Prioridade prioridade = prioridadeRepository.findById(id)
                 .orElseThrow(() -> new PrioridadeNaoEncontradaException(id));
 
+        String nomeAnterior = prioridade.getNome();
+        String descricaoAnterior = prioridade.getDescricao();
+        Boolean ativoAnterior = prioridade.getAtivo();
         if (request.nome() != null) prioridade.setNome(request.nome());
         if (request.descricao() != null) prioridade.setDescricao(request.descricao());
         if (request.ativo() != null) prioridade.setAtivo(request.ativo());
 
         prioridade = prioridadeRepository.save(prioridade);
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "nome", nomeAnterior, prioridade.getNome());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "descricao", descricaoAnterior, prioridade.getDescricao());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "ativo",
+                String.valueOf(ativoAnterior), String.valueOf(prioridade.getAtivo()));
         log.info("Prioridade {} atualizada com sucesso.", id);
         return mapToResponseDTO(prioridade);
     }
@@ -88,13 +103,13 @@ public class PrioridadeService {
     @Transactional
     public void deletar(UUID id) {
         autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
-        if (!prioridadeRepository.existsById(id)) {
-            throw new PrioridadeNaoEncontradaException(id);
-        }
+        Prioridade prioridade = prioridadeRepository.findById(id)
+                .orElseThrow(() -> new PrioridadeNaoEncontradaException(id));
         if (requisitoRepository.existsByPrioridadeId(id)) {
             throw new PrioridadeEmUsoException(id);
         }
         prioridadeRepository.deleteById(id);
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EXCLUSAO, "nome", prioridade.getNome(), null);
         log.info("Prioridade {} removida com sucesso.", id);
     }
 
@@ -108,6 +123,9 @@ public class PrioridadeService {
                 p.getAtivo()
         );
     }
+
+    /** Ações sobre dados de referência entram na auditoria administrativa (sem organização/projeto). */
+    private static final String TIPO_AUDITORIA = "PRIORIDADE";
 
     // Domain exceptions
     public static class PrioridadeNaoEncontradaException extends RuntimeException {

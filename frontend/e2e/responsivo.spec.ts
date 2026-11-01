@@ -1,4 +1,5 @@
 import { devices, expect, test, type Page } from '@playwright/test';
+import { cadastrar, tornarAdminDaPlataforma } from './support/api';
 import { montarCenario, desmontarCenario, type Cenario } from './support/cenario';
 import { entrar, rota } from './support/ui';
 
@@ -46,6 +47,24 @@ test.describe('Responsividade no celular', () => {
     });
     expect(fora, 'elementos passando da borda da tela').toEqual([]);
   }
+
+  test('área administrativa: menu em gaveta e telas sem rolagem horizontal', async ({ page }) => {
+    const admin = await cadastrar('admin-cel', c.tag);
+    c.extras.push(admin);
+    await tornarAdminDaPlataforma(admin);
+    await entrar(page, admin);
+
+    for (const [rota, titulo] of [['/admin', 'Visão geral'], ['/admin/usuarios', 'Usuários'],
+      ['/admin/dados-referencia', 'Dados de referência'], ['/admin/auditoria', 'Auditoria administrativa']] as const) {
+      await page.goto(rota);
+      await expect(page.getByRole('heading', { name: titulo, exact: true })).toBeVisible();
+      await semRolagemHorizontal(page);
+    }
+
+    await page.getByRole('button', { name: 'Abrir o menu da área administrativa' }).click();
+    await page.getByRole('link', { name: 'Pesquisas' }).click();
+    await expect(page).toHaveURL(/\/admin\/pesquisas$/);
+  });
 
   test('landing e privacidade cabem na tela, sem login', async ({ page }) => {
     await page.context().clearCookies();

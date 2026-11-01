@@ -19,4 +19,6 @@ public interface SolicitacaoRepository extends JpaRepository<Solicitacao, UUID> 
 
     boolean existsByProjetoIdAndTipoAndAlvoIdIsNullAndSolicitanteIdAndStatus(
             UUID projetoId, TipoSolicitacao tipo, UUID solicitanteId, StatusSolicitacao status);
+
+    long countByStatus(StatusSolicitacao status);
 }

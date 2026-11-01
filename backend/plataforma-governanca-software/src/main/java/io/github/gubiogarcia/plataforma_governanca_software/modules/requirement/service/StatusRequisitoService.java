@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.domain.StatusRequisito;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.dto.AtualizarStatusRequisitoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.dto.CriarStatusRequisitoRequestDTO;
@@ -23,6 +25,7 @@ public class StatusRequisitoService {
 
     private final StatusRequisitoRepository statusRequisitoRepository;
     private final AutorizacaoService autorizacao;
+    private final AuditoriaService auditoria;
     private final RequisitoRepository requisitoRepository;
 
     @Transactional
@@ -42,6 +45,7 @@ public class StatusRequisitoService {
                 .build();
 
         status = statusRequisitoRepository.save(status);
+        registrarCriacao(status);
         log.info("StatusRequisito '{}' criado com sucesso. ID: {}", status.getNome(), status.getId());
         return mapToResponseDTO(status);
     }
@@ -81,11 +85,18 @@ public class StatusRequisitoService {
             throw new StatusRequisitoOrdemJaExisteException(request.ordem());
         }
 
+        String nomeAnterior = status.getNome();
+        String descricaoAnterior = status.getDescricao();
+        Integer ordemAnterior = status.getOrdem();
         status.setNome(request.nome().toUpperCase());
         status.setDescricao(request.descricao());
         status.setOrdem(request.ordem());
 
         status = statusRequisitoRepository.save(status);
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "nome", nomeAnterior, status.getNome());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "descricao", descricaoAnterior, status.getDescricao());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "ordem",
+                String.valueOf(ordemAnterior), String.valueOf(status.getOrdem()));
         log.info("StatusRequisito {} atualizado com sucesso.", id);
         return mapToResponseDTO(status);
     }
@@ -106,11 +117,21 @@ public class StatusRequisitoService {
         }
 
         statusRequisitoRepository.deleteById(id);
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EXCLUSAO, "nome", status.getNome(), null);
         log.info("StatusRequisito {} removido com sucesso.", id);
     }
 
     private StatusRequisitoResponseDTO mapToResponseDTO(StatusRequisito s) {
         return new StatusRequisitoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem(), s.getSistema());
+    }
+
+    /** Ações sobre dados de referência entram na auditoria administrativa (sem organização/projeto). */
+    private static final String TIPO_AUDITORIA = "STATUS_REQUISITO";
+
+    private void registrarCriacao(StatusRequisito s) {
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, s.getId(), AcaoAuditoria.CRIACAO, "nome", null, s.getNome());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, s.getId(), AcaoAuditoria.CRIACAO, "descricao", null, s.getDescricao());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, s.getId(), AcaoAuditoria.CRIACAO, "ordem", null, String.valueOf(s.getOrdem()));
     }
 
     // Exceções de domínio

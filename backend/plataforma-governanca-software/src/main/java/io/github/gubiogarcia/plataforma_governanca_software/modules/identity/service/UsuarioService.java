@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AlterarSenhaRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AtualizarPerfilRequestDTO;
@@ -34,6 +36,7 @@ public class UsuarioService {
     private final KeycloakTokenClient keycloakTokenClient;
     private final AutorizacaoService autorizacaoService;
     private final RevogacaoTokenService revogacaoTokenService;
+    private final AuditoriaService auditoria;
 
     @Transactional
     public UsuarioResponseDTO cadastrar(CadastroUsuarioRequestDTO request) {
@@ -221,6 +224,10 @@ public class UsuarioService {
         if (!proprioUsuario && !autorizacaoService.isAdminPlataforma()) {
             throw new AcessoNegadoException("Apenas o próprio usuário ou o administrador da plataforma pode inativar esta conta.");
         }
+        // Evita que a plataforma fique sem administrador por engano
+        if (proprioUsuario && autorizacaoService.isAdminPlataforma()) {
+            throw new AdminNaoPodeSeInativarException();
+        }
 
         if (Boolean.FALSE.equals(usuario.getAtivo())) {
             throw new UsuarioJaInativoException(id);
@@ -241,6 +248,11 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
         // O access token atual também deixa de valer na hora (401 na próxima requisição)
         revogacaoTokenService.revogarTokensDoUsuario(usuario);
+        if (!proprioUsuario) {
+            String conta = usuario.getNome() + " <" + usuario.getEmail() + ">";
+            auditoria.registrarAdministrativa("USUARIO", id, AcaoAuditoria.EDICAO, "situacao",
+                    "ativa: " + conta, "inativa: " + conta);
+        }
 
         log.info("Usuário {} inativado com sucesso.", id);
     }
@@ -286,6 +298,12 @@ public class UsuarioService {
     private static void exigirSenhaDiferenteDoEmail(String senha, String email) {
         if (senha != null && senha.equalsIgnoreCase(email)) {
             throw new SenhaForaDaPoliticaException();
+        }
+    }
+
+    public static class AdminNaoPodeSeInativarException extends RuntimeException {
+        public AdminNaoPodeSeInativarException() {
+            super("O Admin da Plataforma não pode inativar a própria conta.");
         }
     }
 

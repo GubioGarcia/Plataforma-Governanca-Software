@@ -39,12 +39,6 @@ export async function cadastrarUsuario(data: CadastrarUsuarioRequest): Promise<U
   return res.data;
 }
 
-/** GET /api/usuario — lista os usuários da plataforma (Admin da Plataforma); `ativo` filtra */
-export async function listarUsuarios(ativo?: boolean): Promise<UsuarioBackend[]> {
-  const res = await api.get<UsuarioBackend[]>('/usuario', { params: ativo === undefined ? {} : { ativo } });
-  return res.data;
-}
-
 /** Onde a pessoa atua: papel real em cada organização e projeto */
 export interface AcessosUsuario {
   usuarioId: string;

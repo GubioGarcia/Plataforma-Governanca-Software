@@ -19,6 +19,7 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import LogoutIcon from '@mui/icons-material/Logout';
+import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import PersonIcon from '@mui/icons-material/Person';
 import HubIcon from '@mui/icons-material/Hub';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -195,6 +196,12 @@ export default function AppShell() {
               <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
               Meu Perfil
             </MenuItem>
+            {adminPlataforma && (
+              <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin'); }} sx={{ fontSize: '13px' }}>
+                <ListItemIcon><AdminPanelSettingsOutlinedIcon fontSize="small" /></ListItemIcon>
+                Área administrativa
+              </MenuItem>
+            )}
             <MenuItem
               onClick={() => { setAnchorEl(null); logout(); }}
               sx={{ fontSize: '13px', color: 'error.main' }}

@@ -95,5 +95,8 @@ export async function desmontarCenario(c: Cenario | undefined): Promise<void> {
     delete from convite where organizacao_id='${c.org.id}' or projeto_id in ${projetos};
     delete from projeto where organizacao_id='${c.org.id}';
     delete from organizacao where id='${c.org.id}';
+    -- auditoria administrativa (sem organização/projeto) feita por ou sobre as contas do cenário
+    delete from auditoria where usuario_id in (select id from usuario where email like '%.ui.${c.tag}@exemplo.com')
+      or entidade_id in (select id from usuario where email like '%.ui.${c.tag}@exemplo.com');
     delete from usuario where email like '%.ui.${c.tag}@exemplo.com';`);
 }
