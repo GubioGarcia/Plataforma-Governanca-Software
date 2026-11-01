@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
+import { Suspense, useState, type ReactNode } from 'react';
 import { NavLink, Outlet, useLocation, useParams, useNavigate } from 'react-router-dom';
+import CarregandoPagina from '../common/CarregandoPagina';
 import Box from '@mui/material/Box';
 import Divider from '@mui/material/Divider';
 import Drawer from '@mui/material/Drawer';
@@ -201,7 +202,9 @@ export default function ProjectShell() {
           bgcolor: 'background.default',
         }}
       >
-        <Outlet />
+        <Suspense fallback={<CarregandoPagina />}>
+          <Outlet />
+        </Suspense>
       </Box>
     </Box>
   );

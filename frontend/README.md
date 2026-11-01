@@ -64,17 +64,24 @@ e2e/            # testes ponta a ponta com Playwright
 
 | Rota | Tela |
 |---|---|
+| `/` | Landing pública (`pages/LandingPage.tsx`, seções em `features/landing/`). Quem já tem sessão vai para `/organizations` |
+| `/login`, `/cadastro` | Mesma tela (`LoginPage`), o modo vem da rota. `?next=` leva de volta à rota de origem, só para caminhos internos |
+| `/privacidade` | Política de privacidade, pública |
 | `/organizations` | Organizações do usuário (e convites pendentes) |
 | `/organizations/:orgId/projects` | Tela da organização: dados e indicadores (`OrgResumo`), membros em card recolhível com o botão Convidar (`OrgMembers`, conforme o papel) e, após a divisória, filtros e lista de projetos (`ProjectList`). `/organizations/:orgId` redireciona para cá |
 | `/organizations/:orgId/projects/:projectId/...` | Projeto (`ProjectShell`): painel, visão do produto, requisitos, rastreabilidade, modelagem de dados, eventos, arquivos, participantes, solicitações, auditoria e analytics |
 | `/profile` | Dados do usuário e onde ele atua (papel em cada organização/projeto) |
-| `/users` | Usuários da plataforma: lista, onde cada pessoa atua e exclusão de conta — só Admin da Plataforma |
+| `/users` | Usuários da plataforma: lista, onde cada pessoa atua e exclusão de conta — só Admin da Plataforma (`/admin` leva para cá) |
+
+As telas da aplicação são carregadas sob demanda (`React.lazy`): a landing não baixa o bundle inteiro.
 
 ---
 
 ## Autenticação e controle de acesso
 
 - O **login é feito pela API** (`POST /api/auth/login`). O token de acesso fica **só em memória**; a sessão é mantida por um refresh token em cookie `HttpOnly`, então recarregar a página não desloga.
+- Ao abrir a página, a sessão só é restaurada (`POST /api/auth/refresh`) se houve login antes neste navegador (marca em `localStorage`, `utils/sessao.ts`; não é credencial). Assim a landing não chama a API para visitantes.
+- Rota protegida sem sessão vai para `/login?next=<rota>`; sair pelo menu volta para a landing.
 - O interceptor do Axios (`config/axios.ts`) renova a sessão automaticamente ao receber 401 (uma renovação por vez) e avisa o `AuthContext`, que recarrega as permissões.
 - `AuthContext` carrega `GET /api/auth/me`: organizações e projetos do usuário, com o papel e as permissões em cada um.
 - `usePermissions` expõe `pode(permissão)` no contexto da rota atual (projeto, senão organização) e `podeNaOrganizacao`/`podeNoProjeto` para itens de listas. Botões e menus aparecem só para quem pode usá-los.

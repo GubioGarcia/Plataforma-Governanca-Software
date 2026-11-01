@@ -18,9 +18,14 @@ test.describe('Sessão', () => {
     psql(`delete from usuario where email like '%.ui.${tag}@exemplo.com'`);
   });
 
-  test('sem sessão, qualquer rota leva ao login', async ({ page }) => {
-    await page.goto('/organizations');
-    await expect(page).toHaveURL(/\/login$/);
+  test('sem sessão, qualquer rota leva ao login e volta para ela depois', async ({ page }) => {
+    await page.goto('/profile');
+    await expect(page).toHaveURL(/\/login\?next=%2Fprofile$/);
+
+    await page.getByLabel('E-mail').fill(pessoa.email);
+    await page.getByLabel('Senha', { exact: true }).fill(pessoa.senha);
+    await page.getByRole('button', { name: 'Entrar' }).click();
+    await expect(page).toHaveURL(/\/profile$/);
   });
 
   test('senha errada mostra erro e não entra', async ({ page }) => {
@@ -60,11 +65,13 @@ test.describe('Sessão', () => {
 
     await page.getByRole('button', { name: pessoa.nome }).click();
     await page.getByRole('menuitem', { name: 'Sair' }).click();
-    await expect(page).toHaveURL(/\/login$/);
+    // Saída pelo menu volta para a landing
+    await expect(page).toHaveURL(/^http:\/\/[^/]+\/$/);
+    await expect(page.getByRole('heading', { level: 1, name: /Gestão das fases iniciais/ })).toBeVisible();
 
     // Depois do logout o F5 não restaura nada
     await page.goto('/organizations');
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=/);
   });
 
   test('usuário sem papel global não abre a tela de usuários', async ({ page }) => {
