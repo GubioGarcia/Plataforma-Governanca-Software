@@ -15,6 +15,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.traceability
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Permissao;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.CsvUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +26,8 @@ import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import static io.github.gubiogarcia.plataforma_governanca_software.shared.CsvUtil.linha;
+
 /**
  * Exportação da modelagem de dados e da matriz de rastreabilidade em CSV (D11).
  *
@@ -33,14 +36,12 @@ import java.util.stream.Collectors;
  * mesmo que ele já vê na tela: o controle é de processo/governança (quem pediu e
  * quem liberou), não de sigilo.
  *
- * CSV com ";" (padrão do Excel em pt-BR) e BOM UTF-8 para os acentos abrirem certos.
+ * CSV com ";" (padrão do Excel em pt-BR), BOM UTF-8 para os acentos abrirem certos e
+ * proteção contra injeção de fórmulas (ver {@link CsvUtil}).
  */
 @Service
 @RequiredArgsConstructor
 public class ExportacaoService {
-
-    private static final String BOM = "﻿";
-    private static final String SEP = ";";
 
     private final ProjetoRepository projetoRepository;
     private final EntidadeDadosService entidadeDadosService;
@@ -56,7 +57,7 @@ public class ExportacaoService {
         exigirExportacao(projeto, Permissao.MER_EXPORT, TipoSolicitacao.EXPORT_MER);
 
         DiagramaProjetoResponseDTO diagrama = entidadeDadosService.montarDiagrama(projetoId, null);
-        StringBuilder csv = new StringBuilder(BOM)
+        StringBuilder csv = new StringBuilder(CsvUtil.BOM)
                 .append(linha("entidade", "descricao_entidade", "atributo", "tipo", "obrigatorio",
                         "chave_primaria", "chave_estrangeira", "entidade_referenciada", "tipo_relacionamento"));
         for (EntidadeDadosDetalheResponseDTO entidade : diagrama.entidades()) {
@@ -84,7 +85,7 @@ public class ExportacaoService {
         Map<UUID, RequisitoResumoDTO> requisitos = matriz.requisitos().stream()
                 .collect(Collectors.toMap(RequisitoResumoDTO::id, Function.identity(), (a, b) -> a));
 
-        StringBuilder csv = new StringBuilder(BOM)
+        StringBuilder csv = new StringBuilder(CsvUtil.BOM)
                 .append(linha("origem", "origem_titulo", "destino", "destino_titulo",
                         "tipo_relacao", "tipos_vinculo", "entidades_compartilhadas"));
         for (CelulaMatrizDTO c : matriz.celulas()) {
@@ -115,17 +116,6 @@ public class ExportacaoService {
     private Projeto carregarProjeto(UUID id) {
         return projetoRepository.findById(id)
                 .orElseThrow(() -> new SolicitacaoService.SolicitacaoNaoEncontradaException("Projeto não encontrado: " + id));
-    }
-
-    private static String linha(String... campos) {
-        return java.util.Arrays.stream(campos).map(ExportacaoService::campo).collect(Collectors.joining(SEP)) + "\r\n";
-    }
-
-    /** Aspas quando o valor tem separador, aspas ou quebra de linha (RFC 4180). */
-    private static String campo(String valor) {
-        if (valor == null) return "";
-        String v = valor.replace("\"", "\"\"");
-        return (v.contains(SEP) || v.contains("\"") || v.contains("\n") || v.contains("\r")) ? "\"" + v + "\"" : v;
     }
 
     private static String simNao(Boolean b) {
