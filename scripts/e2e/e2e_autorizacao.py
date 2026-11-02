@@ -138,6 +138,7 @@ class Pessoa:
 pessoas = []
 org_id = None
 extras_status, extras_prioridade = [], []
+config_pesquisa = None   # (coleta_aberta, intervalo) antes da seção 9c, restaurada na limpeza
 
 try:
     # ─────────────────────────────────────────────────────────────────────────
@@ -415,6 +416,63 @@ try:
           and all(a["organizacaoId"] is None and a["projetoId"] is None for a in aud["itens"]), detalhe(aud))
 
     # ─────────────────────────────────────────────────────────────────────────
+    secao("9c. Pesquisa do TCC e conta de admin exclusiva")
+    for metodo, rota in (("GET", "/pesquisa/situacao"), ("POST", "/pesquisa/antes"), ("POST", "/pesquisa/depois"),
+                         ("DELETE", "/pesquisa/minha-participacao"), ("GET", "/admin/pesquisa/resumo"),
+                         ("GET", "/admin/pesquisa/respostas-abertas"), ("GET", "/admin/pesquisa/exportacao"),
+                         ("PUT", "/admin/pesquisa/configuracao")):
+        check(f"{metodo} {rota} sem token → 401", chamar(anonimo, metodo, API + rota, {} if metodo in ("POST", "PUT") else None)[0] == 401)
+    for rota in ("/admin/pesquisa/resumo", "/admin/pesquisa/respostas-abertas", "/admin/pesquisa/exportacao"):
+        check(f"{rota} Dono → 403", dono.status("GET", rota) == 403)
+        check(f"{rota} admin → 200", admin.status("GET", rota) == 200)
+    check("PUT /admin/pesquisa/configuracao Gestor → 403",
+          gestor.status("PUT", "/admin/pesquisa/configuracao", {"coletaAberta": True, "intervaloMinimoMin": 0}) == 403)
+
+    s, resumo_p = admin.req("GET", "/admin/pesquisa/resumo")
+    config_pesquisa = (resumo_p["coletaAberta"], resumo_p["intervaloMinimoMin"])
+    pares_antes = resumo_p["paresCompletos"]
+    check("intervalo fora de 0–1440 → 400",
+          admin.status("PUT", "/admin/pesquisa/configuracao", {"coletaAberta": True, "intervaloMinimoMin": 2000}) == 400)
+    s, _ = admin.req("PUT", "/admin/pesquisa/configuracao", {"coletaAberta": True, "intervaloMinimoMin": 0})
+    check("admin abre a coleta com intervalo 0", s == 200)
+
+    resposta_antes = {"consentimento": True, "itens": [1, 2, 3, 4, 5], "respostaAberta": "=1+1 texto e2e",
+                      "funcao": "GERENTE_PROJETOS", "tempoExperiencia": "DE_6_A_10", "ferramentas": ["JIRA"]}
+    check("admin: situação NAO_ELEGIVEL", admin.req("GET", "/pesquisa/situacao")[1]["estado"] == "NAO_ELEGIVEL")
+    check("admin não responde (403)", admin.status("POST", "/pesquisa/antes", resposta_antes) == 403)
+    for nome, p in (("Membro", membro), ("Stakeholder", convidado), ("sem papel", estranho)):
+        check(f"{nome}: situação NAO_ELEGIVEL", p.req("GET", "/pesquisa/situacao")[1]["estado"] == "NAO_ELEGIVEL")
+        check(f"{nome}: \"antes\" → 403", p.status("POST", "/pesquisa/antes", resposta_antes) == 403)
+    check("Gestor: situação PENDENTE_ANTES", gestor.req("GET", "/pesquisa/situacao")[1]["estado"] == "PENDENTE_ANTES")
+
+    check("Dono: situação PENDENTE_ANTES", dono.req("GET", "/pesquisa/situacao")[1]["estado"] == "PENDENTE_ANTES")
+    check("\"depois\" sem \"antes\" → 409", dono.status("POST", "/pesquisa/depois", {"itens": [5, 5, 5, 5, 5]}) == 409)
+    check("\"antes\" sem consentimento → 400", dono.status("POST", "/pesquisa/antes", {**resposta_antes, "consentimento": False}) == 400)
+    s, sit = dono.req("POST", "/pesquisa/antes", resposta_antes)
+    check("Dono responde o \"antes\" e recebe código", s == 200 and sit["estado"] == "PENDENTE_DEPOIS"
+          and (sit["codigo"] or "").startswith("P-"), detalhe(sit))
+    check("segundo \"antes\" → 409", dono.status("POST", "/pesquisa/antes", resposta_antes) == 409)
+    s, sit = dono.req("POST", "/pesquisa/depois", {"itens": [5, 4, 5, 4, 5], "respostaAberta": "e2e"})
+    check("Dono responde o \"depois\" → CONCLUIDA", s == 200 and sit["estado"] == "CONCLUIDA", detalhe(sit))
+    check("painel conta o par", admin.req("GET", "/admin/pesquisa/resumo")[1]["paresCompletos"] == pares_antes + 1)
+    s, csv = admin.req("GET", "/admin/pesquisa/exportacao")
+    check("CSV sem e-mail e com fórmula neutralizada", s == 200 and isinstance(csv, str) and dono.email not in csv
+          and "'=1+1 texto e2e" in csv)
+    s, sit = dono.req("DELETE", "/pesquisa/minha-participacao")
+    check("Dono retira a participação → RETIRADA", s == 200 and sit["estado"] == "RETIRADA" and sit["codigo"] is None)
+    check("painel desconta o par", admin.req("GET", "/admin/pesquisa/resumo")[1]["paresCompletos"] == pares_antes)
+    s, _ = admin.req("PUT", "/admin/pesquisa/configuracao", {"coletaAberta": config_pesquisa[0], "intervaloMinimoMin": config_pesquisa[1]})
+    check("configuração da coleta restaurada", s == 200)
+    s, aud = admin.req("GET", "/admin/auditoria?tamanho=100")
+    check("auditoria registra coleta e exportação", any(a["entidadeTipo"] == "PESQUISA" and a["campoAlterado"] == "exportacaoCsv"
+          for a in (aud or {}).get("itens", [])) and any(a["entidadeTipo"] == "PESQUISA" and a["campoAlterado"] == "coleta"
+          for a in (aud or {}).get("itens", [])))
+
+    check("admin não cria organização (403)",
+          admin.status("POST", "/organizacao", {"nome": f"Org Admin {SUF}", "descricao": "e2e", "plano": "FREE"}) == 403)
+    check("admin não aceita convite (403)", admin.status("POST", f"/convites/{uuid.uuid4()}/aceitar") == 403)
+
+    # ─────────────────────────────────────────────────────────────────────────
     secao("10. Aprovação de requisito")
     s, sts = dono.req("GET", "/status-requisito")
     id_aprovado = next(x["id"] for x in sts if x["nome"] == "APROVADO")
@@ -581,6 +639,11 @@ finally:
     for pid in extras_prioridade:
         print("  prioridade extra:", psql(f"delete from prioridade where id='{pid}'"))
     contas = f"(select id from usuario where email like '%.e2e.{SUF}@exemplo.com')"
+    if config_pesquisa:
+        print("  coleta da pesquisa:", psql(f"update pesquisa_configuracao set coleta_aberta = {str(config_pesquisa[0]).lower()}, "
+                                            f"intervalo_minimo_min = {config_pesquisa[1]}"))
+    print("  pesquisa:", psql(f"update pesquisa_configuracao set atualizado_por = null where atualizado_por in {contas}; "
+                              f"delete from pesquisa_participacao where usuario_id in {contas}"))
     print("  auditoria administrativa:", psql(f"delete from auditoria where usuario_id in {contas} or entidade_id in {contas}"))
     print("  banco (usuários):", psql(f"delete from usuario where email like '%.e2e.{SUF}@exemplo.com'"))
 

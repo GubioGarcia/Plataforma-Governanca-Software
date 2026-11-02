@@ -215,8 +215,8 @@ Como publicar, a configuração de produção e a operação estão em [`infrast
 | O quê | Como executar | Cobertura |
 |---|---|---|
 | Backend (unitários e integração) | `./mvnw clean test` em `backend/plataforma-governanca-software` | Regras de negócio e de acesso (H2, Keycloak simulado) |
-| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 183 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa e status de sistema |
-| Interface ponta a ponta | `npm run test:e2e` em `frontend` | Navegador real (Playwright): o que cada papel vê e faz nas telas |
+| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 223 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa, status de sistema e pesquisa do TCC |
+| Interface ponta a ponta | `npm run test:e2e` em `frontend` | Navegador real (Playwright): o que cada papel vê e faz nas telas, incluindo a pesquisa (roda depois dos demais, porque abre a coleta) |
 
 Os testes ponta a ponta criam usuários e organizações descartáveis e apagam tudo no fim — não interferem nos dados de demonstração.
 
