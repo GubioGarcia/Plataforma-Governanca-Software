@@ -35,14 +35,17 @@ export default function MetricBand({ leituras }: MetricBandProps) {
       {leituras.map((leitura, indice) => (
         <Box
           key={leitura.rotulo}
-          sx={{
-            px: 2.5,
-            py: 2,
-            borderLeft: indice === 0 ? 'none' : '1px solid',
-            borderTop: { xs: indice > 1 ? '1px solid' : 'none', md: 'none' },
-            borderColor: 'divider',
-            // No layout de duas colunas o filete da esquerda só vale na 2ª coluna.
-            '&:nth-of-type(odd)': { borderLeft: { xs: 'none', md: indice === 0 ? 'none' : '1px solid' } },
+          // Cor junto com a borda: um "1px solid" responsivo (media query) reescreveria a cor para a do texto.
+          sx={(t) => {
+            const filete = `1px solid ${t.palette.divider}`;
+            return {
+              px: 2.5,
+              py: 2,
+              borderLeft: indice === 0 ? 'none' : filete,
+              borderTop: { xs: indice > 1 ? filete : 'none', md: 'none' },
+              // No layout de duas colunas o filete da esquerda só vale na 2ª coluna.
+              '&:nth-of-type(odd)': { borderLeft: { xs: 'none', md: indice === 0 ? 'none' : filete } },
+            };
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>

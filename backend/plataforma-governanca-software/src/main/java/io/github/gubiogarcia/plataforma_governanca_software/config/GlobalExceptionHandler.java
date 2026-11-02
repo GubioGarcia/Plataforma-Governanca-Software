@@ -25,6 +25,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Acess
 import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.ConviteService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.MembrosService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.solicitation.service.SolicitacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.service.AdminPesquisaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.service.PesquisaService;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import lombok.extern.slf4j.Slf4j;
@@ -600,6 +601,11 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(PesquisaService.RespostaPesquisaInvalidaException.class)
     public ProblemDetail handleRespostaPesquisaInvalida(PesquisaService.RespostaPesquisaInvalidaException ex) {
         return problem(HttpStatus.BAD_REQUEST, "Resposta invalida", ex.getMessage(), "/errors/resposta-pesquisa-invalida");
+    }
+
+    @ExceptionHandler(AdminPesquisaService.ConfiguracaoPesquisaInvalidaException.class)
+    public ProblemDetail handleConfiguracaoPesquisaInvalida(AdminPesquisaService.ConfiguracaoPesquisaInvalidaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Configuracao invalida", ex.getMessage(), "/errors/configuracao-pesquisa-invalida");
     }
 
     // Violacao de integridade de dados (ex: string excede o tamanho da coluna no banco)

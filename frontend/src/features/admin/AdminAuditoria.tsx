@@ -30,10 +30,12 @@ const ENTIDADE: Record<string, string> = {
   STATUS_PROJETO: 'Status de projeto',
   STATUS_REQUISITO: 'Status de requisito',
   PRIORIDADE: 'Prioridade',
+  PESQUISA: 'Pesquisa do TCC',
 };
 
 const CAMPO: Record<string, string> = {
   nome: 'Nome', descricao: 'Descrição', ordem: 'Ordem', codigo: 'Código', ativo: 'Ativa', situacao: 'Situação',
+  coleta: 'Coleta', intervaloMinimo: 'Intervalo mínimo', exportacaoCsv: 'Exportação do CSV',
 };
 
 /** Data do filtro (yyyy-mm-dd, horário local) → instante ISO; "até" inclui o dia inteiro. */

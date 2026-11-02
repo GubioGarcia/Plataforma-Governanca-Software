@@ -64,7 +64,7 @@ test.describe('Área administrativa', () => {
     await expect(page.getByRole('heading', { name: 'Auditoria administrativa' })).toBeVisible();
 
     await menu.getByRole('link', { name: 'Pesquisas' }).click();
-    await expect(page.getByText('Disponível na próxima etapa.')).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Pesquisa do TCC' })).toBeVisible();
   });
 
   test('status de sistema: APROVADO não pode ser renomeado nem excluído', async ({ page }) => {

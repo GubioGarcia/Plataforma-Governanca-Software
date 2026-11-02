@@ -2,6 +2,8 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.survey.repo
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.domain.EtapaPesquisa;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.domain.PesquisaResposta;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -22,4 +24,13 @@ public interface PesquisaRespostaRepository extends JpaRepository<PesquisaRespos
     @Modifying
     @Query("DELETE FROM PesquisaResposta r WHERE r.participacao.id = :participacaoId")
     void apagarDaParticipacao(@Param("participacaoId") UUID participacaoId);
+
+    /** Respostas abertas preenchidas, mais recentes primeiro; etapa nula traz as duas. */
+    @Query("""
+        SELECT r FROM PesquisaResposta r
+        WHERE r.respostaAberta IS NOT NULL
+          AND (:etapa IS NULL OR r.etapa = :etapa)
+        ORDER BY r.respondidaEm DESC
+    """)
+    Page<PesquisaResposta> listarAbertas(@Param("etapa") EtapaPesquisa etapa, Pageable pageable);
 }

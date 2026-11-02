@@ -1,10 +1,11 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cadastrar, keycloak, psql, sufixo, type Pessoa } from './support/api';
+import { cadastrar, keycloak, psql, sufixo, tornarAdminDaPlataforma, type Pessoa } from './support/api';
 import { entrar, esperarAviso } from './support/ui';
 
 /**
- * Pesquisa do TCC, do lado do participante: modal "antes" no primeiro login,
- * botão "Nos ajude a melhorar", etapa "depois", recusa e retirada no Meu Perfil.
+ * Pesquisa do TCC: o admin abre a coleta; o participante vê o modal "antes" no
+ * primeiro login, depois o botão "Nos ajude a melhorar"; o admin vê o par completo
+ * e exporta o CSV; a retirada no Meu Perfil apaga as respostas; a recusa não volta.
  *
  * Abre a coleta no banco compartilhado: roda no projeto "pesquisa" do Playwright,
  * depois dos demais arquivos, para o modal não aparecer para as contas deles.
@@ -16,19 +17,27 @@ test.describe('Pesquisa do TCC', () => {
   let participante: Pessoa;
   let recusante: Pessoa;
   let celular: Pessoa;
+  let admin: Pessoa;
+  /** Pares completos já existentes no banco antes deste arquivo. */
+  let paresAntes: number;
 
   test.beforeAll(async () => {
     tag = sufixo();
-    [participante, recusante, celular] = await Promise.all(
-      ['participante', 'recusante', 'celular'].map((a) => cadastrar(a, tag)));
-    psql('update pesquisa_configuracao set coleta_aberta = true, intervalo_minimo_min = 0, aberta_em = now()');
+    [participante, recusante, celular, admin] = await Promise.all(
+      ['participante', 'recusante', 'celular', 'admin'].map((a) => cadastrar(a, tag)));
+    await tornarAdminDaPlataforma(admin);
+    psql('update pesquisa_configuracao set coleta_aberta = false, intervalo_minimo_min = 15');
+    paresAntes = Number(psql(`select count(*) from pesquisa_participacao p where p.situacao = 'PARTICIPANDO'
+      and (select count(*) from pesquisa_resposta r where r.participacao_id = p.id) = 2`));
   });
 
   test.afterAll(async () => {
     psql('update pesquisa_configuracao set coleta_aberta = false, intervalo_minimo_min = 15');
-    for (const p of [participante, recusante, celular].filter(Boolean)) await keycloak('DELETE', `/users/${p.kc}`);
+    for (const p of [participante, recusante, celular, admin].filter(Boolean)) await keycloak('DELETE', `/users/${p.kc}`);
     const contas = `(select id from usuario where email like '%.ui.${tag}@exemplo.com')`;
     psql(`delete from pesquisa_participacao where usuario_id in ${contas}`);
+    psql(`update pesquisa_configuracao set atualizado_por = null where atualizado_por in ${contas}`);
+    psql(`delete from auditoria where usuario_id in ${contas}`);
     psql(`delete from usuario where email like '%.ui.${tag}@exemplo.com'`);
   });
 
@@ -37,6 +46,29 @@ test.describe('Pesquisa do TCC', () => {
       await page.getByRole('radiogroup').nth(i).getByRole('radio').nth(v - 1).check();
     }
   }
+
+  async function abrirPainel(page: Page) {
+    await entrar(page, admin);
+    await page.goto('/admin/pesquisas');
+    await expect(page.getByRole('heading', { name: 'Pesquisa do TCC' })).toBeVisible();
+  }
+
+  function leitura(page: Page, rotulo: string) {
+    return page.getByText(rotulo, { exact: true }).locator('xpath=../following-sibling::*[1]');
+  }
+
+  test('admin: abre a coleta com intervalo 0 e o admin não vê o questionário', async ({ page }) => {
+    await abrirPainel(page);
+    await expect(page.getByText('Encerrada', { exact: true })).toBeVisible();
+    await page.getByLabel('Intervalo mínimo (min)').fill('0');
+    await page.getByRole('button', { name: 'Salvar' }).click();
+    await esperarAviso(page, 'Intervalo mínimo atualizado.');
+    await page.getByRole('button', { name: 'Abrir coleta' }).click();
+    await page.getByRole('dialog', { name: 'Abrir a coleta?' }).getByRole('button', { name: 'Abrir coleta' }).click();
+    await esperarAviso(page, 'Coleta aberta.');
+    await expect(page.getByText('Aberta', { exact: true })).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+  });
 
   test('antes: o modal abre no primeiro login, não fecha com Esc e registra as respostas', async ({ page }) => {
     await entrar(page, participante);
@@ -84,6 +116,21 @@ test.describe('Pesquisa do TCC', () => {
     await expect(page.getByRole('button', { name: 'Nos ajude a melhorar' })).toHaveCount(0);
   });
 
+  test('admin: vê o par completo, a resposta aberta só com o código e exporta o CSV sem e-mail', async ({ page }) => {
+    await abrirPainel(page);
+    await expect(leitura(page, 'Pares completos')).toHaveText(String(paresAntes + 1));
+    await expect(page.getByText('=HYPERLINK("x") retrabalho por falta de registro')).toBeVisible();
+
+    const download = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Exportar CSV' }).click();
+    const caminho = await (await download).path();
+    const csv = (await import('node:fs')).readFileSync(caminho, 'utf-8');
+    expect(csv).toContain('codigo;versao;funcao');
+    expect(csv).toContain("'=HYPERLINK");
+    expect(csv).not.toContain(participante.email);
+    expect(csv).not.toContain(participante.nome);
+  });
+
   test('perfil: mostra o código e a retirada apaga as respostas', async ({ page }) => {
     await entrar(page, participante);
     await page.goto('/profile');
@@ -97,6 +144,9 @@ test.describe('Pesquisa do TCC', () => {
     await expect(page.getByText('Retirada', { exact: true })).toBeVisible();
     expect(psql(`select count(*) from pesquisa_resposta r join pesquisa_participacao p on p.id = r.participacao_id
       where p.usuario_id = '${participante.id}'`)).toBe('0');
+
+    await abrirPainel(page);
+    await expect(leitura(page, 'Pares completos')).toHaveText(String(paresAntes));
   });
 
   test('recusa: "Não quero participar" fecha o modal e ele não volta', async ({ page }) => {

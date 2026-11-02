@@ -45,3 +45,52 @@ export interface PrioridadeReferencia {
   ordem: number;
   ativo: boolean;
 }
+
+// ── Pesquisa do TCC (painel) ─────────────────────────────────────────────────
+
+export interface DistribuicaoPesquisa {
+  n: number;
+  /** [quantos marcaram 1, ..., quantos marcaram 5] */
+  distribuicao: number[];
+  mediana: number | null;
+}
+
+export interface ItemResumoPesquisa {
+  numero: number;
+  textoAntes: string;
+  textoDepois: string;
+  antes: DistribuicaoPesquisa;
+  depois: DistribuicaoPesquisa;
+  /** Só quem respondeu as duas etapas; diferença = depois − antes. */
+  pareado: { n: number; medianaDiferenca: number | null; melhoraram: number; iguais: number; pioraram: number };
+}
+
+export interface ContagemPesquisa {
+  valor: string;
+  rotulo: string;
+  quantidade: number;
+}
+
+export interface ResumoPesquisa {
+  coletaAberta: boolean;
+  abertaEm: string | null;
+  encerradaEm: string | null;
+  intervaloMinimoMin: number;
+  participantes: number;
+  recusas: number;
+  retiradas: number;
+  antesRespondidos: number;
+  depoisRespondidos: number;
+  paresCompletos: number;
+  itens: ItemResumoPesquisa[];
+  funcoes: ContagemPesquisa[];
+  temposExperiencia: ContagemPesquisa[];
+  ferramentas: ContagemPesquisa[];
+}
+
+export interface RespostaAbertaPesquisa {
+  codigo: string;
+  etapa: 'ANTES' | 'DEPOIS';
+  texto: string;
+  respondidaEm: string;
+}
