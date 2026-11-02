@@ -25,6 +25,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Acess
 import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.ConviteService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.MembrosService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.solicitation.service.SolicitacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.service.PesquisaService;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -588,6 +589,17 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(VinculoRequisitoService.RequisitosDeProjetosDiferentesException.class)
     public ProblemDetail handleRequisitosDeProjetosDiferentes(VinculoRequisitoService.RequisitosDeProjetosDiferentesException ex) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Requisitos de projetos diferentes", ex.getMessage(), "/errors/requisitos-projetos-diferentes");
+    }
+
+    // Pesquisa do TCC
+    @ExceptionHandler(PesquisaService.PesquisaConflitoException.class)
+    public ProblemDetail handlePesquisaConflito(PesquisaService.PesquisaConflitoException ex) {
+        return problem(HttpStatus.CONFLICT, "Pesquisa", ex.getMessage(), "/errors/pesquisa-conflito");
+    }
+
+    @ExceptionHandler(PesquisaService.RespostaPesquisaInvalidaException.class)
+    public ProblemDetail handleRespostaPesquisaInvalida(PesquisaService.RespostaPesquisaInvalidaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Resposta invalida", ex.getMessage(), "/errors/resposta-pesquisa-invalida");
     }
 
     // Violacao de integridade de dados (ex: string excede o tamanho da coluna no banco)
