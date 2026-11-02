@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.project.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.StatusProjeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.AtualizarStatusProjetoRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.CriarStatusProjetoRequestDTO;
@@ -7,6 +9,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AutorizacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.DadoReferenciaSistemaException;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -22,6 +25,7 @@ public class StatusProjetoService {
 
     private final StatusProjetoRepository statusProjetoRepository;
     private final AutorizacaoService autorizacao;
+    private final AuditoriaService auditoria;
     private final ProjetoRepository projetoRepository;
 
     @Transactional
@@ -41,6 +45,7 @@ public class StatusProjetoService {
                 .build();
 
         status = statusProjetoRepository.save(status);
+        registrarCriacao(status);
         log.info("StatusProjeto '{}' criado com sucesso. ID: {}", status.getNome(), status.getId());
         return mapToResponseDTO(status);
     }
@@ -69,6 +74,10 @@ public class StatusProjetoService {
         boolean nomeAlterado = !status.getNome().equalsIgnoreCase(request.nome());
         boolean ordemAlterada = !status.getOrdem().equals(request.ordem());
 
+        // Status de sistema são usados pelo nome nas regras (status inicial do projeto)
+        if (nomeAlterado && Boolean.TRUE.equals(status.getSistema())) {
+            throw new DadoReferenciaSistemaException("status de projeto", status.getNome());
+        }
         if (nomeAlterado && statusProjetoRepository.existsByNomeIgnoreCase(request.nome())) {
             throw new StatusProjetoNomeJaExisteException(request.nome());
         }
@@ -76,11 +85,18 @@ public class StatusProjetoService {
             throw new StatusProjetoOrdemJaExisteException(request.ordem());
         }
 
+        String nomeAnterior = status.getNome();
+        String descricaoAnterior = status.getDescricao();
+        Integer ordemAnterior = status.getOrdem();
         status.setNome(request.nome().toUpperCase());
         status.setDescricao(request.descricao());
         status.setOrdem(request.ordem());
 
         status = statusProjetoRepository.save(status);
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "nome", nomeAnterior, status.getNome());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "descricao", descricaoAnterior, status.getDescricao());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EDICAO, "ordem",
+                String.valueOf(ordemAnterior), String.valueOf(status.getOrdem()));
         log.info("StatusProjeto {} atualizado com sucesso.", id);
         return mapToResponseDTO(status);
     }
@@ -88,8 +104,10 @@ public class StatusProjetoService {
     @Transactional
     public void deletar(UUID id) {
         autorizacao.exigirAdminPlataforma(); // lista global: só Admin da Plataforma (REF_DATA_EDIT)
-        if (!statusProjetoRepository.existsById(id)) {
-            throw new StatusProjetoNaoEncontradoException("Nenhum status encontrado com o id: " + id);
+        StatusProjeto status = statusProjetoRepository.findById(id)
+                .orElseThrow(() -> new StatusProjetoNaoEncontradoException("Nenhum status encontrado com o id: " + id));
+        if (Boolean.TRUE.equals(status.getSistema())) {
+            throw new DadoReferenciaSistemaException("status de projeto", status.getNome());
         }
         // Impede remoção de status que está vinculado a projetos existentes.
         // Deletar um status em uso quebraria a integridade referencial e
@@ -99,11 +117,21 @@ public class StatusProjetoService {
         }
 
         statusProjetoRepository.deleteById(id);
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, id, AcaoAuditoria.EXCLUSAO, "nome", status.getNome(), null);
         log.info("StatusProjeto {} removido com sucesso.", id);
     }
 
     public StatusProjetoResponseDTO mapToResponseDTO(StatusProjeto s) {
-        return new StatusProjetoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem());
+        return new StatusProjetoResponseDTO(s.getId(), s.getNome(), s.getDescricao(), s.getOrdem(), s.getSistema());
+    }
+
+    /** Ações sobre dados de referência entram na auditoria administrativa (sem organização/projeto). */
+    private static final String TIPO_AUDITORIA = "STATUS_PROJETO";
+
+    private void registrarCriacao(StatusProjeto s) {
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, s.getId(), AcaoAuditoria.CRIACAO, "nome", null, s.getNome());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, s.getId(), AcaoAuditoria.CRIACAO, "descricao", null, s.getDescricao());
+        auditoria.registrarAdministrativa(TIPO_AUDITORIA, s.getId(), AcaoAuditoria.CRIACAO, "ordem", null, String.valueOf(s.getOrdem()));
     }
 
     // Exceções de domínio

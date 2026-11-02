@@ -95,7 +95,7 @@ export default function SolicitationList() {
   }
 
   return (
-    <Box sx={{ p: 4 }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h2" sx={{ mb: 0.5 }}>Solicitações</Typography>

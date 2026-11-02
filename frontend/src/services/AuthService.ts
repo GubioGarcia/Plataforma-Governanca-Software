@@ -1,4 +1,5 @@
 import api from '../config/axios';
+import { MENSAGEM_LIMITE_REQUISICOES } from '../utils/apiError';
 import type { MeResponse } from '../types/acesso';
 
 const API_LOGIN_URL   = '/auth/login';
@@ -20,8 +21,11 @@ export interface SessaoResponse {
   expiresIn: number;
 }
 
+// O Keycloak responde igual para senha errada, e-mail inexistente e conta bloqueada
+// temporariamente (proteção contra força bruta): a mensagem cobre os três casos.
 const ERRO_GENERICO =
-  'Não foi possível realizar seu login. Verifique os dados informados e tente novamente.';
+  'Não foi possível realizar seu login. Verifique os dados informados e tente novamente. '
+  + 'Após várias tentativas sem sucesso, o acesso fica bloqueado por alguns minutos.';
 
 /**
  * Autentica o usuário via backend.
@@ -43,6 +47,11 @@ export async function loginWithCredentials(email: string, senha: string): Promis
     if (error !== null && typeof error === 'object' && 'response' in error) {
       const axiosError = error as { response?: { status?: number; data?: { detail?: string } } };
       const status = axiosError.response?.status;
+
+      // 429 = limite de requisições do nginx
+      if (status === 429) {
+        throw new Error(MENSAGEM_LIMITE_REQUISICOES);
+      }
 
       // 401 = credenciais inválidas — não revelar se foi e-mail ou senha
       if (status === 401 || status === 403) {

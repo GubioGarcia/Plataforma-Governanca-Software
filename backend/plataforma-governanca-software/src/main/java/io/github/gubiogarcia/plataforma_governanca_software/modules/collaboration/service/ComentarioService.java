@@ -7,6 +7,9 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.collaboratio
 import io.github.gubiogarcia.plataforma_governanca_software.modules.collaboration.repository.ComentarioRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.product.repository.VisaoProdutoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
@@ -33,6 +36,7 @@ public class ComentarioService {
     private final RequisitoRepository  requisitoRepository;
     private final VisaoProdutoRepository visaoProdutoRepository;
     private final AutorizacaoService   autorizacao;
+    private final InteracaoService     interacaoService;
 
     // ── Listar ───────────────────────────────────────────────────────────────
 
@@ -86,6 +90,8 @@ public class ComentarioService {
         Comentario salvo = comentarioRepository.save(comentario);
         log.info("Comentário criado: id={} entidade={}/{} usuário={}",
                 salvo.getId(), salvo.getEntidadeTipo(), salvo.getEntidadeId(), usuario.getNome());
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.COMENTARIO, TipoInteracao.COMENTARIO,
+                salvo.getId(), "Comentou em " + salvo.getEntidadeTipo().toLowerCase());
 
         return mapToDTO(salvo);
     }
@@ -111,6 +117,8 @@ public class ComentarioService {
 
         Comentario salvo = comentarioRepository.save(comentario);
         log.info("Comentário {} editado pelo usuário {}", comentarioId, solicitante.getNome());
+        interacaoService.registrar(solicitante, salvo.getProjeto(), ModuloInteracao.COMENTARIO, TipoInteracao.EDICAO,
+                comentarioId, "Editou um comentário em " + salvo.getEntidadeTipo().toLowerCase());
 
         return mapToDTO(salvo);
     }
@@ -148,6 +156,8 @@ public class ComentarioService {
         comentario.setDataAtualizacao(Instant.now());
         comentarioRepository.save(comentario);
         log.info("Comentário {} inativado pelo usuário {}", comentarioId, solicitante.getNome());
+        interacaoService.registrar(solicitante, comentario.getProjeto(), ModuloInteracao.COMENTARIO, TipoInteracao.EXCLUSAO,
+                comentarioId, "Excluiu um comentário em " + comentario.getEntidadeTipo().toLowerCase());
     }
 
     // ── Helpers privados ──────────────────────────────────────────────────────

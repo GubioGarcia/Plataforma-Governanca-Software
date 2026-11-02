@@ -1,6 +1,7 @@
 import React, { createContext, useState, useCallback, useEffect, useRef } from 'react';
 import { setAccessToken } from '../config/axios';
 import { fetchMe, loginWithCredentials, logoutSession, refreshSession } from '../services/AuthService';
+import { marcarSessao, temMarcaDeSessao } from '../utils/sessao';
 import type { MeResponse } from '../types/acesso';
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -15,6 +16,13 @@ export interface AuthContextValue {
   carregando: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => Promise<void>;
+  /**
+   * true logo depois de um logout pedido pelo usuário: a rota protegida em que ele
+   * estava leva à landing, sem ?next=. Vale uma vez só (ver confirmarSaida).
+   */
+  saiu: boolean;
+  /** Consome a marca de saída quando a landing aparece: o próximo acesso a uma rota protegida pede login. */
+  confirmarSaida: () => void;
   /** Recarrega papéis/permissões (ex.: depois de criar uma organização ou projeto). */
   recarregarPermissoes: () => Promise<void>;
 }
@@ -28,12 +36,15 @@ export const AuthContext = createContext<AuthContextValue | null>(null);
 
 export default function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
-  const [carregando, setCarregando] = useState(true);
+  const [saiu, setSaiu] = useState(false);
+  // Sem marca de login anterior não há sessão a restaurar: nem chama o /auth/refresh
+  const [carregando, setCarregando] = useState(temMarcaDeSessao);
   const recarregandoRef = useRef<Promise<void> | null>(null);
 
   const clearSession = useCallback(() => {
     setUser(null);
     setAccessToken(null);
+    marcarSessao(false);
   }, []);
 
   const recarregarPermissoes = useCallback(async () => {
@@ -48,6 +59,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   // Ao abrir/recarregar a página: tenta restaurar a sessão pelo cookie de refresh
   useEffect(() => {
+    if (!temMarcaDeSessao()) return;
     let ativo = true;
     refreshSession()
       .then(({ token }) => {
@@ -77,19 +89,24 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     // Token APENAS em memória; o refresh token fica no cookie HttpOnly
     setAccessToken(token);
     setUser(await fetchMe());
+    marcarSessao(true);
+    setSaiu(false);
   }, []);
+
+  const confirmarSaida = useCallback(() => setSaiu(false), []);
 
   const logout = useCallback(async () => {
     try {
       await logoutSession();
     } finally {
+      setSaiu(true);
       clearSession();
     }
   }, [clearSession]);
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, carregando, login, logout, recarregarPermissoes }}
+      value={{ user, isAuthenticated: !!user, carregando, login, logout, saiu, confirmarSaida, recarregarPermissoes }}
     >
       {children}
     </AuthContext.Provider>

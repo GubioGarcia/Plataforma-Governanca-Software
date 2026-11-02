@@ -25,15 +25,15 @@ public class Evento {
     @Column(columnDefinition = "TEXT")
     private String descricao;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "projeto_id")
     private Projeto projeto;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organizacao_id")
     private Organizacao organizacao;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "criado_por")
     private Usuario criadoPor;
 
@@ -50,4 +50,4 @@ public class Evento {
     @Enumerated(EnumType.STRING)
     @Column(length = 20)
     private StatusEvento status;
-}
+}

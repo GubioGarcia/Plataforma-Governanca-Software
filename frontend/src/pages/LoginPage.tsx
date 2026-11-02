@@ -4,12 +4,20 @@ import Button from '@mui/material/Button';
 import Paper from '@mui/material/Paper';
 import Typography from '@mui/material/Typography';
 import TextField from '@mui/material/TextField';
+import IconButton from '@mui/material/IconButton';
+import InputAdornment from '@mui/material/InputAdornment';
 import CircularProgress from '@mui/material/CircularProgress';
 import HubIcon from '@mui/icons-material/Hub';
+import Visibility from '@mui/icons-material/Visibility';
+import VisibilityOff from '@mui/icons-material/VisibilityOff';
 import { useTheme } from '@mui/material/styles';
 import { useAuth } from '../context/useAuth';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link as RouterLink } from 'react-router-dom';
+import Link from '@mui/material/Link';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import { cadastrarUsuario, isApiError } from '../services/userService';
+import { MENSAGEM_LIMITE_REQUISICOES } from '../utils/apiError';
+import { destinoSeguro } from '../utils/sessao';
 
 // Critério de senha: mínimo 8 caracteres, ao menos 1 letra e 1 número
 const SENHA_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
@@ -30,11 +38,14 @@ export default function LoginPage() {
   const inputBg = isDark ? '#1E2334' : '#FFFFFF';
   const inputText = isDark ? '#F1F5F9' : '#1A1D23';
 
-  const [modo, setModo] = useState<'login' | 'cadastro'>('login');
+  // /login e /cadastro são a mesma tela; o modo vem da rota
+  const modo: 'login' | 'cadastro' = location.pathname === '/cadastro' ? 'cadastro' : 'login';
+  const next = new URLSearchParams(location.search).get('next');
 
   // login
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  const [mostrarSenha, setMostrarSenha] = useState(false);
   const [erro, setErro] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -42,19 +53,17 @@ export default function LoginPage() {
   const [cadNome, setCadNome]   = useState('');
   const [cadEmail, setCadEmail] = useState('');
   const [cadSenha, setCadSenha] = useState('');
+  const [mostrarCadSenha, setMostrarCadSenha] = useState(false);
   const [cadErros, setCadErros] = useState<{ nome?: string; email?: string; senha?: string }>({});
   const [cadSucesso, setCadSucesso] = useState(false);
 
-  // Redireciona para a rota de origem após login (ou para /organizations)
+  // Após o login (ou com sessão já ativa) vai para ?next=, se for um caminho interno
   useEffect(() => {
-    if (isAuthenticated) {
-      const from = (location.state as { from?: Location })?.from?.pathname ?? '/organizations';
-      navigate(from, { replace: true });
-    }
-  }, [isAuthenticated, navigate, location.state]);
+    if (isAuthenticated) navigate(destinoSeguro(next), { replace: true });
+  }, [isAuthenticated, navigate, next]);
 
   function alternarModo(m: 'login' | 'cadastro') {
-    setModo(m);
+    navigate({ pathname: `/${m}`, search: location.search }, { replace: true });
     setErro('');
     setCadErros({});
     setCadSucesso(false);
@@ -95,6 +104,7 @@ export default function LoginPage() {
     }
     const senhaErro = validarSenha(cadSenha);
     if (senhaErro) erros.senha = senhaErro;
+    else if (cadSenha.toLowerCase() === cadEmail.trim().toLowerCase()) erros.senha = 'A senha não pode ser igual ao e-mail';
 
     if (Object.keys(erros).length) { setCadErros(erros); return; }
 
@@ -107,10 +117,14 @@ export default function LoginPage() {
     } catch (err) {
       if (isApiError(err)) {
         const status = err.response?.status;
-        if (status === 409) {
+        if (status === 429) {
+          setCadErros({ nome: MENSAGEM_LIMITE_REQUISICOES });
+        } else if (status === 409) {
           setCadErros({ email: 'Já existe uma conta com este e-mail' });
         } else if (status === 422) {
           setCadErros({ senha: 'A senha não atende aos requisitos mínimos' });
+        } else if (status === 400 && err.response?.data?.type?.endsWith('/senha-fora-da-politica')) {
+          setCadErros({ senha: err.response.data.detail });
         } else {
           setCadErros({ nome: err.response?.data?.detail || 'Erro ao criar conta. Tente novamente.' });
         }
@@ -139,6 +153,30 @@ export default function LoginPage() {
       caretColor: inputText,
     },
   };
+
+  // O "olho" nativo do Edge (::-ms-reveal) some depois que o campo perde o
+  // foco ou é preenchido pelo navegador. Ele é escondido e substituído por um
+  // botão próprio, sempre disponível.
+  const senhaSx = {
+    ...autoFillSx,
+    '& input::-ms-reveal, & input::-ms-clear': { display: 'none' },
+  };
+
+  function adornoSenha(visivel: boolean, alternar: () => void) {
+    return (
+      <InputAdornment position="end">
+        <IconButton
+          aria-label={visivel ? 'Ocultar senha' : 'Mostrar senha'}
+          onClick={alternar}
+          onMouseDown={(e) => e.preventDefault()}
+          edge="end"
+          disabled={loading}
+        >
+          {visivel ? <VisibilityOff /> : <Visibility />}
+        </IconButton>
+      </InputAdornment>
+    );
+  }
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', alignItems: 'stretch', bgcolor: 'background.default' }}>
@@ -219,6 +257,15 @@ export default function LoginPage() {
             bgcolor: 'background.paper',
           }}
         >
+          <Link
+            component={RouterLink}
+            to="/"
+            underline="hover"
+            sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mb: 3, fontSize: 14, color: 'text.secondary' }}
+          >
+            <ArrowBackIcon sx={{ fontSize: 16 }} /> Voltar ao início
+          </Link>
+
           {/* Logo mobile */}
           <Box sx={{ display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1, mb: 4 }}>
             <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: 'primary.main', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -255,7 +302,7 @@ export default function LoginPage() {
                 />
                 <TextField
                   label="Senha"
-                  type="password"
+                  type={mostrarSenha ? 'text' : 'password'}
                   size="medium"
                   fullWidth
                   value={senha}
@@ -265,7 +312,12 @@ export default function LoginPage() {
                   error={!!erro}
                   helperText={erro || undefined}
                   InputProps={{ sx: inputSx }}
-                  slotProps={{ input: { sx: autoFillSx } }}
+                  slotProps={{
+                    input: {
+                      sx: senhaSx,
+                      endAdornment: adornoSenha(mostrarSenha, () => setMostrarSenha((v) => !v)),
+                    },
+                  }}
                 />
                 <Button
                   type="submit"
@@ -352,7 +404,7 @@ export default function LoginPage() {
                   />
                   <TextField
                     label="Senha *"
-                    type="password"
+                    type={mostrarCadSenha ? 'text' : 'password'}
                     size="medium"
                     fullWidth
                     value={cadSenha}
@@ -362,7 +414,12 @@ export default function LoginPage() {
                     error={!!cadErros.senha}
                     helperText={cadErros.senha || 'Mínimo 8 caracteres com letras e números'}
                     InputProps={{ sx: { ...inputSx, height: 'auto', py: 1.5 } }}
-                    slotProps={{ input: { sx: autoFillSx } }}
+                    slotProps={{
+                      input: {
+                        sx: senhaSx,
+                        endAdornment: adornoSenha(mostrarCadSenha, () => setMostrarCadSenha((v) => !v)),
+                      },
+                    }}
                   />
                   <Button
                     type="submit"

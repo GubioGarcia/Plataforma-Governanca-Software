@@ -9,6 +9,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.project.dto.
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.ProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.repository.StatusProjetoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.DadoReferenciaSistemaException;
 import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.AfterEach;
@@ -237,5 +238,54 @@ class StatusProjetoServiceTest {
         // When / Then — não deve permitir deletar um status em uso
         assertThatThrownBy(() -> statusProjetoService.deletar(status.getId()))
                 .isInstanceOf(StatusProjetoService.StatusProjetoEmUsoException.class);
+    }
+
+    // ─── status de sistema ───────────────────────────────────────────────────
+
+    private StatusProjeto statusDeSistema() {
+        return statusProjetoRepository.save(StatusProjeto.builder()
+                .nome("SISTEMA_TESTE").descricao("Usado pelas regras").ordem(70).sistema(true).build());
+    }
+
+    @Test
+    void criar_deveCriarStatusQueNaoEDeSistema() {
+        var criado = statusProjetoService.criar(new CriarStatusProjetoRequestDTO("NOVO_COMUM", null, 71));
+
+        assertThat(criado.sistema()).isFalse();
+    }
+
+    @Test
+    void atualizar_deveLancarException_quandoRenomeiaStatusDeSistema() {
+        StatusProjeto status = statusDeSistema();
+
+        assertThatThrownBy(() -> statusProjetoService.atualizar(status.getId(),
+                new AtualizarStatusProjetoRequestDTO("RENOMEADO", "Usado pelas regras", 70)))
+                .isInstanceOf(DadoReferenciaSistemaException.class);
+        entityManager.flush();
+        entityManager.clear();
+        assertThat(statusProjetoRepository.findById(status.getId()).orElseThrow().getNome()).isEqualTo("SISTEMA_TESTE");
+    }
+
+    @Test
+    void atualizar_devePermitirDescricaoEOrdem_quandoStatusDeSistema() {
+        StatusProjeto status = statusDeSistema();
+
+        // o nome em outra caixa não conta como renomear (é gravado em maiúsculas)
+        var resultado = statusProjetoService.atualizar(status.getId(),
+                new AtualizarStatusProjetoRequestDTO("sistema_teste", "Nova descrição", 72));
+
+        assertThat(resultado.nome()).isEqualTo("SISTEMA_TESTE");
+        assertThat(resultado.descricao()).isEqualTo("Nova descrição");
+        assertThat(resultado.ordem()).isEqualTo(72);
+        assertThat(resultado.sistema()).isTrue();
+    }
+
+    @Test
+    void deletar_deveLancarException_quandoStatusDeSistema() {
+        StatusProjeto status = statusDeSistema();
+
+        assertThatThrownBy(() -> statusProjetoService.deletar(status.getId()))
+                .isInstanceOf(DadoReferenciaSistemaException.class);
+        assertThat(statusProjetoRepository.existsById(status.getId())).isTrue();
     }
 }

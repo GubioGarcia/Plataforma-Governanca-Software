@@ -19,7 +19,8 @@ export default function WikiEditObjetivos() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('WIKI_EDIT');
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -93,10 +94,10 @@ export default function WikiEditObjetivos() {
             onChange={(e) => setObjetivoGeral(e.target.value)}
             placeholder="Defina o objetivo principal do projeto..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_CHARS }}
-            helperText={!isStakeholder ? `${objetivoGeral.length}/${MAX_CHARS}` : undefined}
+            helperText={podeEditar ? `${objetivoGeral.length}/${MAX_CHARS}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
@@ -110,10 +111,10 @@ export default function WikiEditObjetivos() {
             onChange={(e) => setObjetivosEspecificos(e.target.value)}
             placeholder="Liste os objetivos específicos, um por linha ou separados por ponto e vírgula..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_CHARS }}
-            helperText={!isStakeholder ? `${objetivosEspecificos.length}/${MAX_CHARS}` : undefined}
+            helperText={podeEditar ? `${objetivosEspecificos.length}/${MAX_CHARS}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
@@ -127,14 +128,14 @@ export default function WikiEditObjetivos() {
             onChange={(e) => setKpis(e.target.value)}
             placeholder="Descreva os indicadores que demonstram o sucesso do projeto..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_CHARS }}
-            helperText={!isStakeholder ? `${kpis.length}/${MAX_CHARS}` : undefined}
+            helperText={podeEditar ? `${kpis.length}/${MAX_CHARS}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
-        {!isStakeholder && (
+        {podeEditar && (
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}

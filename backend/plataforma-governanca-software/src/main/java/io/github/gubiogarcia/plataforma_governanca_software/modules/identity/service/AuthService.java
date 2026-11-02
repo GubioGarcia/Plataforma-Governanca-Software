@@ -85,9 +85,13 @@ public class AuthService {
 
     // Exceções de domínio
 
+    /**
+     * O Keycloak responde igual para senha errada, e-mail inexistente e conta bloqueada
+     * pela proteção contra força bruta — a mensagem cita o bloqueio sem revelar o caso.
+     */
     public static class CredenciaisInvalidasException extends RuntimeException {
         public CredenciaisInvalidasException() {
-            super("E-mail ou senha inválidos.");
+            super("E-mail ou senha inválidos. Após várias tentativas sem sucesso, o acesso fica bloqueado por alguns minutos.");
         }
     }
 

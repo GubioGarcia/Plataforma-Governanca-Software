@@ -104,13 +104,10 @@ Documentação completa de todas as tecnologias, bibliotecas e ferramentas utili
 - **Versão:** `^1.13.6`
 - **Configuração:** `src/config/axios.ts`
 
-### Keycloak JS + @react-keycloak/web
-- **O que é:** Keycloak é um servidor de autenticação open-source (SSO). O `keycloak-js` é o cliente JS oficial e o `@react-keycloak/web` é o wrapper para React.
-- **Por que foi usado:** Autenticação e autorização empresarial com suporte a OAuth2/OpenID Connect.
-- **Versões:**
-  - `keycloak-js` `^26.2.3`
-  - `@react-keycloak/web` `^3.4.0`
-- **Status atual:** Integração configurada em `src/config/keycloak.ts`, mas mockada para o ambiente de desenvolvimento/TCC.
+### Autenticação (Keycloak via backend)
+- **Como funciona:** o frontend não fala com o Keycloak. O login é feito em `/api/auth/login`, e o backend obtém os tokens no Keycloak.
+- **Sessão:** o access token fica só em memória (`src/config/axios.ts`); o refresh token fica num cookie HttpOnly gravado pelo backend. Ao receber 401, o interceptor renova a sessão em `/api/auth/refresh` e repete a requisição.
+- **Dependências:** nenhuma biblioteca de Keycloak no frontend.
 
 ---
 
@@ -143,7 +140,7 @@ src/
 ├── components/      # Componentes reutilizáveis (StatusChip, EmptyState, etc.)
 │   ├── common/
 │   └── layout/      # AppShell, ProjectShell, ProtectedRoute
-├── config/          # Configurações globais (axios, keycloak)
+├── config/          # Configurações globais (axios)
 ├── context/         # Providers de contexto global (Auth, Snackbar)
 ├── features/        # Módulos de funcionalidade por domínio
 │   ├── audit/
@@ -155,7 +152,6 @@ src/
 │   ├── stakeholders/
 │   └── wiki/
 ├── hooks/           # Custom hooks (usePermissions)
-├── mocks/           # Dados mockados para desenvolvimento
 ├── pages/           # Páginas de nível de rota (Login, 404)
 ├── theme/           # Configuração do tema MUI (dark/light)
 └── types/           # Interfaces e tipos TypeScript globais

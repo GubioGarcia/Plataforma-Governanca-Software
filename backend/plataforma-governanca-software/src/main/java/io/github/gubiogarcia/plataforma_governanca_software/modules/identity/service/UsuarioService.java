@@ -1,5 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.AcaoAuditoria;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AlterarSenhaRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AtualizarPerfilRequestDTO;
@@ -34,6 +36,7 @@ public class UsuarioService {
     private final KeycloakTokenClient keycloakTokenClient;
     private final AutorizacaoService autorizacaoService;
     private final RevogacaoTokenService revogacaoTokenService;
+    private final AuditoriaService auditoria;
 
     @Transactional
     public UsuarioResponseDTO cadastrar(CadastroUsuarioRequestDTO request) {
@@ -41,6 +44,7 @@ public class UsuarioService {
         if (usuarioRepository.existsByEmail(request.email())) {
             throw new EmailJaCadastradoException(request.email());
         }
+        exigirSenhaDiferenteDoEmail(request.senha(), request.email());
 
         Usuario usuario = Usuario.builder()
                 .nome(request.nome())
@@ -60,6 +64,7 @@ public class UsuarioService {
             );
         } catch (KeycloakAdminException ex) {
             log.error("Falha ao criar usuário no Keycloak para e-mail {}: {}", request.email(), ex.getMessage());
+            if (ex.getStatusCode() == 400) throw new SenhaForaDaPoliticaException();
             throw new CadastroKeycloakException("Falha ao registrar o usuário no servidor de autenticação. Tente novamente.", ex);
         }
 
@@ -146,11 +151,13 @@ public class UsuarioService {
         if (!keycloakTokenClient.credenciaisValidas(usuario.getEmail(), request.senhaAtual())) {
             throw new SenhaAtualInvalidaException("A senha atual informada está incorreta.");
         }
+        exigirSenhaDiferenteDoEmail(request.novaSenha(), usuario.getEmail());
 
         try {
             keycloakAdminClient.redefinirSenha(usuario.getExternalIdentityId(), request.novaSenha());
         } catch (KeycloakAdminException ex) {
             log.error("Falha ao redefinir senha no Keycloak para o usuário {}: {}", usuario.getId(), ex.getMessage());
+            if (ex.getStatusCode() == 400) throw new SenhaForaDaPoliticaException();
             throw new AtualizacaoKeycloakException("Falha ao redefinir a senha no servidor de autenticação. Tente novamente.", ex);
         }
 
@@ -217,6 +224,10 @@ public class UsuarioService {
         if (!proprioUsuario && !autorizacaoService.isAdminPlataforma()) {
             throw new AcessoNegadoException("Apenas o próprio usuário ou o administrador da plataforma pode inativar esta conta.");
         }
+        // Evita que a plataforma fique sem administrador por engano
+        if (proprioUsuario && autorizacaoService.isAdminPlataforma()) {
+            throw new AdminNaoPodeSeInativarException();
+        }
 
         if (Boolean.FALSE.equals(usuario.getAtivo())) {
             throw new UsuarioJaInativoException(id);
@@ -237,6 +248,11 @@ public class UsuarioService {
         usuarioRepository.save(usuario);
         // O access token atual também deixa de valer na hora (401 na próxima requisição)
         revogacaoTokenService.revogarTokensDoUsuario(usuario);
+        if (!proprioUsuario) {
+            String conta = usuario.getNome() + " <" + usuario.getEmail() + ">";
+            auditoria.registrarAdministrativa("USUARIO", id, AcaoAuditoria.EDICAO, "situacao",
+                    "ativa: " + conta, "inativa: " + conta);
+        }
 
         log.info("Usuário {} inativado com sucesso.", id);
     }
@@ -278,6 +294,19 @@ public class UsuarioService {
         );
     }
 
+    /** Mesma regra do passwordPolicy do realm (notUsername/notEmail), checada antes de ir ao Keycloak. */
+    private static void exigirSenhaDiferenteDoEmail(String senha, String email) {
+        if (senha != null && senha.equalsIgnoreCase(email)) {
+            throw new SenhaForaDaPoliticaException();
+        }
+    }
+
+    public static class AdminNaoPodeSeInativarException extends RuntimeException {
+        public AdminNaoPodeSeInativarException() {
+            super("O Admin da Plataforma não pode inativar a própria conta.");
+        }
+    }
+
     public static class UsuarioJaInativoException extends RuntimeException {
         public UsuarioJaInativoException(UUID id) {
             super("O usuário com id " + id + " já está inativo.");
@@ -313,6 +342,13 @@ public class UsuarioService {
     public static class SenhasNaoConferemException extends RuntimeException {
         public SenhasNaoConferemException(String message) {
             super(message);
+        }
+    }
+
+    /** Política de senha do realm (passwordPolicy): mínimo de 8 caracteres e diferente do e-mail. */
+    public static class SenhaForaDaPoliticaException extends RuntimeException {
+        public SenhaForaDaPoliticaException() {
+            super("A senha deve ter no mínimo 8 caracteres e não pode ser igual ao e-mail.");
         }
     }
 

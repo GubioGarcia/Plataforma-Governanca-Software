@@ -183,6 +183,21 @@ export function createAppTheme(mode: ThemeMode) {
         root: { fontSize: '16px', fontWeight: 600 },
       },
     },
+    MuiDialog: {
+      styleOverrides: {
+        // Celular: margem de 16px (o padrão de 32px tira ~10% da largura útil)
+        paper: ({ theme }) => ({
+          [theme.breakpoints.down('sm')]: {
+            '&:not(.MuiDialog-paperFullScreen)': {
+              margin: theme.spacing(2),
+              width: `calc(100% - ${theme.spacing(4)})`,
+              maxWidth: `calc(100% - ${theme.spacing(4)})`,
+              maxHeight: `calc(100% - ${theme.spacing(4)})`,
+            },
+          },
+        }),
+      },
+    },
   },
   });
 }

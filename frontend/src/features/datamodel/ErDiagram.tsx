@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
 import Box from '@mui/material/Box';
 import CircularProgress from '@mui/material/CircularProgress';
 import Dialog from '@mui/material/Dialog';
@@ -45,6 +45,29 @@ function escalaDeAjuste(larguraDisponivel: number, larguraNatural: number): numb
   return Math.min(1, Math.max(ZOOM_MIN, Number((larguraDisponivel / larguraNatural).toFixed(2))));
 }
 
+/** Folga, em px, entre a entidade focada e a borda da área visível. */
+const MARGEM_FOCO = 24;
+
+/**
+ * Rolagem que traz o retângulo `alvo` para dentro da `area`: centraliza quando
+ * ele cabe e, quando não cabe, encosta o início (esquerda/topo) com uma folga —
+ * centralizar um nó maior que a área cortaria justamente o cabeçalho dele.
+ */
+function rolagemParaFocar(area: HTMLElement, alvo: DOMRect): { left: number; top: number } {
+  const caixaArea = area.getBoundingClientRect();
+  const eixo = (inicioAlvo: number, tamanhoAlvo: number, inicioArea: number, visivel: number, rolagem: number, total: number) => {
+    const posicao = rolagem + (inicioAlvo - inicioArea);
+    const desejado = tamanhoAlvo + 2 * MARGEM_FOCO <= visivel
+      ? posicao + tamanhoAlvo / 2 - visivel / 2
+      : posicao - MARGEM_FOCO;
+    return Math.min(Math.max(0, total - visivel), Math.max(0, desejado));
+  };
+  return {
+    left: eixo(alvo.left, alvo.width, caixaArea.left + area.clientLeft, area.clientWidth, area.scrollLeft, area.scrollWidth),
+    top: eixo(alvo.top, alvo.height, caixaArea.top + area.clientTop, area.clientHeight, area.scrollTop, area.scrollHeight),
+  };
+}
+
 /**
  * Renderiza o diagrama entidade-relacionamento do projeto.
  *
@@ -64,28 +87,55 @@ export default function ErDiagram({
 
   const [svg, setSvg] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  const [zoom, setZoom] = useState(1);
+  // `null` = modo "ajustado": o zoom acompanha a largura da área visível. Só
+  // vira um número fixo quando o usuário aproxima ou afasta.
+  const [zoomManual, setZoomManual] = useState<number | null>(null);
   const [telaCheia, setTelaCheia] = useState(false);
   const [tamanhoNatural, setTamanhoNatural] = useState({ largura: 0, altura: 0 });
+  const [larguraArea, setLarguraArea] = useState(0);
+  // Elemento da área de rolagem em estado (além da ref): na tela cheia ele é
+  // montado pelo portal do Dialog depois do commit deste componente, e os
+  // efeitos de destaque e enquadramento precisam rodar de novo quando chega.
+  const [areaMontada, setAreaMontada] = useState<HTMLDivElement | null>(null);
+  // Incrementado a cada reenquadramento (render novo, botão de ajuste, entrada
+  // ou saída da tela cheia): dispara a volta à posição inicial — ou ao foco da
+  // entidade selecionada — depois que o novo zoom já está no DOM.
+  const [enquadramento, setEnquadramento] = useState(0);
 
   const destaquesSerializados = entidadesDestacadas.join(',');
+  const zoom = zoomManual ?? escalaDeAjuste(larguraArea - 32, tamanhoNatural.largura);
+
+  // A área de rolagem muda de elemento ao entrar/sair da tela cheia; a ref de
+  // callback acompanha a troca e mede a largura de cada uma.
+  const observadorArea = useRef<ResizeObserver | null>(null);
+  const refArea = useCallback((elemento: HTMLDivElement | null) => {
+    areaRef.current = elemento;
+    setAreaMontada(elemento);
+    observadorArea.current?.disconnect();
+    observadorArea.current = null;
+    if (!elemento) return;
+    setLarguraArea(elemento.clientWidth);
+    const observador = new ResizeObserver(() => setLarguraArea(elemento.clientWidth));
+    observador.observe(elemento);
+    observadorArea.current = observador;
+  }, []);
+  useEffect(() => () => observadorArea.current?.disconnect(), []);
 
   const ajustarZoom = useCallback((delta: number) => {
-    setZoom((atual) => Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number((atual + delta).toFixed(2)))));
+    setZoomManual(Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Number((zoom + delta).toFixed(2)))));
+  }, [zoom]);
+
+  /** Volta ao zoom de ajuste e à posição original. */
+  const reenquadrar = useCallback(() => {
+    setZoomManual(null);
+    setEnquadramento((n) => n + 1);
   }, []);
 
-  /** Escala que faz o diagrama caber na largura visível. */
-  const calcularEscalaDeAjuste = useCallback(() => {
-    const area = areaRef.current;
-    if (!area) return 1;
-    return escalaDeAjuste(area.clientWidth - 32, tamanhoNatural.largura);
-  }, [tamanhoNatural]);
-
-  /** Restaura o zoom de ajuste e a rolagem original — usado pelo botão de reset. */
-  const ajustarEReenquadrar = useCallback(() => {
-    setZoom(calcularEscalaDeAjuste());
-    areaRef.current?.scrollTo({ left: 0, top: 0 });
-  }, [calcularEscalaDeAjuste]);
+  /** Entra/sai da tela cheia já reenquadrado na nova área. */
+  const alternarTelaCheia = useCallback((valor: boolean) => {
+    setTelaCheia(valor);
+    reenquadrar();
+  }, [reenquadrar]);
 
   useEffect(() => {
     let ativo = true;
@@ -102,13 +152,11 @@ export default function ErDiagram({
         const { svg: renderizado } = await mermaid.render(`er-${idBase}`, codigo);
         if (!ativo) return;
         // O tamanho natural sai do próprio `viewBox`, antes de inserir o SVG:
-        // assim o enquadramento já entra no primeiro render, sem repintura. O
-        // zoom inicial é calculado direto da medida (não do estado, que ainda
-        // não foi atualizado nesta mesma volta do event loop).
-        const medida = medirViewBox(renderizado);
-        setTamanhoNatural(medida);
+        // assim o enquadramento já entra no primeiro render, sem repintura.
+        setTamanhoNatural(medirViewBox(renderizado));
         setSvg(renderizado);
-        setZoom(escalaDeAjuste((areaRef.current?.clientWidth ?? 0) - 32, medida.largura));
+        setZoomManual(null);
+        setEnquadramento((n) => n + 1);
         setErro(null);
       } catch {
         if (!ativo) return;
@@ -123,44 +171,74 @@ export default function ErDiagram({
     };
   }, [codigo, theme.palette.mode, idBase]);
 
-  // Destaque e foco da entidade selecionada: aplicados sobre o SVG já
-  // renderizado, porque o Mermaid não expõe estilo ou navegação por entidade
-  // no `erDiagram`. Além do contorno, centraliza a área visível sobre o nó
-  // encontrado, para que "focar" realmente traga a entidade para a tela.
-  useEffect(() => {
-    if (!svg || !containerRef.current) return;
-    const alvos = destaquesSerializados ? destaquesSerializados.split(',') : [];
-    if (alvos.length === 0) return;
-
-    // O Mermaid identifica cada entidade como `<id>-entity-<NOME>-<indice>` e
-    // desenha a caixa com <path> dentro de `g.outer-path`.
-    const nos = containerRef.current.querySelectorAll<SVGGElement>('g[id*="-entity-"]');
-    let noFocado: SVGGElement | null = null;
-    nos.forEach((no) => {
+  /** Nó `<g>` de cada entidade destacada, na ordem em que aparecem no SVG. */
+  const nosDestacados = useCallback((): SVGGElement[] => {
+    if (!containerRef.current || !destaquesSerializados) return [];
+    const alvos = destaquesSerializados.split(',');
+    // O Mermaid identifica cada entidade como `<id>-entity-<NOME>-<indice>`.
+    return Array.from(containerRef.current.querySelectorAll<SVGGElement>('g[id*="-entity-"]')).filter((no) => {
       const nome = /-entity-(.+)-\d+$/.exec(no.id)?.[1]?.toUpperCase();
-      if (!nome || !alvos.includes(nome)) return;
-      noFocado = no;
-      no.querySelectorAll('.outer-path path').forEach((contorno) => {
+      return !!nome && alvos.includes(nome);
+    });
+  }, [destaquesSerializados]);
+
+  // Destaque da entidade selecionada: aplicado sobre o SVG já renderizado,
+  // porque o Mermaid não expõe estilo por entidade no `erDiagram`. Como o
+  // React não reinsere o SVG quando só a seleção muda, o contorno anterior é
+  // restaurado antes de destacar a nova entidade. Ao trocar de área (tela
+  // cheia), o SVG é reinserido limpo e o destaque é reaplicado.
+  useLayoutEffect(() => {
+    const container = containerRef.current;
+    if (!svg || !container) return;
+    container.querySelectorAll<SVGPathElement>('.outer-path path[data-destaque]').forEach((contorno) => {
+      const [stroke, largura] = JSON.parse(contorno.dataset.destaque ?? '[null,null]') as [string | null, string | null];
+      if (stroke === null) contorno.removeAttribute('stroke');
+      else contorno.setAttribute('stroke', stroke);
+      if (largura === null) contorno.removeAttribute('stroke-width');
+      else contorno.setAttribute('stroke-width', largura);
+      delete contorno.dataset.destaque;
+    });
+    nosDestacados().forEach((no) => {
+      no.querySelectorAll<SVGPathElement>('.outer-path path').forEach((contorno) => {
+        contorno.dataset.destaque = JSON.stringify([contorno.getAttribute('stroke'), contorno.getAttribute('stroke-width')]);
         contorno.setAttribute('stroke', theme.palette.primary.main);
         contorno.setAttribute('stroke-width', '2.5');
       });
     });
+  }, [svg, areaMontada, nosDestacados, theme.palette.primary.main]);
 
+  // Enquadramento: leva a área visível até a entidade destacada ou, sem
+  // seleção, de volta ao início. Roda depois do layout com o zoom novo, então
+  // `getBoundingClientRect` (que já reflete o `transform`) mede a posição final.
+  // Mudança de seleção rola suavemente; reenquadramento (e ajuste automático
+  // a uma nova largura, como ao abrir a tela cheia) posiciona direto.
+  const ultimo = useRef({ enquadramento, zoom, destaquesSerializados });
+  useLayoutEffect(() => {
     const area = areaRef.current;
-    if (noFocado && area) {
-      // `getBoundingClientRect` já reflete o zoom aplicado via `transform`,
-      // então a matemática de centralização funciona em qualquer nível de zoom.
-      const retanguloArea = area.getBoundingClientRect();
-      const retanguloNo = (noFocado as SVGGElement).getBoundingClientRect();
-      const alvoEsquerda = area.scrollLeft + (retanguloNo.left - retanguloArea.left) + retanguloNo.width / 2 - area.clientWidth / 2;
-      const alvoTopo = area.scrollTop + (retanguloNo.top - retanguloArea.top) + retanguloNo.height / 2 - area.clientHeight / 2;
-      area.scrollTo({
-        left: Math.max(0, alvoEsquerda),
-        top: Math.max(0, alvoTopo),
-        behavior: 'smooth',
-      });
+    if (!svg || !area) return;
+    const anterior = ultimo.current;
+    ultimo.current = { enquadramento, zoom, destaquesSerializados };
+    const mudouSelecao = anterior.destaquesSerializados !== destaquesSerializados;
+    const reenquadrou = anterior.enquadramento !== enquadramento
+      || (zoomManual === null && anterior.zoom !== zoom);
+    if (!mudouSelecao && !reenquadrou) return;
+
+    const nos = nosDestacados();
+    if (nos.length === 0) {
+      if (reenquadrou) area.scrollTo({ left: 0, top: 0 });
+      return;
     }
-  }, [svg, destaquesSerializados, theme.palette.primary.main]);
+    const caixas = nos.map((no) => no.getBoundingClientRect());
+    const esquerda = Math.min(...caixas.map((c) => c.left));
+    const topo = Math.min(...caixas.map((c) => c.top));
+    const uniao = new DOMRect(
+      esquerda,
+      topo,
+      Math.max(...caixas.map((c) => c.right)) - esquerda,
+      Math.max(...caixas.map((c) => c.bottom)) - topo,
+    );
+    area.scrollTo({ ...rolagemParaFocar(area, uniao), behavior: reenquadrou ? 'auto' : 'smooth' });
+  }, [svg, areaMontada, enquadramento, zoom, zoomManual, destaquesSerializados, nosDestacados]);
 
   if (erro) {
     return (
@@ -206,25 +284,29 @@ export default function ErDiagram({
         >
           <Tooltip title="Aproximar" placement="left">
             <span>
-              <IconButton size="small" onClick={() => ajustarZoom(ZOOM_PASSO)} disabled={zoom >= ZOOM_MAX}>
+              <IconButton size="small" aria-label="Aproximar" onClick={() => ajustarZoom(ZOOM_PASSO)} disabled={zoom >= ZOOM_MAX}>
                 <AddIcon sx={{ fontSize: 16 }} />
               </IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Afastar" placement="left">
             <span>
-              <IconButton size="small" onClick={() => ajustarZoom(-ZOOM_PASSO)} disabled={zoom <= ZOOM_MIN}>
+              <IconButton size="small" aria-label="Afastar" onClick={() => ajustarZoom(-ZOOM_PASSO)} disabled={zoom <= ZOOM_MIN}>
                 <RemoveIcon sx={{ fontSize: 16 }} />
               </IconButton>
             </span>
           </Tooltip>
           <Tooltip title="Ajustar à área visível" placement="left">
-            <IconButton size="small" onClick={ajustarEReenquadrar}>
+            <IconButton size="small" aria-label="Ajustar à área visível" onClick={reenquadrar}>
               <CenterFocusStrongIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
           <Tooltip title={telaCheia ? 'Sair da tela cheia' : 'Expandir diagrama'} placement="left">
-            <IconButton size="small" onClick={() => setTelaCheia((v) => !v)}>
+            <IconButton
+              size="small"
+              aria-label={telaCheia ? 'Sair da tela cheia' : 'Expandir diagrama'}
+              onClick={() => alternarTelaCheia(!telaCheia)}
+            >
               {telaCheia ? <CloseIcon sx={{ fontSize: 16 }} /> : <FullscreenIcon sx={{ fontSize: 16 }} />}
             </IconButton>
           </Tooltip>
@@ -232,7 +314,7 @@ export default function ErDiagram({
       )}
 
       <Box
-        ref={areaRef}
+        ref={refArea}
         sx={{
           height: alturaEfetiva,
           overflow: 'auto',
@@ -243,7 +325,11 @@ export default function ErDiagram({
           p: 2,
           display: 'flex',
           alignItems: svg ? 'flex-start' : 'center',
-          justifyContent: 'center',
+          // Sem `justifyContent: center` com o diagrama presente: num contêiner
+          // rolável, o excedente de um item centralizado vaza para a esquerda,
+          // fora do alcance da barra de rolagem. A margem automática do
+          // envelope centraliza quando cabe e encosta à esquerda quando não.
+          justifyContent: svg ? 'flex-start' : 'center',
         }}
       >
         {svg ? (
@@ -256,6 +342,7 @@ export default function ErDiagram({
               width: temTamanhoNatural ? naturalW * zoom : undefined,
               height: temTamanhoNatural ? naturalH * zoom : undefined,
               flexShrink: 0,
+              mx: 'auto',
             }}
           >
             <Box
@@ -292,7 +379,7 @@ export default function ErDiagram({
 
   if (telaCheia) {
     return (
-      <Dialog fullScreen open onClose={() => setTelaCheia(false)}>
+      <Dialog fullScreen open onClose={() => alternarTelaCheia(false)}>
         <Box
           sx={{
             display: 'flex',
@@ -307,7 +394,7 @@ export default function ErDiagram({
           <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
             Diagrama entidade-relacionamento
           </Typography>
-          <IconButton onClick={() => setTelaCheia(false)} aria-label="Sair da tela cheia">
+          <IconButton onClick={() => alternarTelaCheia(false)} aria-label="Sair da tela cheia">
             <CloseIcon />
           </IconButton>
         </Box>

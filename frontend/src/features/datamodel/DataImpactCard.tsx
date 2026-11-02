@@ -36,7 +36,6 @@ import {
   deletarImpacto,
   obterModelo,
 } from '../../services/dataModelService';
-import { listarRequisitosPorProjeto } from '../../services/requirementService';
 import {
   assinaturaAtributo,
   construirDiff,
@@ -156,7 +155,8 @@ function formInicial(): typeof FORM_VAZIO {
  */
 export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: DataImpactCardProps) {
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('MER_EDIT');
 
   const [modelo, setModelo] = useState<ModeloDadosProjeto>(MODELO_VAZIO);
   const [carregando, setCarregando] = useState(true);
@@ -167,16 +167,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      let requisitoIds: string[] = [];
-      try {
-        const requisitos = await listarRequisitosPorProjeto(projetoId);
-        requisitoIds = [...requisitos]
-          .sort((a, b) => (a.codigo ?? '').localeCompare(b.codigo ?? ''))
-          .map((r) => r.id);
-      } catch {
-        // Sem a listagem do projeto o modelo simplesmente não é semeado.
-      }
-      setModelo(await obterModelo(projetoId, requisitoIds));
+      setModelo(await obterModelo(projetoId));
     } catch (err) {
       notify(extractApiErrorMessage(err, 'Não foi possível carregar o modelo de dados.'), 'error');
     } finally {
@@ -466,7 +457,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
               <Chip label={impactosDoRequisito.length} size="small" sx={{ height: 20, fontSize: 11, fontWeight: 700 }} />
             )}
           </Box>
-          {!isStakeholder && (
+          {podeEditar && (
             <Tooltip title="Registrar impacto no modelo de dados">
               <IconButton size="small" onClick={() => setDialogAberto(true)}>
                 <AddIcon fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -485,7 +476,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
               Este requisito ainda não declara impacto sobre nenhuma entidade de dados.
             </Typography>
-            {!isStakeholder && (
+            {podeEditar && (
               <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setDialogAberto(true)}>
                 Registrar impacto
               </Button>
@@ -594,7 +585,7 @@ export default function DataImpactCard({ projetoId, requisitoId, aoAlterar }: Da
                     <Typography variant="caption" sx={{ color: 'text.disabled', fontFamily: FONTE_DADOS, fontSize: 10.5 }}>
                       {impacto.valorAnterior ?? '—'} → {impacto.valorNovo ?? '—'}
                     </Typography>
-                    {!isStakeholder && (
+                    {podeEditar && (
                       <Tooltip title="Remover impacto">
                         <IconButton size="small" color="error" sx={{ ml: 'auto' }} onClick={() => removerImpacto(impacto.id)}>
                           <DeleteIcon sx={{ fontSize: 14 }} />

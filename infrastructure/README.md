@@ -28,9 +28,13 @@ docker/
  ├── postgres          # init.sql (cria o banco do Keycloak)
  └── nginx             # nginx.conf
 
+deploy/                # ambiente hospedado (compose de produção, HTTPS, scripts de publicação)
+
 docker-compose.yml
-.env
+.env.example           # modelo do .env local (o .env não é versionado)
 ```
+
+> O `docker-compose.yml` e o `.env` desta pasta são do **ambiente local de desenvolvimento**. Antes da primeira subida: `cp .env.example .env`. A publicação na nuvem usa `deploy/`, com senhas geradas na VM: veja [`deploy/README.md`](deploy/README.md).
 
 Descrição:
 
@@ -39,9 +43,9 @@ Descrição:
 | docker/keycloak      | Definição do realm `plataforma_discovery` (roles, clients, mapper, grupo `/_admin`) |
 | docker/keycloak-init | Aplica o `realm-export.json` no realm existente a cada subida  |
 | docker/postgres      | Script de inicialização do PostgreSQL                         |
-| docker/nginx         | Proxy reverso (`/` → frontend, `/api` e `/swagger-ui` → backend; requisições de até 25 MB para os uploads) |
+| docker/nginx         | Proxy reverso (`/` → frontend, `/api` e `/swagger-ui` → backend; requisições de até 25 MB para os uploads). Tem os mesmos cabeçalhos de segurança (CSP etc.) e zonas de limite de requisições da produção, com taxas folgadas para os e2e |
 | docker-compose.yml   | Orquestração dos containers                                   |
-| .env                 | Variáveis do ambiente de desenvolvimento                      |
+| .env.example         | Modelo das variáveis do ambiente de desenvolvimento (copiar para `.env`) |
 
 ---
 
@@ -103,7 +107,7 @@ Para apagar os dados da aplicação e carregar o projeto de demonstração (banc
 py scripts/recriar_ambiente_dev.py --confirmar
 ```
 
-Ele preserva o realm (roles, clients, mapper, `/_admin`) e apaga apenas usuários e grupos de organização. Detalhes e contas criadas no README principal.
+Ele preserva o realm (roles, clients, mapper, `/_admin`) e apaga apenas usuários e grupos de organização. A senha das contas da demo é pedida no terminal (ou lida de `DEV_SENHA_DEMO`). Para carregar ou remover só a demo, sem apagar o resto, e para criar a conta de Admin da Plataforma, veja a seção "Dados iniciais e demonstração" do README principal.
 
 ---
 
@@ -121,13 +125,15 @@ O modelo completo (papéis, matriz de permissões, decisões) está no documento
 O Keycloak só importa o `realm-export.json` quando o realm ainda não existe (`--import-realm` ignora realm já criado). Por isso o container `keycloak-init`, a cada subida:
 
 1. dá à service account do `plataforma-admin-client` as roles `manage-users`, `view-users`, `query-users`, `query-groups` e `view-realm`;
-2. executa `sync_realm.py`, que aplica o `realm-export.json` no realm existente de forma idempotente: cria roles ausentes, remove roles obsoletas (ex.: `ORG_ADMIN`), deixa as composites exatamente como no arquivo, cria/atualiza o mapper `groups` e cria o grupo `/_admin`.
+2. executa `sync_realm.py`, que aplica o `realm-export.json` no realm existente de forma idempotente: cria roles ausentes, remove roles obsoletas (ex.: `ORG_ADMIN`), deixa as composites exatamente como no arquivo, cria/atualiza o mapper `groups`, cria o grupo `/_admin` e aplica os atributos de segurança do realm.
+
+**Segurança do realm:** proteção contra força bruta (`bruteForceProtected`: 5 falhas seguidas bloqueiam a conta por 1 minuto, crescendo até 15 minutos, sem bloqueio permanente) e política de senha (`length(8) and notUsername and notEmail`). O Keycloak responde igual para senha errada, e-mail inexistente e conta bloqueada, então o login não revela se uma conta existe.
 
 Para mudar roles, composites, mappers ou grupos de topo: edite **apenas** o `realm-export.json` e suba o ambiente de novo (`docker compose up -d --build keycloak-init`). Usuários e grupos de organização/projeto nunca são alterados pelo script.
 
-## Incluir um usuário no `/_admin`
+## Conta de Admin da Plataforma (`/_admin`)
 
-Pelo console (`http://localhost:8080/admin` → realm `plataforma_discovery` → *Users* → usuário → *Groups* → *Join group* → `_admin`), ou pela Admin API. O usuário precisa fazer login de novo para o token trazer o grupo.
+Use `py scripts/criar_admin.py <email>` (na VM, `bash ~/plataforma/criar_admin.sh <email>`): cria a conta pelo cadastro da plataforma, com a senha digitada no terminal, e a põe no `/_admin`. Nenhuma tela da plataforma dá esse papel a alguém.
 
 ## Recriar o realm do zero
 
@@ -139,7 +145,7 @@ docker compose exec postgres psql -U <POSTGRES_USER> -d postgres -c "DROP DATABA
 docker compose up -d keycloak keycloak-init
 ```
 
-Atenção: isso apaga todos os usuários do Keycloak. Os registros da tabela `usuario` do backend ficam órfãos (o `external_identity_id` deixa de existir) — rode em seguida o `scripts/recriar_ambiente_dev.py` para deixar banco e Keycloak consistentes.
+Atenção: isso apaga todos os usuários do Keycloak. Os registros da tabela `usuario` do backend ficam órfãos (o `external_identity_id` deixa de existir) — rode em seguida o `scripts/recriar_ambiente_dev.py` (só local) para deixar banco e Keycloak consistentes.
 
 ---
 

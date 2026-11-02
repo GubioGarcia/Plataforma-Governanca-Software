@@ -1,5 +1,6 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.audit.repository;
 
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.domain.Auditoria;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -10,7 +11,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Repository
-public interface AuditoriaRepository extends JpaRepository<Auditoria, UUID> {
+public interface AuditoriaRepository extends JpaRepository<Auditoria, UUID>, JpaSpecificationExecutor<Auditoria> {
 
     /**
      * Lista todos os registros de auditoria de uma entidade específica,

@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Suspense, useState, type ReactNode } from 'react';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import CarregandoPagina from '../common/CarregandoPagina';
 import AppBar from '@mui/material/AppBar';
 import Badge from '@mui/material/Badge';
 import Avatar from '@mui/material/Avatar';
@@ -32,9 +33,21 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { usePendencias } from '../../hooks/usePendencias';
 import { TIPO_SOLICITACAO_LABEL } from '../../services/acessoService';
 import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../../types/acesso';
+import PesquisaProvider from '../../features/pesquisa/PesquisaContext';
+import BotaoPesquisa, { ItemMenuPesquisa } from '../../features/pesquisa/BotaoPesquisa';
 
+/** A pesquisa do TCC (modal, botão e perfil) vale para todas as telas do shell. */
 export default function AppShell() {
+  return (
+    <PesquisaProvider>
+      <Shell />
+    </PesquisaProvider>
+  );
+}
+
+function Shell() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user, logout } = useAuth();
   const { isGestor, projetoAtual, organizacaoAtual, adminPlataforma } = usePermissions();
 
@@ -56,6 +69,12 @@ export default function AppShell() {
     navigate(caminho);
   }
 
+  // A conta de admin é exclusiva da área administrativa: as telas comuns (organizações,
+  // projetos, perfil comum) levam para ela. A logo e o perfil também ficam dentro dela.
+  const inicio = adminPlataforma ? '/admin' : '/organizations';
+  // (/users é o endereço antigo de /admin/usuarios e já redireciona para lá)
+  if (adminPlataforma && !pathname.startsWith('/admin') && pathname !== '/users') return <Navigate to="/admin" replace />;
+
   const initials = user?.nome
     .split(' ')
     .slice(0, 2)
@@ -64,7 +83,17 @@ export default function AppShell() {
     .toUpperCase() ?? 'U';
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', overflow: 'hidden', bgcolor: 'background.default' }}>
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        // dvh: no celular a altura útil descontando a barra do navegador (100vh fica atrás dela)
+        height: '100vh',
+        '@supports (height: 100dvh)': { height: '100dvh' },
+        overflow: 'hidden',
+        bgcolor: 'background.default',
+      }}
+    >
       <AppBar
         position="sticky"
         elevation={0}
@@ -78,8 +107,8 @@ export default function AppShell() {
         <Toolbar sx={{ px: { xs: 2, sm: 3 }, minHeight: '56px !important' }}>
           {/* Logo */}
           <Box
-            sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', mr: 4 }}
-            onClick={() => navigate('/organizations')}
+            sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', mr: { xs: 1, sm: 4 } }}
+            onClick={() => navigate(inicio)}
           >
             <Box
               sx={{
@@ -110,6 +139,9 @@ export default function AppShell() {
 
           <Box sx={{ flexGrow: 1 }} />
 
+          {/* Pesquisa do TCC: segunda etapa (some fora dela) */}
+          <BotaoPesquisa />
+
           {/* Dark / Light toggle */}
           <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo escuro'}>
             <IconButton size="small" onClick={toggleMode} sx={{ mr: 0.5 }}>
@@ -119,14 +151,16 @@ export default function AppShell() {
             </IconButton>
           </Tooltip>
 
-          {/* Pendências */}
-          <Tooltip title="Pendências">
-            <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); pendencias.recarregar(); }} sx={{ mr: 1 }}>
-              <Badge badgeContent={pendencias.total} color="warning" max={99}>
-                <NotificationsIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          {/* Pendências (convites e solicitações): não existem para a conta de admin */}
+          {!adminPlataforma && (
+            <Tooltip title="Pendências">
+              <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); pendencias.recarregar(); }} sx={{ mr: 1 }}>
+                <Badge badgeContent={pendencias.total} color="warning" max={99}>
+                  <NotificationsIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* Papel real do usuário no contexto atual (projeto, senão organização) */}
           {papelLabel && (
@@ -135,7 +169,8 @@ export default function AppShell() {
                 label={papelLabel}
                 size="small"
                 sx={{
-                  mr: 1.5,
+                  mr: { xs: 1, sm: 1.5 },
+                  maxWidth: { xs: 132, sm: 260 },
                   bgcolor: isGestor ? '#EDE9FE' : '#EFF6FF',
                   color: isGestor ? '#7C3AED' : '#3B82F6',
                   fontWeight: 600,
@@ -179,12 +214,13 @@ export default function AppShell() {
             </Box>
             <Divider />
 
-            <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }} sx={{ fontSize: '13px', mt: 1 }}>
+            <MenuItem onClick={() => { setAnchorEl(null); navigate(adminPlataforma ? '/admin/perfil' : '/profile'); }} sx={{ fontSize: '13px', mt: 1 }}>
               <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
               Meu Perfil
             </MenuItem>
+            <ItemMenuPesquisa onFecharMenu={() => setAnchorEl(null)} />
             <MenuItem
-              onClick={() => { setAnchorEl(null); logout().finally(() => navigate('/login')); }}
+              onClick={() => { setAnchorEl(null); logout(); }}
               sx={{ fontSize: '13px', color: 'error.main' }}
             >
               <ListItemIcon><LogoutIcon fontSize="small" sx={{ color: 'error.main' }} /></ListItemIcon>
@@ -199,7 +235,7 @@ export default function AppShell() {
             onClose={() => setNotifAnchor(null)}
             transformOrigin={{ horizontal: 'right', vertical: 'top' }}
             anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
-            slotProps={{ paper: { elevation: 3, sx: { mt: 0.5, width: 360, borderRadius: 2 } } }}
+            slotProps={{ paper: { elevation: 3, sx: { mt: 0.5, width: 360, maxWidth: 'calc(100vw - 16px)', borderRadius: 2 } } }}
           >
             <Box sx={{ px: 2, py: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700 }}>Pendências</Typography>
@@ -259,8 +295,11 @@ export default function AppShell() {
       </AppBar>
 
       {/* Page content */}
-      <Box sx={{ flexGrow: 1, display: 'flex', overflow: 'hidden' }}>
-        <Outlet />
+      {/* min-width 0: a página (item flex) não cresce além da tela por causa de um filho largo */}
+      <Box sx={{ flexGrow: 1, minHeight: 0, display: 'flex', overflow: 'hidden', '& > *': { minWidth: 0 } }}>
+        <Suspense fallback={<CarregandoPagina />}>
+          <Outlet />
+        </Suspense>
       </Box>
     </Box>
   );

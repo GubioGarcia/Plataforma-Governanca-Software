@@ -9,6 +9,7 @@ import io.github.gubiogarcia.plataforma_governanca_software.modules.product.serv
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.EventoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.ProjetoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.project.service.StatusProjetoService;
+import io.github.gubiogarcia.plataforma_governanca_software.shared.DadoReferenciaSistemaException;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.PrioridadeService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.StatusRequisitoService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.service.RequisitoService;
@@ -24,6 +25,8 @@ import io.github.gubiogarcia.plataforma_governanca_software.security.authz.Acess
 import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.ConviteService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.MembrosService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.solicitation.service.SolicitacaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.service.AdminPesquisaService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.service.PesquisaService;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -33,6 +36,8 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -122,6 +127,15 @@ public class GlobalExceptionHandler {
     }
 
     // Sem este handler o fallback de Exception devolvia 500 para metodo HTTP inexistente
+    // Parametro de URL com tipo ou valor invalido (ex.: acao=XYZ, data mal formatada)
+    @ExceptionHandler({MethodArgumentTypeMismatchException.class, MissingServletRequestParameterException.class})
+    public ProblemDetail handleParametroInvalido(Exception ex) {
+        String nome = ex instanceof MethodArgumentTypeMismatchException m ? m.getName()
+                : ((MissingServletRequestParameterException) ex).getParameterName();
+        return problem(HttpStatus.BAD_REQUEST, "Parametro invalido",
+                "O parametro '" + nome + "' esta ausente ou tem um valor invalido.", "/errors/parametro-invalido");
+    }
+
     @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
     public ProblemDetail handleMetodoNaoSuportado(HttpRequestMethodNotSupportedException ex) {
         return problem(HttpStatus.METHOD_NOT_ALLOWED, "Metodo nao suportado",
@@ -162,6 +176,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AuthService.CredenciaisInvalidasException.class)
     public ProblemDetail handleCredenciaisInvalidas(AuthService.CredenciaisInvalidasException ex) {
         return problem(HttpStatus.UNAUTHORIZED, "Credenciais invalidas", ex.getMessage(), "/errors/credenciais-invalidas");
+    }
+
+    @ExceptionHandler(UsuarioService.AdminNaoPodeSeInativarException.class)
+    public ProblemDetail handleAdminNaoPodeSeInativar(UsuarioService.AdminNaoPodeSeInativarException ex) {
+        return problem(HttpStatus.CONFLICT, "Operacao nao permitida", ex.getMessage(), "/errors/admin-nao-pode-se-inativar");
+    }
+
+    @ExceptionHandler(UsuarioService.SenhaForaDaPoliticaException.class)
+    public ProblemDetail handleSenhaForaDaPolitica(UsuarioService.SenhaForaDaPoliticaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Senha invalida", ex.getMessage(), "/errors/senha-fora-da-politica");
     }
 
     @ExceptionHandler(UsuarioService.SenhasNaoConferemException.class)
@@ -252,6 +276,12 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ProjetoService.UsuarioNaoAutorizadoException.class)
     public ProblemDetail handleUsuarioNaoAutorizadoProjeto(ProjetoService.UsuarioNaoAutorizadoException ex) {
         return problem(HttpStatus.UNAUTHORIZED, "Usuario nao autorizado", ex.getMessage(), "/errors/usuario-nao-autorizado");
+    }
+
+    // Dados de referencia de sistema (status usados pelas regras)
+    @ExceptionHandler(DadoReferenciaSistemaException.class)
+    public ProblemDetail handleDadoReferenciaSistema(DadoReferenciaSistemaException ex) {
+        return problem(HttpStatus.CONFLICT, "Dado de referencia de sistema", ex.getMessage(), "/errors/dado-referencia-sistema");
     }
 
     // StatusProjeto
@@ -560,6 +590,22 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(VinculoRequisitoService.RequisitosDeProjetosDiferentesException.class)
     public ProblemDetail handleRequisitosDeProjetosDiferentes(VinculoRequisitoService.RequisitosDeProjetosDiferentesException ex) {
         return problem(HttpStatus.UNPROCESSABLE_ENTITY, "Requisitos de projetos diferentes", ex.getMessage(), "/errors/requisitos-projetos-diferentes");
+    }
+
+    // Pesquisa do TCC
+    @ExceptionHandler(PesquisaService.PesquisaConflitoException.class)
+    public ProblemDetail handlePesquisaConflito(PesquisaService.PesquisaConflitoException ex) {
+        return problem(HttpStatus.CONFLICT, "Pesquisa", ex.getMessage(), "/errors/pesquisa-conflito");
+    }
+
+    @ExceptionHandler(PesquisaService.RespostaPesquisaInvalidaException.class)
+    public ProblemDetail handleRespostaPesquisaInvalida(PesquisaService.RespostaPesquisaInvalidaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Resposta invalida", ex.getMessage(), "/errors/resposta-pesquisa-invalida");
+    }
+
+    @ExceptionHandler(AdminPesquisaService.ConfiguracaoPesquisaInvalidaException.class)
+    public ProblemDetail handleConfiguracaoPesquisaInvalida(AdminPesquisaService.ConfiguracaoPesquisaInvalidaException ex) {
+        return problem(HttpStatus.BAD_REQUEST, "Configuracao invalida", ex.getMessage(), "/errors/configuracao-pesquisa-invalida");
     }
 
     // Violacao de integridade de dados (ex: string excede o tamanho da coluna no banco)

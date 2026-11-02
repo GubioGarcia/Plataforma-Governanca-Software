@@ -20,7 +20,7 @@ public class Projeto {
     @GeneratedValue
     private UUID id;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "organizacao_id")
     private Organizacao organizacao;
 
@@ -29,13 +29,13 @@ public class Projeto {
     @Column(length = 1000)
     private String descricao;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "status_id")
     private StatusProjeto status;
 
     private Boolean ativo;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "criado_por")
     private Usuario criadoPor;
 

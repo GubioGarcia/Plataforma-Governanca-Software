@@ -1,9 +1,11 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.controller;
 
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AcessosUsuarioDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AlterarSenhaRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.AtualizarPerfilRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.CadastroUsuarioRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.dto.UsuarioResponseDTO;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.AcessosUsuarioService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +23,7 @@ import java.util.UUID;
 public class UsuarioController {
 
     private final UsuarioService usuarioService;
+    private final AcessosUsuarioService acessosUsuarioService;
 
     @GetMapping
     public ResponseEntity<List<UsuarioResponseDTO>> listarTodos(
@@ -31,6 +34,12 @@ public class UsuarioController {
     @GetMapping("/{id}")
     public ResponseEntity<UsuarioResponseDTO> buscarPorId(@PathVariable UUID id) {
         return ResponseEntity.ok(usuarioService.buscarPorId(id));
+    }
+
+    /** Onde a pessoa atua: papéis reais em cada organização e projeto (Admin da Plataforma). */
+    @GetMapping("/{id}/acessos")
+    public ResponseEntity<AcessosUsuarioDTO> acessos(@PathVariable UUID id) {
+        return ResponseEntity.ok(acessosUsuarioService.acessosDe(id));
     }
 
     @GetMapping("/email")

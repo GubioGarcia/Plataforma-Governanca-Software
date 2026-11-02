@@ -38,7 +38,7 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
         overflow: 'hidden',
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: 3, pt: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', px: { xs: 2, sm: 3 }, pt: 2 }}>
         <Box
           sx={{
             border: '1px solid #3F51B5',
@@ -57,10 +57,10 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
         </Tooltip>
       </Box>
 
-      <Box sx={{ px: 3, pt: 1.5, pb: 1, display: 'flex', alignItems: 'flex-start', gap: 2 }}>
+      <Box sx={{ px: { xs: 2, sm: 3 }, pt: 1.5, pb: 1, display: 'flex', alignItems: 'flex-start', gap: { xs: 1.5, sm: 2 } }}>
         <Box sx={{ color: '#3F51B5', mt: 0.25, flexShrink: 0 }}>{icon}</Box>
-        <Box>
-          <Typography variant="h3" sx={{ fontWeight: 700, fontSize: '22px', color: '#111827' }}>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h3" sx={{ fontWeight: 700, fontSize: { xs: '19px', sm: '22px' }, color: '#111827', overflowWrap: 'anywhere' }}>
             {title}
           </Typography>
           <Typography variant="body2" sx={{ color: '#9CA3AF', mt: 0.25 }}>
@@ -69,8 +69,8 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
         </Box>
       </Box>
 
-      <Divider sx={{ mx: 3 }} />
-      <Box sx={{ px: 3, py: 2.5 }}>{children}</Box>
+      <Divider sx={{ mx: { xs: 2, sm: 3 } }} />
+      <Box sx={{ px: { xs: 2, sm: 3 }, py: 2.5 }}>{children}</Box>
     </Box>
   );
 }
@@ -78,8 +78,9 @@ function WikiCard({ label, icon, title, subtitle, children, onEdit }: WikiCardPr
 function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
   if (!value) return null;
   return (
-    <Box sx={{ display: 'flex', gap: 2, py: 1.25, borderBottom: '1px solid #F3F4F6', '&:last-child': { borderBottom: 'none' } }}>
-      <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827', minWidth: 200, flexShrink: 0 }}>
+    // Celular: rótulo em cima do valor (a coluna de 200px do rótulo espremia o texto)
+    <Box sx={{ display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 0.5, sm: 2 }, py: 1.25, borderBottom: '1px solid #F3F4F6', '&:last-child': { borderBottom: 'none' } }}>
+      <Typography sx={{ fontSize: '14px', fontWeight: 700, color: '#111827', minWidth: { sm: 160, md: 200 }, flexShrink: 0 }}>
         {label}
       </Typography>
       <Box sx={{ fontSize: '14px', color: '#374151', whiteSpace: 'pre-line', lineHeight: 1.7, display: 'flex', alignItems: 'center', overflowWrap: 'anywhere', wordBreak: 'break-word' }}>
@@ -110,13 +111,14 @@ export default function WikiPage() {
   const { notify } = useSnackbar();
   const [wiki, setWiki] = useState<WikiProjetoApi | null>(null);
   const [projeto, setProjeto] = useState<ProjetoAPI | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Carregando enquanto os dados não forem do projeto da URL (cobre a troca de projeto)
+  const [carregadoPara, setCarregadoPara] = useState<string | null>(null);
+  const loading = carregadoPara !== projectId;
 
   const base = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   useEffect(() => {
     if (!projectId) return;
-    setLoading(true);
     Promise.all([
       fetchProjectWiki(projectId),
       buscarProjetoPorId(projectId),
@@ -130,7 +132,7 @@ export default function WikiPage() {
           notify('Falha ao carregar a Wiki do projeto', 'error');
         }
       })
-      .finally(() => setLoading(false));
+      .finally(() => setCarregadoPara(projectId));
   }, [projectId, notify]);
 
   if (loading) {

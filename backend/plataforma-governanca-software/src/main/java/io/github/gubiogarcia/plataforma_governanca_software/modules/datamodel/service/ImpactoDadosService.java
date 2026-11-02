@@ -202,6 +202,8 @@ public class ImpactoDadosService {
         if (request.valorNovo() != null) impacto.setValorNovo(request.valorNovo());
 
         impacto = impactoDadosRepository.save(impacto);
+        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.MODELAGEM_DADOS,
+                TipoInteracao.EDICAO, id, "Impacto em dados alterado (" + requisito.getCodigo() + ")");
         log.info("ImpactoDados {} atualizado.", id);
         return mapToResponseDTO(impacto);
     }
@@ -225,6 +227,8 @@ public class ImpactoDadosService {
         );
 
         impactoDadosRepository.deleteById(id);
+        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.MODELAGEM_DADOS,
+                TipoInteracao.EXCLUSAO, id, "Impacto em dados removido (" + requisito.getCodigo() + "): " + alvo);
         log.info("ImpactoDados {} removido.", id);
     }
 

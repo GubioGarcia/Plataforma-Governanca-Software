@@ -72,7 +72,8 @@ export default function TraceabilityCard({
   const navigate = useNavigate();
   const theme = useTheme();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('RASTREABILIDADE_EDIT');
 
   const [requisitos, setRequisitos] = useState<RequisitoAPI[]>([]);
   const [vinculos, setVinculos] = useState<VinculoRequisitoAPI[]>([]);
@@ -94,12 +95,11 @@ export default function TraceabilityCard({
         // Sem a listagem não há como montar as relações; o card mostra vazio.
       }
       const ordenados = [...lista].sort((a, b) => (a.codigo ?? '').localeCompare(b.codigo ?? ''));
-      const ids = ordenados.map((r) => r.id);
       setRequisitos(ordenados);
 
       const [vinculosCarregados, modeloCarregado] = await Promise.all([
-        listarVinculos(projetoId, ids),
-        obterModelo(projetoId, ids),
+        listarVinculos(projetoId),
+        obterModelo(projetoId),
       ]);
       setVinculos(vinculosCarregados);
       setModelo(modeloCarregado);
@@ -193,7 +193,7 @@ export default function TraceabilityCard({
                 <HubIcon fontSize="small" sx={{ color: 'text.secondary' }} />
               </IconButton>
             </Tooltip>
-            {!isStakeholder && (
+            {podeEditar && (
               <Tooltip title="Vincular a outro requisito">
                 <IconButton size="small" onClick={() => setDialogAberto(true)}>
                   <AddIcon fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -219,7 +219,7 @@ export default function TraceabilityCard({
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
                   Nenhum vínculo cadastrado com outro requisito.
                 </Typography>
-                {!isStakeholder && (
+                {podeEditar && (
                   <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={() => setDialogAberto(true)}>
                     Criar vínculo
                   </Button>
@@ -268,7 +268,7 @@ export default function TraceabilityCard({
                           {outro?.titulo ?? 'Requisito não encontrado'}
                         </Typography>
                       </Box>
-                      {!isStakeholder && (
+                      {podeEditar && (
                         <Tooltip title="Remover vínculo">
                           <IconButton size="small" color="error" onClick={() => removerVinculo(vinculo.id)}>
                             <DeleteIcon sx={{ fontSize: 14 }} />

@@ -1,19 +1,12 @@
 # Plataforma de Governança de Projetos de Software
 
-## ⚠️ Versão MVP
-
-> **Esta é a versão MVP (Minimum Viable Product) da plataforma.**
-> O projeto está em desenvolvimento ativo e novas funcionalidades estão sendo implementadas continuamente. Alterações, melhorias e expansão de recursos ainda estão em andamento.
-
----
-
 ## Demonstração
 
-Para uma visão geral do uso básico da plataforma, assista ao vídeo de demonstração disponível no repositório:
+Para uma visão geral do uso da plataforma, assista ao vídeo de demonstração:
 
-📽️ **[`Demonstracao_MVP.mp4`](https://drive.google.com/file/d/1BQ_yIf2ELcNVmNYs-FyHYtrlvP3erlQy/view?usp=drive_link)**
+📽️ **[Vídeo de demonstração](https://drive.google.com/file/d/1BQ_yIf2ELcNVmNYs-FyHYtrlvP3erlQy/view?usp=drive_link)**
 
-O vídeo apresenta um uso básico das principais funcionalidades disponíveis nesta versão MVP.
+O vídeo apresenta as principais funcionalidades da plataforma.
 
 ---
 
@@ -35,6 +28,7 @@ Principais funcionalidades:
 - **Modelagem de dados** do projeto (entidades, atributos, PK/FK e diagrama ER) ligada aos requisitos
 - **Eventos**, **arquivos**, **auditoria** de alterações e **analytics** de engajamento
 - **Exportação em CSV** da modelagem de dados e da matriz de rastreabilidade
+- **Pesquisa de avaliação**: questionário antes e depois do uso, respondido por Donos e Gestores, com painel e CSV anonimizado na área administrativa. Ao gravar o "antes", o servidor marca se o participante já tinha interações na plataforma (coluna `usou_plataforma_antes` do CSV: `sim`, `nao` ou vazio); o painel mostra quantos responderam o "antes" após uso e pode desconsiderá-los nas estatísticas (o CSV traz sempre todos)
 
 ---
 
@@ -47,7 +41,8 @@ Principais funcionalidades:
 | Java | 21 | Linguagem principal |
 | Spring Boot | 4.0.3 | Framework de aplicação |
 | Spring Security + OAuth2 Resource Server | — | Validação do JWT e autorização por grupos |
-| Spring Data JPA / Hibernate | — | Persistência (schema gerado pelas entidades) |
+| Spring Data JPA / Hibernate | — | Persistência (o Hibernate valida o schema contra as entidades) |
+| Flyway | — | Migrations do schema e dos dados de referência |
 | Keycloak | 24.0.2 | Identidade, sessão e grupos de acesso |
 | SpringDoc OpenAPI (Swagger) | 2.5.0 | Documentação da API REST |
 | Lombok | — | Redução de boilerplate |
@@ -118,7 +113,7 @@ A autorização é por **organização e projeto**, com os papéis mantidos em *
 | Projeto | **Dono / Gestor** | Edita o conteúdo do projeto, aprova requisitos, responde solicitações, exporta |
 | Projeto | **Stakeholder Técnico** | Consulta, comenta e faz solicitações (alteração, reprovação, evento, exportação) |
 | Projeto | **Stakeholder Cliente** | Como o Técnico, e também solicita a aprovação de requisitos |
-| Plataforma | **Admin da Plataforma** | Mantém status e prioridades e as contas; não tem acesso automático aos projetos |
+| Plataforma | **Admin da Plataforma** | Área administrativa (`/admin`): visão geral só com contagens, contas (ver acessos, inativar), dados de referência e auditoria administrativa. Não tem acesso ao conteúdo dos projetos e é criado só pelo `criar_admin` |
 
 - O login é feito pela API; o token de acesso fica em memória e a sessão é renovada por um **refresh token em cookie HttpOnly** (`/api/auth/refresh`).
 - Quando os papéis de alguém mudam (entrou, foi promovido ou removido), os tokens dessa pessoa são **revogados** na hora e a sessão é renovada com os papéis novos.
@@ -137,10 +132,11 @@ O modelo completo (decisões, matriz de permissões, sessão) está no documento
 
 **Passo a passo:**
 
-1. Clone o repositório e acesse a pasta de infraestrutura:
+1. Clone o repositório, acesse a pasta de infraestrutura e crie o `.env` a partir do modelo:
 
 ```bash
 cd infrastructure
+cp .env.example .env
 ```
 
 2. Suba todos os serviços com build das imagens:
@@ -174,24 +170,37 @@ http://localhost
 
 ---
 
-## Dados de demonstração
+## Dados iniciais e demonstração
 
-O script `scripts/recriar_ambiente_dev.py` recria o ambiente de desenvolvimento do zero e carrega o projeto do próprio TCC (`scripts/seed_tcc_projeto_demo.sql`): organização Fatesg, o projeto com 27 requisitos, rastreabilidade, modelagem de dados, eventos e solicitações.
+Ao subir, a plataforma tem **só os dados necessários para funcionar**: o Flyway (`backend/.../db/migration`) cria o schema e os dados de referência (status de projeto, status de requisito e prioridades). Não há usuários, organizações nem projetos.
 
-```bash
-py scripts/recriar_ambiente_dev.py --confirmar
-```
+O projeto de demonstração (uma organização de exemplo com um projeto de 27 requisitos, rastreabilidade, modelagem de dados, eventos e solicitações — `scripts/seed_tcc_projeto_demo.sql`) é carregado à parte, quando se quer:
 
-> ⚠️ **Destrutivo:** apaga o banco da aplicação, todos os usuários do realm e os grupos de organização no Keycloak. Use apenas no ambiente local.
+| Script | O que faz |
+|---|---|
+| `py scripts/carregar_demo.py` | Carga **aditiva** e idempotente: contas da demo, seed e papéis. Não apaga nada. |
+| `py scripts/remover_demo.py --confirmar` | Remove só a organização, os projetos, as contas e os arquivos da demo. |
+| `py scripts/criar_admin.py <email>` | Cria a conta de Admin da Plataforma (único caminho para esse papel). |
+| `py scripts/recriar_ambiente_dev.py --confirmar` | **Só local e destrutivo:** apaga banco e usuários do Keycloak e carrega a demo. |
 
-Contas criadas (senha padrão `Demo@2026`, configurável por `DEV_SENHA_DEMO`):
+Contas da demo (e-mails fictícios, os mesmos do ambiente hospedado):
 
 | Conta | Papel |
 |---|---|
-| gubiogarcia@gmail.com | Dono da organização e do projeto + Admin da Plataforma |
-| luizfernandopadua@gmail.com | Gestor da organização |
-| thiagomatheus@gmail.com | Gestor da organização |
-| plinio.carneiro@fatesg.senai.br | Stakeholder Técnico + Cliente do projeto |
+| gubio@email.com | Dono da organização e do projeto |
+| luizfernando@email.com | Gestor da organização |
+| thiago@email.com | Gestor da organização |
+| plinio@email.com | Stakeholder Técnico + Cliente do projeto |
+
+**Senhas não ficam no repositório.** A das contas da demo é definida na carga (variável `DEV_SENHA_DEMO` ou digitada no terminal; `{nome}` vira o primeiro nome da pessoa, sem acento) e a do Admin da Plataforma é digitada no terminal pelo `criar_admin.py`. As do ambiente hospedado são repassadas fora do repositório. Nenhuma conta da demo é Admin da Plataforma.
+
+---
+
+## Hospedagem
+
+A plataforma está publicada em **https://129-148-55-171.sslip.io**, numa VM Oracle Cloud Always Free, com HTTPS do Let's Encrypt. As contas da demonstração usam **e-mails fictícios**. As senhas do banco, do Keycloak, das contas da demo e do Admin da Plataforma são definidas na própria VM e não ficam no repositório.
+
+Como publicar, a configuração de produção e a operação estão em [`infrastructure/deploy/README.md`](infrastructure/deploy/README.md).
 
 ---
 
@@ -199,9 +208,9 @@ Contas criadas (senha padrão `Demo@2026`, configurável por `DEV_SENHA_DEMO`):
 
 | O quê | Como executar | Cobertura |
 |---|---|---|
-| Backend (unitários e integração) | `./mvnw clean test` em `backend/plataforma-governanca-software` | Regras de negócio e de acesso (H2, Keycloak simulado) |
-| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 160 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação |
-| Interface ponta a ponta | `npm run test:e2e` em `frontend` | Navegador real (Playwright): o que cada papel vê e faz nas telas |
+| Backend (unitários e integração) | `./mvnw clean test` em `backend/plataforma-governanca-software` | 284 testes: regras de negócio e de acesso (H2, Keycloak simulado) |
+| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 232 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa, status de sistema e pesquisa de avaliação |
+| Interface ponta a ponta | `npm run test:e2e` em `frontend` | 70 testes em navegador real (Playwright): o que cada papel vê e faz nas telas, incluindo a pesquisa (roda depois dos demais, porque abre a coleta) |
 
 Os testes ponta a ponta criam usuários e organizações descartáveis e apagam tudo no fim — não interferem nos dados de demonstração.
 
@@ -209,11 +218,9 @@ Os testes ponta a ponta criam usuários e organizações descartáveis e apagam 
 
 ## Variáveis de Ambiente (.env)
 
-> ⚠️ **Atenção:** O arquivo `.env` disponível neste repositório contém **dados de ambiente de desenvolvimento** (senhas e credenciais genéricas para execução local). Esses valores **não devem ser replicados em ambientes de produção**.
->
-> O arquivo está disponibilizado no repositório **apenas para fins de demonstração de preenchimento**, facilitando a execução local do projeto sem configurações adicionais. Em ambientes de produção, todas as variáveis devem ser redefinidas com valores seguros e não devem ser versionadas.
->
-> Em produção, defina também `AUTH_COOKIE_SECURE=true` para o cookie de sessão só trafegar em HTTPS.
+O `infrastructure/.env` **não é versionado**. O repositório traz só o modelo `infrastructure/.env.example`, com valores para a máquina de desenvolvimento (copie com `cp .env.example .env`). Esses valores não servem para produção: no ambiente hospedado, o `deploy/subir.sh` gera um `.env` próprio com senhas aleatórias, que não saem da VM.
+
+Em produção, defina também `AUTH_COOKIE_SECURE=true` para o cookie de sessão só trafegar em HTTPS.
 
 ---
 
@@ -222,8 +229,8 @@ Os testes ponta a ponta criam usuários e organizações descartáveis e apagam 
 ```
 backend/          # API Spring Boot (Java 21 + Spring Boot 4)
 frontend/         # SPA React 19 + TypeScript + Vite (+ testes Playwright em e2e/)
-infrastructure/   # Docker Compose, Nginx, Keycloak e PostgreSQL
-scripts/          # Seed de demonstração, recriação do ambiente de dev e e2e da API
+infrastructure/   # Docker Compose, Nginx, Keycloak e PostgreSQL (+ deploy/: ambiente hospedado)
+scripts/          # Demo (carregar/remover), conta admin, recriação do ambiente de dev e e2e da API
 ```
 
 ---

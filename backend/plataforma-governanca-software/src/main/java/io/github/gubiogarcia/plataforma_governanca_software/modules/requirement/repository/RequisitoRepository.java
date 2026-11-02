@@ -1,6 +1,7 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.repository;
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.requirement.domain.Requisito;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,8 @@ import java.util.UUID;
 
 @Repository
 public interface RequisitoRepository extends JpaRepository<Requisito, UUID> {
+    /** Traz status, prioridade e autores no mesmo SELECT: o mapeamento para DTO lê esses nomes em cada linha. */
+    @EntityGraph(attributePaths = {"status", "prioridade", "criadoPor", "solicitadoPor", "aprovadoPor"})
     List<Requisito> findAllByProjetoId(UUID projetoId);
     boolean existsByStatusId(UUID statusId);
     boolean existsByPrioridadeId(UUID prioridadeId);
@@ -21,4 +24,8 @@ public interface RequisitoRepository extends JpaRepository<Requisito, UUID> {
      */
     @Query("SELECT COALESCE(MAX(CAST(SUBSTRING(r.codigo, 5) AS int)), 0) FROM Requisito r WHERE r.projeto.id = :projetoId")
     long findMaxSequencialByProjetoId(@Param("projetoId") UUID projetoId);
+
+    /** Requisitos ativos por nome do status (contagem global, área administrativa). */
+    @Query("SELECT r.status.nome, COUNT(r) FROM Requisito r WHERE r.ativo = true GROUP BY r.status.nome")
+    List<Object[]> contarAtivosPorStatus();
 }

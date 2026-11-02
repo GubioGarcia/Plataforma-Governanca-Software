@@ -50,6 +50,7 @@ import {
   listarStatusProjeto,
   listarRequisitosResumoPorProjeto,
 } from '../../services/projetoService';
+import { PADDING_PAGINA, acoesCabecalho, cabecalhoPagina, linhaFiltros } from '../../theme/responsivo';
 
 interface ReqResumo { total: number; aprovados: number }
 
@@ -253,7 +254,7 @@ export default function ProjectList() {
   ];
 
   return (
-    <Box sx={{ flexGrow: 1, p: 4, overflowY: 'auto' }}>
+    <Box sx={{ flexGrow: 1, p: PADDING_PAGINA, overflowY: 'auto' }}>
       {/* Botão Voltar */}
       <Box sx={{ mb: 1 }}>
         <Button
@@ -279,14 +280,14 @@ export default function ProjectList() {
       <Divider sx={{ my: 4 }} />
 
       {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'flex-end', justifyContent: 'space-between', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+      <Box sx={{ ...cabecalhoPagina, mb: 3 }}>
         <Box>
           <Typography variant="h3" sx={{ mb: 0.5 }}>Projetos</Typography>
           <Typography variant="body2">
             {organizacaoAtual?.papel ? 'Gerencie os projetos da organização' : 'Seus projetos nesta organização'}
           </Typography>
         </Box>
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+        <Box sx={acoesCabecalho}>
           {pode('ORG_CREATE_PROJECT') && (
             <>
               <Button
@@ -308,18 +309,27 @@ export default function ProjectList() {
 
       {/* Summary chips — driven by statusOptions from API */}
       {!loading && !fetchError && (
-        <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
+        <Box
+          sx={{
+            // Celular: grade de 3 colunas; a partir do tablet, chips de largura fixa como antes
+            display: { xs: 'grid', sm: 'flex' },
+            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+            flexWrap: 'wrap',
+            gap: { xs: 1, sm: 2 },
+            mb: 3,
+          }}
+        >
           {summaryCards.map((chip) => {
             const isActive = statusFilter === chip.filterId;
             return (
               <Box
                 key={chip.filterId}
                 sx={{
-                  px: 2.5,
+                  px: { xs: 1, sm: 2.5 },
                   py: 1.5,
                   borderRadius: 2,
                   bgcolor: isActive ? `${chip.color}0F` : chip.bg,
-                  minWidth: 110,
+                  minWidth: { xs: 0, sm: 110 },
                   textAlign: 'center',
                   cursor: 'pointer',
                   border: '1px solid',
@@ -344,12 +354,12 @@ export default function ProjectList() {
       )}
 
       {/* Search + Filter */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, alignItems: 'center' }}>
+      <Box sx={{ ...linhaFiltros, mb: 3 }}>
         <TextField
           placeholder="Buscar projeto..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          sx={{ flex: 1, maxWidth: 340 }}
+          sx={{ flex: '1 1 220px', maxWidth: { sm: 340 } }}
           slotProps={{
             input: {
               startAdornment: (
@@ -360,7 +370,7 @@ export default function ProjectList() {
             },
           }}
         />
-        <FormControl size="small" sx={{ minWidth: 180 }}>
+        <FormControl size="small" sx={{ flex: { xs: '1 1 180px', sm: '0 0 180px' } }}>
           <InputLabel>Status</InputLabel>
           <Select
             label="Status"
@@ -411,10 +421,10 @@ export default function ProjectList() {
                 }}
                 onClick={() => navigate(`/organizations/${orgId}/projects/${project.id}`)}
               >
-                <CardContent sx={{ p: 3 }}>
+                <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
-                    <Box sx={{ flex: 1 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 0.75, minWidth: 0 }}>
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, columnGap: 1.5, mb: 0.75, minWidth: 0, flexWrap: 'wrap' }}>
                         <Typography variant="h5" sx={{ overflowWrap: 'anywhere', wordBreak: 'break-word' }}>{project.nome}</Typography>
                         <StatusChip status={project.status?.nome ?? 'N/A'} />
                       </Box>
@@ -426,7 +436,7 @@ export default function ProjectList() {
                           display: '-webkit-box',
                           WebkitLineClamp: 2,
                           WebkitBoxOrient: 'vertical',
-                          maxWidth: '80%',
+                          maxWidth: { xs: '100%', md: '80%' },
                           overflowWrap: 'anywhere',
                           wordBreak: 'break-word',
                         }}
@@ -435,7 +445,7 @@ export default function ProjectList() {
                       </Typography>
 
                       {/* Stats row — requisitos via API */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 3, mb: 1, flexWrap: 'wrap' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', columnGap: 3, rowGap: 0.75, mb: 1, flexWrap: 'wrap' }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                           <PeopleIcon sx={{ fontSize: 15, color: 'text.secondary' }} />
                           <Typography variant="caption">Você: {papeisNoProjeto(project.id)}</Typography>
@@ -456,7 +466,7 @@ export default function ProjectList() {
                       </Box>
                     </Box>
 
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: 2 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, ml: { xs: 1, sm: 2 }, flexShrink: 0 }}>
                       {(podeNoProjeto(project.id, 'PROJETO_EDIT') || podeNoProjeto(project.id, 'PROJETO_INATIVAR')) && (
                       <Tooltip title="Mais opções">
                         <IconButton
@@ -479,7 +489,7 @@ export default function ProjectList() {
                           e.stopPropagation();
                           navigate(`/organizations/${orgId}/projects/${project.id}`);
                         }}
-                        sx={{ whiteSpace: 'nowrap' }}
+                        sx={{ whiteSpace: 'nowrap', display: { xs: 'none', sm: 'inline-flex' } }}
                       >
                         Ver Projeto
                       </Button>

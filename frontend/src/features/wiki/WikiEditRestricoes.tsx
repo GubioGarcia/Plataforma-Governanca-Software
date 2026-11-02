@@ -19,7 +19,8 @@ export default function WikiEditRestricoes() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('WIKI_EDIT');
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -99,10 +100,10 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setRestricoesPrazo(e.target.value)}
             placeholder="Informe restrições de prazo e datas importantes..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_CHARS }}
-            helperText={!isStakeholder ? `${restricoesPrazo.length}/${MAX_CHARS}` : undefined}
+            helperText={podeEditar ? `${restricoesPrazo.length}/${MAX_CHARS}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
@@ -114,10 +115,10 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setRestricoesOrcamento(e.target.value)}
             placeholder="Informe restrições financeiras e limites de orçamento..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_CHARS }}
-            helperText={!isStakeholder ? `${restricoesOrcamento.length}/${MAX_CHARS}` : undefined}
+            helperText={podeEditar ? `${restricoesOrcamento.length}/${MAX_CHARS}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
@@ -129,10 +130,10 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setTecnologiasObrigatorias(e.target.value)}
             placeholder="Liste as tecnologias que devem ser utilizadas no projeto..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_CHARS }}
-            helperText={!isStakeholder ? `${tecnologiasObrigatorias.length}/${MAX_CHARS}` : undefined}
+            helperText={podeEditar ? `${tecnologiasObrigatorias.length}/${MAX_CHARS}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
@@ -144,14 +145,14 @@ export default function WikiEditRestricoes() {
             onChange={(e) => setRegulamentacoes(e.target.value)}
             placeholder="Informe normas, leis e regulamentações aplicáveis ao projeto..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_CHARS }}
-            helperText={!isStakeholder ? `${regulamentacoes.length}/${MAX_CHARS}` : undefined}
+            helperText={podeEditar ? `${regulamentacoes.length}/${MAX_CHARS}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
-        {!isStakeholder && (
+        {podeEditar && (
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}

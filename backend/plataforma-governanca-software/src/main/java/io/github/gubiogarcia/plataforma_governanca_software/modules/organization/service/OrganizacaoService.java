@@ -36,6 +36,7 @@ public class OrganizacaoService {
 
     @Transactional
     public OrganizacaoResponseDTO criar(Jwt jwt, CriarOrganizacaoRequestDTO request) {
+        autorizacao.exigirNaoAdminPlataforma();
         Usuario usuario = resolverUsuario(jwt);
 
         if (organizacaoRepository.existsByNome(request.nome())) {

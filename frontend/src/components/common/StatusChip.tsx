@@ -19,10 +19,6 @@ const CONFIG: Record<string, { label: string; bg: string; color: string }> = {
   FREE:       { label: 'Free',       bg: '#F3F4F6', color: '#6B7280' },
   PRO:        { label: 'Pro',        bg: '#EFF6FF', color: '#3B82F6' },
   ENTERPRISE: { label: 'Enterprise', bg: '#EDE9FE', color: '#7C3AED' },
-  // Papel
-  GESTOR:        { label: 'Gestor',         bg: '#EDE9FE', color: '#7C3AED' },
-  STAKEHOLDER:   { label: 'Stakeholder',    bg: '#F0FDF4', color: '#16A34A' },
-  ANALISTA:      { label: 'Analista',       bg: '#EFF6FF', color: '#3B82F6' },
   // Evento
   REUNIAO:  { label: 'Reunião',   bg: '#EFF6FF', color: '#3B82F6' },
   WORKSHOP: { label: 'Workshop',  bg: '#F0FDF4', color: '#16A34A' },

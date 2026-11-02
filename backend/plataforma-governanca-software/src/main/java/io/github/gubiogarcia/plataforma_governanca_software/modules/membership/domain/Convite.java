@@ -29,12 +29,12 @@ public class Convite {
     @Column(nullable = false)
     private String email;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "organizacao_id")
     private Organizacao organizacao;
 
     /** Nulo = convite para a organização inteira; preenchido = acesso só a este projeto. */
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "projeto_id")
     private Projeto projeto;
 
@@ -46,7 +46,7 @@ public class Convite {
     @Column(nullable = false, length = 20)
     private StatusConvite status;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "convidado_por")
     private Usuario convidadoPor;
 

@@ -1,5 +1,6 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository;
 
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -12,7 +13,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface UsuarioRepository extends JpaRepository<Usuario, UUID> {
+public interface UsuarioRepository extends JpaRepository<Usuario, UUID>, JpaSpecificationExecutor<Usuario> {
 
     Optional<Usuario> findByExternalIdentityId(UUID externalIdentityId);
 

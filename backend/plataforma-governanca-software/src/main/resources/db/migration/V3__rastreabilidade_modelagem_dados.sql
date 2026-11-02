@@ -5,10 +5,7 @@
 -- 2B (cadastro de entidades/atributos com diff antes/depois), conforme
 -- MER_V3 (a FK estruturada em atributo_entidade/relacionamento_entidade é de 2026-09-17).
 --
--- NOTA: o Flyway está DESABILITADO nesta aplicação (spring.flyway.enabled=false);
--- o schema real é gerado pelo Hibernate (ddl-auto=update) a partir das entities
--- JPA. Este arquivo é mantido como documentação/referência do modelo. As
--- restrições abaixo (UNIQUE, colunas de auditoria, enums) estão espelhadas nas
+-- As restrições abaixo (UNIQUE, colunas de auditoria, enums) estão espelhadas nas
 -- anotações das entities correspondentes.
 --
 -- Ordem de criação respeita as dependências de FK:

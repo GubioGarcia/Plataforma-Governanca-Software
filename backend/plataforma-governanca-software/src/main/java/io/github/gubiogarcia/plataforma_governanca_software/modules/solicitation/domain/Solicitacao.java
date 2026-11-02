@@ -26,7 +26,7 @@ public class Solicitacao {
     @GeneratedValue
     private UUID id;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "projeto_id")
     private Projeto projeto;
 
@@ -42,14 +42,14 @@ public class Solicitacao {
     @Column(nullable = false, length = 20)
     private StatusSolicitacao status;
 
-    @ManyToOne(optional = false)
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "solicitante_id")
     private Usuario solicitante;
 
     @Column(length = 2000)
     private String justificativa;
 
-    @ManyToOne
+    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "respondido_por")
     private Usuario respondidoPor;
 

@@ -136,6 +136,7 @@ public class RequisitoService {
         autorizacao.exigir(requisito.getProjeto(), Permissao.REQ_EDIT);
 
         Usuario usuario = resolverUsuario(jwt);
+        boolean mudouStatus = false;
 
         // ── Registra auditoria campo a campo ──────────────────────────────
         if (request.titulo() != null && !request.titulo().equals(requisito.getTitulo())) {
@@ -178,6 +179,7 @@ public class RequisitoService {
                         statusAnteriorNome, novoStatus.getNome()
                 );
                 requisito.setStatus(novoStatus);
+                mudouStatus = true;
             }
         }
 
@@ -198,7 +200,12 @@ public class RequisitoService {
         requisito.setVersao((requisito.getVersao() != null ? requisito.getVersao() : 1) + 1);
         requisito.setDataAtualizacao(Instant.now());
         requisito = requisitoRepository.save(requisito);
-        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO, TipoInteracao.EDICAO, id, "Requisito atualizado: " + requisito.getTitulo());
+        // Mudança de status conta como tal (analytics), mesmo que outros campos mudem junto
+        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO,
+                mudouStatus ? TipoInteracao.MUDANCA_STATUS : TipoInteracao.EDICAO, id,
+                mudouStatus
+                        ? "Status alterado para " + requisito.getStatus().getNome() + ": " + requisito.getTitulo()
+                        : "Requisito atualizado: " + requisito.getTitulo());
         log.info("Requisito {} ({}) atualizado. Nova versão: v{}.0", id, requisito.getCodigo(), requisito.getVersao());
         return mapToResponseDTO(requisito);
     }
@@ -266,7 +273,8 @@ public class RequisitoService {
         requisito.setDataAprovacao(Instant.now());
         requisito.setDataAtualizacao(Instant.now());
         requisito = requisitoRepository.save(requisito);
-        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO, TipoInteracao.EDICAO,
+        interacaoService.registrar(usuario, requisito.getProjeto(), ModuloInteracao.REQUISITO,
+                "APROVADO".equals(nomeStatus) ? TipoInteracao.APROVACAO : TipoInteracao.REPROVACAO,
                 id, "Requisito " + novoStatus.getNome().toLowerCase() + ": " + requisito.getTitulo());
         log.info("Requisito {} ({}) {} por {}.", id, requisito.getCodigo(), novoStatus.getNome(), usuario.getId());
         return mapToResponseDTO(requisito);

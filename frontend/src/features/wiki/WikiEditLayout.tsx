@@ -62,7 +62,7 @@ export default function WikiEditLayout({
   const resolvedAuditRef = auditCardRef ?? internalAuditRef;
 
   return (
-    <Box sx={{ p: { xs: 2, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
+    <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1100, mx: 'auto' }}>
       <Button
         startIcon={<ArrowBackIcon />}
         onClick={onBack}
@@ -77,7 +77,7 @@ export default function WikiEditLayout({
         Voltar
       </Button>
 
-      <Typography variant="h2" sx={{ fontWeight: 700, fontSize: '28px', color: '#111827', mb: 0.5 }}>
+      <Typography variant="h2" sx={{ fontWeight: 700, fontSize: { xs: '22px', sm: '28px' }, color: '#111827', mb: 0.5 }}>
         {title}
       </Typography>
       <Typography variant="body2" sx={{ color: '#6B7280', mb: 1 }}>
@@ -85,14 +85,15 @@ export default function WikiEditLayout({
       </Typography>
       <Divider sx={{ mb: 4 }} />
 
-      <Box sx={{ display: 'flex', gap: 3, alignItems: 'flex-start' }}>
+      {/* Abaixo de 900px a lateral (informações e alterações) vai para baixo do formulário */}
+      <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' }, gap: 3, alignItems: { xs: 'stretch', md: 'flex-start' } }}>
         {/* ── Coluna principal ── */}
         <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
           {children}
 
           {commentProps && (
             <Card variant="outlined" sx={{ borderRadius: 2 }}>
-              <CardContent sx={{ p: 3 }}>
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
                 <CommentSection
                   entidadeTipo={commentProps.entidadeTipo}
                   entidadeId={commentProps.entidadeId}
@@ -106,7 +107,7 @@ export default function WikiEditLayout({
 
         {/* ── Sidebar ── */}
         {(infoRows?.length || auditProps) && (
-          <Box sx={{ width: 280, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Box sx={{ width: { xs: '100%', md: 280 }, flexShrink: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
 
             {/* Informações */}
             {infoRows && infoRows.length > 0 && (

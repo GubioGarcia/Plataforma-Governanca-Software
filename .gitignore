@@ -31,3 +31,5 @@ infrastructure/.env
 # Claude
 .claude
 /.claude
+# Python
+__pycache__/

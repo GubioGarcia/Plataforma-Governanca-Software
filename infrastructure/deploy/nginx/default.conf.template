@@ -1,0 +1,92 @@
+# Proxy reverso do ambiente hospedado. ${DOMINIO} é preenchido pelo entrypoint
+# da imagem nginx a partir da variável de ambiente; as variáveis do nginx
+# ($host, $remote_addr...) não são tocadas.
+
+# ── Limite de requisições por IP (respostas 429) ──────────────────────────────
+# auth: login e cadastro. O bloqueio por conta é do Keycloak (bruteForceProtected);
+#       este limite segura tentativas espalhadas por várias contas. Folga para uma
+#       sala inteira atrás do mesmo IP (apresentação). Reservado também para o
+#       futuro envio da pesquisa.
+# api:  demais chamadas, para proteger a VM de 1 GB.
+limit_req_zone $binary_remote_addr zone=auth:10m rate=20r/m;
+limit_req_zone $binary_remote_addr zone=api:10m rate=30r/s;
+limit_req_status 429;
+
+server {
+  listen 80;
+  server_name ${DOMINIO};
+  return 301 https://$host$request_uri;
+}
+
+server {
+  listen 443 ssl;
+  http2 on;
+  server_name ${DOMINIO};
+
+  ssl_certificate     /etc/letsencrypt/live/${DOMINIO}/fullchain.pem;
+  ssl_certificate_key /etc/letsencrypt/live/${DOMINIO}/privkey.pem;
+  ssl_protocols TLSv1.2 TLSv1.3;
+  ssl_session_cache shared:SSL:5m;
+
+  # Cabeçalhos de segurança. Atenção: um add_header dentro de location descarta
+  # TODOS os deste nível — por isso nenhuma location abaixo usa add_header.
+  # CSP:
+  #  - style-src 'unsafe-inline': o MUI/emotion injeta <style> em tempo de execução;
+  #  - img-src data: blob:: ícones do MUI em data URI, prévia de imagens e o
+  #    diagrama ER (Mermaid gera SVG; exportar PNG usa blob:);
+  #  - font-src data:: fontes embutidas no bundle;
+  #  - o Swagger UI (/swagger-ui/) funciona com esta política (scripts e estilos
+  #    vêm do próprio backend).
+  add_header Strict-Transport-Security "max-age=31536000" always;
+  add_header X-Content-Type-Options nosniff always;
+  add_header Referrer-Policy same-origin always;
+  add_header X-Frame-Options DENY always;
+  add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+  add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'" always;
+  server_tokens off;
+
+  # Uploads de até 25 MB (margem sobre o limite de 20 MB da aplicação)
+  client_max_body_size 25m;
+
+  proxy_set_header Host $host;
+  proxy_set_header X-Real-IP $remote_addr;
+  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  proxy_set_header X-Forwarded-Proto https;
+  proxy_set_header X-Forwarded-Port 443;
+
+  # ── Backend API ──────────────────────────────────────────────────────────────
+  location = /api/auth/login {
+    limit_req zone=auth burst=10 nodelay;
+    proxy_pass http://backend:8081;
+  }
+
+  location = /api/usuario/cadastrar {
+    limit_req zone=auth burst=10 nodelay;
+    proxy_pass http://backend:8081;
+  }
+
+  # Envios da pesquisa: mesmo limite do login (a regex vence o prefixo /api/).
+  location ~ ^/api/pesquisa/(antes|depois)$ {
+    limit_req zone=auth burst=10 nodelay;
+    proxy_pass http://backend:8081;
+  }
+
+  location /api/ {
+    limit_req zone=api burst=60 nodelay;
+    proxy_pass http://backend:8081;
+    proxy_read_timeout 120s;
+  }
+
+  location /swagger-ui/ {
+    proxy_pass http://backend:8081/swagger-ui/;
+  }
+
+  location /v3/api-docs {
+    proxy_pass http://backend:8081/v3/api-docs;
+  }
+
+  # ── Frontend (React SPA) ─────────────────────────────────────────────────────
+  location / {
+    proxy_pass http://frontend:80;
+  }
+}

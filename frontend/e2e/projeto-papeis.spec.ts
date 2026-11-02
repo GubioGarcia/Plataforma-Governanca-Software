@@ -31,7 +31,7 @@ test.describe('Projeto — o que cada papel vê', () => {
       await test.step(p.quem, async () => {
         await entrar(page, p.pessoa);
         await page.goto(rota.projeto(c));
-        await expect(page.getByText(c.projetoA.nome).first()).toBeVisible(); // nome real no menu lateral
+        await expect(page.getByRole('navigation').getByText(c.projetoA.nome)).toBeVisible(); // nome real no menu lateral
         await expect(page.locator('header').getByText(p.chip, { exact: true })).toBeVisible(); // papel real no topo
         await expect(menuProjeto(page, 'Solicitações')).toBeVisible();
         await soParaGestao(page, p.gestao, menuProjeto(page, 'Auditoria'));

@@ -23,4 +23,6 @@ public interface OrganizacaoRepository extends JpaRepository<Organizacao, UUID> 
 
     /** Organizações ainda sem grupo de acesso no Keycloak (migração). */
     List<Organizacao> findAllByKeycloakGroupIdIsNull();
+
+    long countByAtivo(Boolean ativo);
 }

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cadastrar, tornarAdminDaPlataforma, type Pessoa } from './support/api';
+import { AMBIENTE, cadastrar, chamar, tornarAdminDaPlataforma, type Pessoa } from './support/api';
 import { montarCenario, desmontarCenario, type Cenario } from './support/cenario';
 import { entrar, esperarAviso, rota } from './support/ui';
 
@@ -112,8 +112,45 @@ test.describe('Convites, participantes e perfil', () => {
     await tornarAdminDaPlataforma(admin);
 
     await entrar(page, admin);
+    // O endereço antigo /users leva para a área administrativa
     await page.goto('/users');
-    await expect(page).toHaveURL(/\/users$/);
+    await expect(page).toHaveURL(/\/admin\/usuarios$/);
+    await page.getByLabel('Buscar por nome ou e-mail').fill(c.tag);
     await expect(page.getByText(c.dono.email)).toBeVisible();
+
+    // Onde o membro atua: Membro da organização, herda Stakeholder Técnico nos dois projetos
+    // (o convidado já foi removido do projeto no teste de participantes)
+    await page.locator('tr', { hasText: c.membro.email }).getByRole('button', { name: 'Ver acessos' }).click();
+    const dialogo = page.getByRole('dialog');
+    await expect(dialogo.getByText(c.org.nome)).toBeVisible();
+    await expect(dialogo.getByText('Membro', { exact: true })).toBeVisible();
+    await expect(dialogo.getByText(c.projetoA.nome)).toBeVisible();
+    await expect(dialogo.getByText(c.projetoB.nome)).toBeVisible();
+    await expect(dialogo.getByText('Stakeholder Técnico', { exact: true })).toHaveCount(2);
+    await dialogo.getByRole('button', { name: 'Fechar' }).click();
+
+    // A própria conta não tem o botão de inativar
+    const propria = page.locator('tr', { hasText: admin.email });
+    await expect(propria.getByText('Você')).toBeVisible();
+    await expect(propria.getByRole('button', { name: 'Inativar' })).toHaveCount(0);
+  });
+
+  test('Admin da Plataforma inativa uma conta: some das ativas e não entra mais', async ({ page }) => {
+    const admin = await cadastrar('admin2', c.tag);
+    const alvo = await cadastrar('alvo', c.tag);
+    c.extras.push(admin, alvo);
+    await tornarAdminDaPlataforma(admin);
+
+    await entrar(page, admin);
+    await page.goto('/admin/usuarios');
+    await page.getByLabel('Buscar por nome ou e-mail').fill(alvo.email);
+    const linha = page.locator('tr', { hasText: alvo.email });
+    await linha.getByRole('button', { name: 'Inativar' }).click();
+    await page.getByRole('dialog').getByRole('button', { name: 'Inativar' }).click();
+    await esperarAviso(page, 'Conta inativada');
+    await expect(linha).toHaveCount(0);
+
+    const login = await chamar('POST', `${AMBIENTE.api}/auth/login`, { corpo: { email: alvo.email, senha: alvo.senha } });
+    expect(login.status).not.toBe(200);
   });
 });

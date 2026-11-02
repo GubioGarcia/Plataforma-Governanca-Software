@@ -126,10 +126,7 @@ function toImpacto(i: ImpactoDadosResponseDTO): ImpactoDadosAPI {
 // ── API ───────────────────────────────────────────────────────────────────
 
 /** Modelo de dados completo do projeto, montado a partir do diagrama + impactos. */
-export async function obterModelo(
-  projetoId: string,
-  _requisitoIds: string[] = [],
-): Promise<ModeloDadosProjeto> {
+export async function obterModelo(projetoId: string): Promise<ModeloDadosProjeto> {
   const [diagrama, impactos] = await Promise.all([
     api.get<DiagramaProjetoResponseDTO>(`/entidade-dados/projeto/${projetoId}/diagrama`),
     api.get<ImpactoDadosResponseDTO[]>(`/impacto-dados/projeto/${projetoId}`),
@@ -144,11 +141,8 @@ export async function obterModelo(
 }
 
 /** Recarrega o modelo do servidor (o botão ↺ das telas). */
-export async function restaurarModelo(
-  projetoId: string,
-  requisitoIds: string[],
-): Promise<ModeloDadosProjeto> {
-  return obterModelo(projetoId, requisitoIds);
+export async function restaurarModelo(projetoId: string): Promise<ModeloDadosProjeto> {
+  return obterModelo(projetoId);
 }
 
 export async function criarEntidade(

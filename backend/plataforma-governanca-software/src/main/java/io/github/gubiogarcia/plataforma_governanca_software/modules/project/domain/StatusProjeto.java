@@ -22,4 +22,9 @@ public class StatusProjeto {
     private String descricao;
 
     private Integer ordem;
+
+    /** Status usado pelas regras da plataforma: nome fixo e exclusão bloqueada. */
+    @Builder.Default
+    @Column(nullable = false)
+    private Boolean sistema = false;
 }

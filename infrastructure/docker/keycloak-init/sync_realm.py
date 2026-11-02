@@ -7,7 +7,8 @@ num realm que ja existe:
   - roles de realm (cria as ausentes, atualiza descricao, remove as obsoletas);
   - composites de cada role (deixa exatamente como no arquivo);
   - protocol mappers dos clients (cria ou atualiza pelo nome);
-  - grupos de topo e suas roles de realm (cria os ausentes, adiciona roles faltantes).
+  - grupos de topo e suas roles de realm (cria os ausentes, adiciona roles faltantes);
+  - atributos de seguranca do realm (protecao contra forca bruta e politica de senha).
 
 Nao mexe em usuarios nem nos grupos de organizacao/projeto (criados pelo backend).
 
@@ -160,6 +161,22 @@ def sincronizar_grupos(kc, grupos, roles_por_nome):
             print(f"[sync] grupo /{nome}: roles mapeadas {faltantes}")
 
 
+# Atributos de seguranca do realm aplicados a partir do arquivo (PUT so com estes campos)
+ATRIBUTOS_SEGURANCA = ["bruteForceProtected", "failureFactor", "waitIncrementSeconds",
+                       "maxFailureWaitSeconds", "permanentLockout", "passwordPolicy"]
+
+
+def sincronizar_seguranca(kc, config):
+    desejado = {k: config[k] for k in ATRIBUTOS_SEGURANCA if k in config}
+    if not desejado:
+        return
+    atual = kc.call("GET", "")
+    if all(atual.get(k) == v for k, v in desejado.items()):
+        return
+    kc.call("PUT", "", desejado)
+    print(f"[sync] seguranca do realm atualizada: {sorted(desejado)}")
+
+
 def main():
     if len(sys.argv) != 2:
         print("Uso: sync_realm.py <realm-export.json>", file=sys.stderr)
@@ -172,6 +189,7 @@ def main():
     roles_por_nome = sincronizar_roles(kc, config.get("roles", {}).get("realm", []))
     sincronizar_mappers(kc, config.get("clients", []))
     sincronizar_grupos(kc, config.get("groups", []), roles_por_nome)
+    sincronizar_seguranca(kc, config)
     print("[sync] realm sincronizado com o realm-export.json.")
 
 

@@ -32,4 +32,6 @@ public interface ProjetoRepository extends JpaRepository<Projeto, UUID> {
 
     /** Projetos ainda sem grupo de acesso no Keycloak (migração). */
     List<Projeto> findAllByKeycloakGroupIdIsNull();
+
+    long countByAtivo(Boolean ativo);
 }

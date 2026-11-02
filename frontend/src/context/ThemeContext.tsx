@@ -38,6 +38,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useThemeMode(): ThemeContextValue {
   return useContext(ThemeContext);
 }

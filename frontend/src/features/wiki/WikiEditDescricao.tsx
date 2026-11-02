@@ -25,7 +25,8 @@ export default function WikiEditDescricao() {
   const { orgId, projectId } = useParams<{ orgId: string; projectId: string }>();
   const navigate = useNavigate();
   const { notify } = useSnackbar();
-  const { isStakeholder } = usePermissions();
+  const { pode } = usePermissions();
+  const podeEditar = pode('WIKI_EDIT');
   const backUrl = `/organizations/${orgId}/projects/${projectId}/wiki`;
 
   const auditCardRef = useRef<AuditCardHandle>(null);
@@ -110,8 +111,8 @@ export default function WikiEditDescricao() {
             onChange={(e) => setNome(e.target.value)}
             placeholder="Nome do projeto..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
           />
         </Box>
         <Box>
@@ -126,10 +127,10 @@ export default function WikiEditDescricao() {
             onChange={(e) => setDescricao(e.target.value)}
             placeholder="Descreva o projeto de forma geral..."
             InputLabelProps={{ shrink: true }}
-            InputProps={{ readOnly: isStakeholder }}
-            disabled={isStakeholder}
+            InputProps={{ readOnly: !podeEditar }}
+            disabled={!podeEditar}
             inputProps={{ maxLength: MAX_DESCRICAO }}
-            helperText={!isStakeholder ? `${descricao.length}/${MAX_DESCRICAO}` : undefined}
+            helperText={podeEditar ? `${descricao.length}/${MAX_DESCRICAO}` : undefined}
             FormHelperTextProps={{ sx: { textAlign: 'right' } }}
           />
         </Box>
@@ -137,13 +138,13 @@ export default function WikiEditDescricao() {
           <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 700, color: '#374151' }}>
             Status do Projeto
           </Typography>
-          <FormControl fullWidth disabled={isStakeholder}>
+          <FormControl fullWidth disabled={!podeEditar}>
             <InputLabel>Status</InputLabel>
             <Select
               label="Status"
               value={projetoStatusId ?? ''}
               onChange={(e) => setProjetoStatusId(e.target.value || undefined)}
-              inputProps={{ readOnly: isStakeholder }}
+              inputProps={{ readOnly: !podeEditar }}
             >
               {statusOptions.map((s) => (
                 <MenuItem key={s.id} value={s.id}>
@@ -153,7 +154,7 @@ export default function WikiEditDescricao() {
             </Select>
           </FormControl>
         </Box>
-        {!isStakeholder && (
+        {podeEditar && (
         <Box sx={{ display: 'flex', gap: 2, pt: 1 }}>
           <Button variant="contained" onClick={handleSave} disabled={saving}>
             {saving ? 'Salvando...' : 'Salvar'}

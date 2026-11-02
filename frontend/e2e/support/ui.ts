@@ -3,16 +3,17 @@ import type { Pessoa } from './api';
 import type { Cenario } from './cenario';
 
 /**
- * Entra pela tela de login e espera a lista de organizações. Apaga antes o cookie
- * de sessão: permite trocar de pessoa na mesma aba.
+ * Entra pela tela de login e espera a lista de organizações (ou a área
+ * administrativa, para a conta de admin). Apaga antes o cookie de sessão: permite
+ * trocar de pessoa na mesma aba.
  */
 export async function entrar(page: Page, p: Pessoa): Promise<void> {
   await page.context().clearCookies();
   await page.goto('/login');
   await page.getByLabel('E-mail').fill(p.email);
-  await page.getByLabel('Senha').fill(p.senha);
+  await page.getByLabel('Senha', { exact: true }).fill(p.senha);
   await page.getByRole('button', { name: 'Entrar' }).click();
-  await expect(page).toHaveURL(/\/organizations$/);
+  await expect(page).toHaveURL(/\/(organizations|admin)$/);
 }
 
 /** Rotas do cenário. */

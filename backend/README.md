@@ -56,6 +56,7 @@ modules/
  ├── files           # arquivos do projeto
  ├── export          # exportação CSV (modelagem e rastreabilidade)
  ├── audit           # auditoria (somente leitura pela API)
+ ├── admin           # área administrativa: /api/admin/resumo, /usuarios, /auditoria
  └── interaction     # interações/engajamento (analytics)
 ```
 
@@ -88,9 +89,10 @@ Os valores sensíveis (datasource, clients e segredos do Keycloak) vêm de vari�
 
 ## Banco de dados
 
-* O schema é gerado pelo **Hibernate** a partir das entidades (`ddl-auto=update`) e os dados de referência (status e prioridades) vêm do `data.sql`, executado a cada inicialização de forma idempotente.
-* O Flyway está **desligado**. Os scripts em `src/main/resources/db/migration` (V1–V3) são mantidos como **referência do modelo** e correspondem ao schema atual (MER V3).
-* Para recriar o banco de desenvolvimento com o projeto de demonstração, use `scripts/recriar_ambiente_dev.py` (ver README principal).
+* O schema e os dados de referência (status e prioridades) vêm das migrations do **Flyway** em `src/main/resources/db/migration`, aplicadas na inicialização. O Hibernate só **valida** o schema (`ddl-auto=validate`): o backend não sobe se uma entidade não bater com as tabelas, então toda mudança de entidade exige uma migration nova (`V5__...sql` em diante). As migrations já aplicadas não devem ser editadas.
+* `V4__dados_referencia_sistema.sql` marca os status usados pelas regras (`sistema = true`): eles não podem ser renomeados nem excluídos (HTTP 409); descrição e ordem continuam editáveis.
+* Os testes usam H2 com `create-drop` (as migrations usam sintaxe do PostgreSQL). O CI aplica as migrations num PostgreSQL de verdade e sobe o app com `validate`.
+* O projeto de demonstração não faz parte das migrations: é carregado à parte por `scripts/carregar_demo.py` (ver README principal).
 
 ---
 
@@ -135,6 +137,8 @@ Para rodar apenas o backend fora do Docker (com PostgreSQL e Keycloak no ar e as
 * O pacote `security/authz` resolve o papel do usuário em cada organização/projeto (com herança: Dono/Gestor/Membro da organização valem em todos os projetos dela) e aplica a **matriz estática papel → permissão** (`MatrizPermissoes`). Cada endpoint confere a permissão necessária (`AutorizacaoService.exigir`); sem permissão a resposta é **403**, e listagens mostram só o que o usuário pode ver.
 * Os grupos são mantidos pelo backend via Admin API (`GruposAcessoService`): criar organização/projeto cria a estrutura e põe o criador no `_dono`; convites aceitos, promoções e remoções alteram os grupos.
 * **Revogação:** quando os grupos de um usuário mudam, o campo `usuario.tokens_revogados_antes_de` é atualizado e tokens emitidos antes disso passam a ser recusados (401); o front renova a sessão e recebe os papéis novos.
+
+* **Área administrativa** (`modules/admin`, `/api/admin/*`): todos os endpoints exigem o Admin da Plataforma (`exigirAdminPlataforma()`). O resumo traz só contagens (as contas de admin não entram nos usuários); a lista de contas é paginada com busca por nome ou e-mail. Toda ação administrativa (inativar conta, criar/editar/excluir status e prioridades) é gravada na `auditoria` sem organização e sem projeto, e `GET /api/admin/auditoria` lista só esses registros. O admin não pode inativar a própria conta (409) e nenhum endpoint torna alguém Admin da Plataforma (só o `scripts/criar_admin.py`).
 
 O modelo completo está no documento de arquitetura `autorizacao-organizacao-projeto.md`.
 
