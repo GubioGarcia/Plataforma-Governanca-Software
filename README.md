@@ -35,6 +35,7 @@ Principais funcionalidades:
 - **Modelagem de dados** do projeto (entidades, atributos, PK/FK e diagrama ER) ligada aos requisitos
 - **Eventos**, **arquivos**, **auditoria** de alterações e **analytics** de engajamento
 - **Exportação em CSV** da modelagem de dados e da matriz de rastreabilidade
+- **Pesquisa do TCC**: questionário antes e depois do uso, respondido por Donos e Gestores, com painel e CSV anonimizado na área administrativa. Ao gravar o "antes", o servidor marca se o participante já tinha interações na plataforma (coluna `usou_plataforma_antes` do CSV: `sim`, `nao` ou vazio); o painel mostra quantos responderam o "antes" após uso e pode desconsiderá-los nas estatísticas (o CSV traz sempre todos)
 
 ---
 
@@ -214,9 +215,9 @@ Como publicar, a configuração de produção e a operação estão em [`infrast
 
 | O quê | Como executar | Cobertura |
 |---|---|---|
-| Backend (unitários e integração) | `./mvnw clean test` em `backend/plataforma-governanca-software` | Regras de negócio e de acesso (H2, Keycloak simulado) |
-| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 223 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa, status de sistema e pesquisa do TCC |
-| Interface ponta a ponta | `npm run test:e2e` em `frontend` | Navegador real (Playwright): o que cada papel vê e faz nas telas, incluindo a pesquisa (roda depois dos demais, porque abre a coleta) |
+| Backend (unitários e integração) | `./mvnw clean test` em `backend/plataforma-governanca-software` | 284 testes: regras de negócio e de acesso (H2, Keycloak simulado) |
+| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 232 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa, status de sistema e pesquisa do TCC |
+| Interface ponta a ponta | `npm run test:e2e` em `frontend` | 70 testes em navegador real (Playwright): o que cada papel vê e faz nas telas, incluindo a pesquisa (roda depois dos demais, porque abre a coleta) |
 
 Os testes ponta a ponta criam usuários e organizações descartáveis e apagam tudo no fim — não interferem nos dados de demonstração.
 

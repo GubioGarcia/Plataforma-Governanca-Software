@@ -128,6 +128,12 @@ ssh -i ~/.ssh/oracle_tcc ubuntu@129.148.55.171 'bash ~/plataforma/remover_demo.s
 
 Se a organização da demo ainda não tem grupo no Keycloak, a carga reinicia o backend uma vez (cerca de 2 minutos fora do ar).
 
+### Pesquisa do TCC
+
+A coleta é aberta e encerrada pelo Admin da Plataforma em `/admin/pesquisas`, que também exporta o CSV anonimizado (participantes só pelo código). A coluna `usou_plataforma_antes` (logo depois de `tempo_experiencia`) diz se o participante já tinha interações na plataforma quando respondeu o "antes": `sim`, `nao` ou vazio. A marcação é calculada pelo servidor e apagada na retirada. No painel, o cartão "'Antes' após uso" mostra quantos estão nesse caso e o switch "Desconsiderar quem respondeu o 'antes' após usar a plataforma" tira essas participações das distribuições, medianas, comparação pareada e caracterização; o CSV traz sempre todos.
+
+A migration `V6__pesquisa_uso_previo.sql` só acrescenta a coluna (e a preenche para quem já respondeu o "antes"): a publicação normal aplica, sem `docker compose down -v`.
+
 ---
 
 ## Operação

@@ -17,6 +17,10 @@ public record ResumoPesquisaDTO(
         long antesRespondidos,
         long depoisRespondidos,
         long paresCompletos,
+        /** Participações ativas que responderam o "antes" já com uso da plataforma; sempre sobre o total. */
+        long antesComUsoPrevio,
+        /** Se itens e caracterização desconsideram as participações com uso prévio. */
+        boolean filtroUsoPrevioAplicado,
         List<Item> itens,
         List<Contagem> funcoes,
         List<Contagem> temposExperiencia,

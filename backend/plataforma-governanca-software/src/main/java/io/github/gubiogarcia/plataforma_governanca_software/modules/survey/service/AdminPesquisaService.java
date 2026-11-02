@@ -40,6 +40,10 @@ import static io.github.gubiogarcia.plataforma_governanca_software.shared.CsvUti
  * Fora do banco os participantes só aparecem pelo código; retiradas não têm
  * respostas e não entram no CSV. Abrir/encerrar, mudar o intervalo e exportar
  * vão para a auditoria administrativa.
+ *
+ * Uso prévio: quem respondeu o "antes" depois de já ter interações na plataforma
+ * fica marcado (usou_plataforma_antes). O painel pode desconsiderar essas
+ * participações nas estatísticas; o CSV sempre traz todas, com a marcação.
  */
 @Slf4j
 @Service
@@ -62,12 +66,34 @@ public class AdminPesquisaService {
 
     @Transactional(readOnly = true)
     public ResumoPesquisaDTO resumo() {
+        return resumo(false);
+    }
+
+    /**
+     * Com excluirUsoPrevio, as distribuições, medianas, a comparação pareada e a
+     * caracterização desconsideram as participações marcadas com uso prévio. As
+     * contagens de etapas e antesComUsoPrevio são sempre sobre o total.
+     */
+    @Transactional(readOnly = true)
+    public ResumoPesquisaDTO resumo(boolean excluirUsoPrevio) {
         autorizacao.exigirAdminPlataforma();
         PesquisaConfiguracao config = pesquisaService.configuracao();
         List<PesquisaParticipacao> todas = participacaoRepository.findAll();
         List<PesquisaParticipacao> participando = todas.stream()
                 .filter(p -> p.getSituacao() == SituacaoParticipacao.PARTICIPANDO).toList();
-        Map<UUID, Map<EtapaPesquisa, PesquisaResposta>> respostas = respostasPorParticipacao();
+        Map<UUID, Map<EtapaPesquisa, PesquisaResposta>> todasRespostas = respostasPorParticipacao();
+        long antesComUsoPrevio = participando.stream()
+                .filter(p -> Boolean.TRUE.equals(p.getUsouPlataformaAntes())
+                        && todasRespostas.getOrDefault(p.getId(), Map.of()).containsKey(EtapaPesquisa.ANTES))
+                .count();
+
+        List<PesquisaParticipacao> analisadas = excluirUsoPrevio
+                ? participando.stream().filter(p -> !Boolean.TRUE.equals(p.getUsouPlataformaAntes())).toList()
+                : participando;
+        Set<UUID> idsAnalisados = analisadas.stream().map(PesquisaParticipacao::getId).collect(Collectors.toSet());
+        Map<UUID, Map<EtapaPesquisa, PesquisaResposta>> respostas = todasRespostas.entrySet().stream()
+                .filter(e -> idsAnalisados.contains(e.getKey()))
+                .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
 
         List<PesquisaResposta> antes = etapa(respostas, EtapaPesquisa.ANTES);
         List<PesquisaResposta> depois = etapa(respostas, EtapaPesquisa.DEPOIS);
@@ -89,14 +115,19 @@ public class AdminPesquisaService {
                 config.getColetaAberta(), config.getAbertaEm(), config.getEncerradaEm(), config.getIntervaloMinimoMin(),
                 participando.size(),
                 todas.stream().filter(p -> p.getSituacao() == SituacaoParticipacao.RETIRADA).count(),
-                antes.size(), depois.size(), pares.size(),
+                etapa(todasRespostas, EtapaPesquisa.ANTES).size(),
+                etapa(todasRespostas, EtapaPesquisa.DEPOIS).size(),
+                todasRespostas.values().stream()
+                        .filter(r -> r.containsKey(EtapaPesquisa.ANTES) && r.containsKey(EtapaPesquisa.DEPOIS)).count(),
+                antesComUsoPrevio,
+                excluirUsoPrevio,
                 itens,
                 contagem(FuncaoParticipante.values(), FuncaoParticipante::rotulo,
-                        participando.stream().map(PesquisaParticipacao::getFuncao)),
+                        analisadas.stream().map(PesquisaParticipacao::getFuncao)),
                 contagem(TempoExperiencia.values(), TempoExperiencia::rotulo,
-                        participando.stream().map(PesquisaParticipacao::getTempoExperiencia)),
+                        analisadas.stream().map(PesquisaParticipacao::getTempoExperiencia)),
                 contagem(Ferramenta.values(), Ferramenta::rotulo,
-                        participando.stream().flatMap(p -> p.getFerramentas().stream())));
+                        analisadas.stream().flatMap(p -> p.getFerramentas().stream())));
     }
 
     @Transactional(readOnly = true)
@@ -141,7 +172,9 @@ public class AdminPesquisaService {
 
     /**
      * Uma linha por participante (só PARTICIPANDO), identificado pelo código. Datas no
-     * horário de Brasília; ferramentas separadas por "|".
+     * horário de Brasília; ferramentas separadas por "|"; usou_plataforma_antes como
+     * sim, nao ou vazio. Traz sempre todos os participantes (o filtro de uso prévio
+     * é só do painel).
      */
     @Transactional
     public ArquivoPesquisa exportar() {
@@ -153,7 +186,7 @@ public class AdminPesquisaService {
                 .toList();
 
         List<Object> cabecalho = new ArrayList<>(List.of("codigo", "versao", "funcao", "tempo_experiencia",
-                "ferramentas", "ferramenta_outro", "antes_em"));
+                "usou_plataforma_antes", "ferramentas", "ferramenta_outro", "antes_em"));
         IntStream.rangeClosed(1, 5).forEach(i -> cabecalho.add("antes_i" + i));
         cabecalho.addAll(List.of("antes_aberta", "depois_em"));
         IntStream.rangeClosed(1, 5).forEach(i -> cabecalho.add("depois_i" + i));
@@ -166,6 +199,7 @@ public class AdminPesquisaService {
                     p.getCodigo(), p.getVersaoInstrumento(),
                     p.getFuncao() != null ? p.getFuncao().name() : "",
                     p.getTempoExperiencia() != null ? p.getTempoExperiencia().name() : "",
+                    simNao(p.getUsouPlataformaAntes()),
                     p.getFerramentas().stream().map(Enum::name).sorted().collect(Collectors.joining("|")),
                     Objects.toString(p.getFerramentaOutro(), "")));
             celulas.addAll(etapaCsv(r.get(EtapaPesquisa.ANTES)));
@@ -234,6 +268,10 @@ public class AdminPesquisaService {
         for (short v : r.itens()) celulas.add(v);
         celulas.add(Objects.toString(r.getRespostaAberta(), ""));
         return celulas;
+    }
+
+    private static String simNao(Boolean valor) {
+        return valor == null ? "" : valor ? "sim" : "nao";
     }
 
     private static String rotuloColeta(boolean aberta) {

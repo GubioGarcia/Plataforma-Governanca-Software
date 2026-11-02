@@ -1,6 +1,16 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.survey.service;
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.infra.KeycloakAdminClient;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.repository.InteracaoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.domain.PapelConvite;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.dto.ConviteDTOs.CriarConviteRequestDTO;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.membership.service.ConviteService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.organization.domain.Organizacao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.domain.*;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.EstadoPesquisa;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.RespostaAntesRequestDTO;
@@ -26,9 +36,12 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -51,8 +64,12 @@ class PesquisaServiceTest {
     @Autowired private PesquisaConfiguracaoRepository configuracaoRepository;
     @Autowired private PesquisaParticipacaoRepository participacaoRepository;
     @Autowired private PesquisaRespostaRepository respostaRepository;
+    @Autowired private InteracaoService interacaoService;
+    @Autowired private InteracaoRepository interacaoRepository;
+    @Autowired private ConviteService conviteService;
     @Autowired private MockMvc mockMvc;
     @MockitoBean private JwtDecoder jwtDecoder;
+    @MockitoBean private KeycloakAdminClient keycloak;
 
     /** Gestor de uma organização qualquer: o público da pesquisa. */
     private static final String GESTOR = "/org-" + UUID.randomUUID() + "/_gestores";
@@ -210,6 +227,59 @@ class PesquisaServiceTest {
         assertThat(Integer.parseInt(segundo.substring(2))).isEqualTo(Integer.parseInt(primeiro.substring(2)) + 1);
     }
 
+    // ─── marcação de uso prévio ──────────────────────────────────────────────
+
+    private Boolean usouPlataformaAntes() {
+        return participacaoRepository.findByUsuarioId(usuario.getId()).orElseThrow().getUsouPlataformaAntes();
+    }
+
+    @Test
+    void antes_semNenhumaInteracao_gravaUsoPrevioFalso() {
+        service.responderAntes(antesValido());
+        assertThat(usouPlataformaAntes()).isFalse();
+    }
+
+    @Test
+    void antes_depoisDeUmaInteracao_gravaUsoPrevioVerdadeiro_emQualquerProjeto() {
+        Usuario dono = cenario.usuario("dono." + UUID.randomUUID() + "@teste.com");
+        Projeto projeto = cenario.projeto("Outro projeto", cenario.organizacao("Outra org", dono), dono);
+        // o que o RequisitoService registra ao criar um requisito
+        interacaoService.registrar(usuario, projeto, ModuloInteracao.REQUISITO, TipoInteracao.CRIACAO,
+                UUID.randomUUID(), "Requisito criado");
+
+        service.responderAntes(antesValido());
+        assertThat(usouPlataformaAntes()).isTrue();
+    }
+
+    @Test
+    void aceitarConvite_naoGeraInteracao_eAntesSeguinteGravaFalso() {
+        when(keycloak.buscarGrupoPorCaminho(anyString())).thenAnswer(inv -> Optional.of(UUID.randomUUID()));
+        Usuario dono = cenario.usuario("dono." + UUID.randomUUID() + "@teste.com");
+        Organizacao org = cenario.organizacao("Org convite", dono);
+        Projeto projeto = cenario.projeto("Projeto convite", org, dono);
+
+        AutenticacaoTeste.comGrupos(dono.getExternalIdentityId(), CenarioProjetoTeste.grupoOrg(org, "_dono"));
+        UUID conviteId = conviteService.convidarParaProjeto(projeto.getId(),
+                new CriarConviteRequestDTO(usuario.getEmail(), PapelConvite.GESTOR)).id();
+        AutenticacaoTeste.comGrupos(usuario.getExternalIdentityId());
+        conviteService.aceitar(conviteId);
+        assertThat(interacaoRepository.existsByUsuarioId(usuario.getId())).isFalse();
+
+        AutenticacaoTeste.comGrupos(usuario.getExternalIdentityId(), CenarioProjetoTeste.grupoProj(projeto, "_gestores"));
+        service.responderAntes(antesValido());
+        assertThat(usouPlataformaAntes()).isFalse();
+    }
+
+    @Test
+    void api_ignoraUsoPrevioEnviadoPeloCliente() throws Exception {
+        var comum = jwt().jwt(j -> j.subject(usuario.getExternalIdentityId().toString()).claim("groups", List.of(GESTOR)));
+        mockMvc.perform(post("/api/pesquisa/antes").with(comum).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consentimento\":true,\"itens\":[1,2,3,4,5],\"funcao\":\"OUTRA\","
+                                + "\"tempoExperiencia\":\"ATE_5\",\"usouPlataformaAntes\":true}"))
+                .andExpect(status().isOk());
+        assertThat(usouPlataformaAntes()).isFalse();
+    }
+
     // ─── etapa "depois" ──────────────────────────────────────────────────────
 
     @Test
@@ -265,6 +335,7 @@ class PesquisaServiceTest {
         assertThat(p.getFuncao()).isNull();
         assertThat(p.getTempoExperiencia()).isNull();
         assertThat(p.getFerramentas()).isEmpty();
+        assertThat(p.getUsouPlataformaAntes()).isNull();
         assertThat(respostaRepository.findAllByParticipacaoId(p.getId())).isEmpty();
 
         configurar(true, 0);

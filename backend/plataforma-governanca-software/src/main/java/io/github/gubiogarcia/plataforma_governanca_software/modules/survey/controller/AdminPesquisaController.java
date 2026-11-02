@@ -18,7 +18,8 @@ import java.nio.charset.StandardCharsets;
 /**
  * Painel da pesquisa do TCC — só o Admin da Plataforma (conferido no service).
  *
- * GET /api/admin/pesquisa/resumo                                    — contagens, itens e caracterização
+ * GET /api/admin/pesquisa/resumo?excluirUsoPrevio=false            — contagens, itens e caracterização
+ *     (excluirUsoPrevio=true desconsidera, nas estatísticas, quem respondeu o "antes" após usar a plataforma)
  * GET /api/admin/pesquisa/respostas-abertas?etapa=&pagina=&tamanho= — textos, só com o código do participante
  * PUT /api/admin/pesquisa/configuracao                              — {coletaAberta, intervaloMinimoMin}
  * GET /api/admin/pesquisa/exportacao                                — CSV anonimizado
@@ -33,8 +34,10 @@ public class AdminPesquisaController {
     private final AdminPesquisaService adminPesquisaService;
 
     @GetMapping("/resumo")
-    public ResponseEntity<ResumoPesquisaDTO> resumo() {
-        return ResponseEntity.ok(adminPesquisaService.resumo());
+    public ResponseEntity<ResumoPesquisaDTO> resumo(
+            @RequestParam(defaultValue = "false") boolean excluirUsoPrevio
+    ) {
+        return ResponseEntity.ok(adminPesquisaService.resumo(excluirUsoPrevio));
     }
 
     @GetMapping("/respostas-abertas")

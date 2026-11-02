@@ -62,6 +62,13 @@ public class PesquisaParticipacao {
     @Column(name = "ferramenta_outro", length = 100)
     private String ferramentaOutro;
 
+    /**
+     * Se o usuário já tinha interações na plataforma ao responder o "antes".
+     * Calculado só no servidor; nulo antes do "antes" e na retirada.
+     */
+    @Column(name = "usou_plataforma_antes")
+    private Boolean usouPlataformaAntes;
+
     @Column(name = "criado_em", nullable = false, updatable = false)
     private Instant criadoEm;
 

@@ -77,11 +77,14 @@ export interface ResumoPesquisa {
   encerradaEm: string | null;
   intervaloMinimoMin: number;
   participantes: number;
-  recusas: number;
   retiradas: number;
   antesRespondidos: number;
   depoisRespondidos: number;
   paresCompletos: number;
+  /** Responderam o "antes" já tendo usado a plataforma; sempre sobre o total. */
+  antesComUsoPrevio: number;
+  /** Se itens e caracterização desconsideram quem tem uso prévio. */
+  filtroUsoPrevioAplicado: boolean;
   itens: ItemResumoPesquisa[];
   funcoes: ContagemPesquisa[];
   temposExperiencia: ContagemPesquisa[];

@@ -6,7 +6,9 @@ import CardContent from '@mui/material/CardContent';
 import Chip from '@mui/material/Chip';
 import CircularProgress from '@mui/material/CircularProgress';
 import Divider from '@mui/material/Divider';
+import FormControlLabel from '@mui/material/FormControlLabel';
 import Paper from '@mui/material/Paper';
+import Switch from '@mui/material/Switch';
 import Tab from '@mui/material/Tab';
 import TablePagination from '@mui/material/TablePagination';
 import Tabs from '@mui/material/Tabs';
@@ -52,10 +54,11 @@ export default function AdminPesquisas() {
   const [salvando, setSalvando] = useState(false);
   const [confirmarColeta, setConfirmarColeta] = useState(false);
   const [exportando, setExportando] = useState(false);
+  const [excluirUsoPrevio, setExcluirUsoPrevio] = useState(false);
 
   useEffect(() => {
     let ativo = true;
-    obterResumoPesquisa()
+    obterResumoPesquisa(excluirUsoPrevio)
       .then((dados) => {
         if (!ativo) return;
         setResumo(dados);
@@ -67,7 +70,7 @@ export default function AdminPesquisas() {
         notify(extractApiErrorMessage(err, 'Não foi possível carregar a pesquisa.'), 'error');
       });
     return () => { ativo = false; };
-  }, [tentativa, notify]);
+  }, [tentativa, excluirUsoPrevio, notify]);
 
   const intervaloNumero = Number(intervalo);
   const intervaloValido = intervalo.trim() !== '' && Number.isInteger(intervaloNumero) && intervaloNumero >= 0 && intervaloNumero <= 1440;
@@ -79,7 +82,9 @@ export default function AdminPesquisas() {
       const novo = await configurarPesquisa({
         coletaAberta, intervaloMinimoMin: intervaloValido ? intervaloNumero : resumo.intervaloMinimoMin,
       });
-      setResumo(novo);
+      // a configuração devolve o resumo sem filtro; recarrega se o filtro estiver ligado
+      if (excluirUsoPrevio) setTentativa((t) => t + 1);
+      else setResumo(novo);
       setIntervalo(String(novo.intervaloMinimoMin));
       notify(mensagem, 'success');
     } catch (err) {
@@ -175,13 +180,30 @@ export default function AdminPesquisas() {
               { rotulo: 'Participantes', valor: resumo.participantes, cor: '#2563EB',
                 detalhe: `${resumo.antesRespondidos} antes · ${resumo.depoisRespondidos} depois` },
               { rotulo: 'Pares completos', valor: resumo.paresCompletos, cor: '#16A34A', detalhe: 'as duas etapas' },
-              { rotulo: 'Recusas', valor: resumo.recusas, cor: '#9CA3AF' },
               { rotulo: 'Retiradas', valor: resumo.retiradas, cor: '#D97706', detalhe: 'respostas apagadas' },
+              { rotulo: "'Antes' após uso", valor: resumo.antesComUsoPrevio, cor: '#7C3AED', detalhe: 'uso prévio',
+                dica: "Responderam a etapa 'antes' depois de já terem usado a plataforma (criaram, editaram ou comentaram algo)" },
             ]}
           />
 
           {/* Comparação por item */}
           <Typography variant="h4" component="h2" sx={{ mb: 0.5 }}>Comparação por item</Typography>
+          <FormControlLabel
+            control={(
+              <Switch
+                checked={excluirUsoPrevio}
+                onChange={(e) => setExcluirUsoPrevio(e.target.checked)}
+              />
+            )}
+            label="Desconsiderar quem respondeu o 'antes' após usar a plataforma"
+            slotProps={{ typography: { variant: 'body2' } }}
+            sx={{ mb: 1 }}
+          />
+          {resumo.filtroUsoPrevioAplicado && (
+            <Typography variant="caption" color="text.secondary" component="p" sx={{ mb: 1 }} role="status">
+              Estatísticas sem os participantes com uso prévio ({resumo.antesComUsoPrevio} excluídos)
+            </Typography>
+          )}
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
             {ROTULOS_ESCALA.map((r, i) => (
               <Box key={r} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
