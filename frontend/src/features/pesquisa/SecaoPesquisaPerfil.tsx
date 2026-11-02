@@ -27,18 +27,18 @@ function descricao(s: SituacaoPesquisa): { rotulo: string; cor: 'success' | 'pri
             ? 'A segunda etapa já está disponível no botão "Nos ajude a melhorar", no topo da tela.'
             : 'Você respondeu à primeira etapa. A coleta está encerrada no momento.',
       };
-    case 'RECUSOU':
-      return { rotulo: 'Recusada', cor: 'default', texto: 'Você optou por não participar da pesquisa.' };
     case 'RETIRADA':
       return { rotulo: 'Retirada', cor: 'default', texto: 'Você retirou a sua participação e as suas respostas foram apagadas.' };
     default:
-      return null;
+      return s.estado === 'PENDENTE_ANTES'
+        ? { rotulo: 'Pendente', cor: 'default', texto: 'Você ainda não respondeu à primeira etapa. Leva cerca de 3 minutos.' }
+        : null;
   }
 }
 
 /** Seção "Pesquisa do TCC" do Meu Perfil: estado, código e retirada da participação. */
 export default function SecaoPesquisaPerfil() {
-  const { situacao, atualizar } = usePesquisa();
+  const { situacao, atualizar, abrirAntes } = usePesquisa();
   const { notify } = useSnackbar();
   const [confirmar, setConfirmar] = useState(false);
   const [retirando, setRetirando] = useState(false);
@@ -72,6 +72,9 @@ export default function SecaoPesquisaPerfil() {
           </Typography>
         )}
         <Typography variant="body2" sx={{ mb: situacao.situacaoParticipacao === 'PARTICIPANDO' ? 2 : 0 }}>{info.texto}</Typography>
+        {situacao.estado === 'PENDENTE_ANTES' && (
+          <Button variant="contained" size="small" onClick={abrirAntes} sx={{ mt: 2 }}>Responder agora</Button>
+        )}
         {situacao.situacaoParticipacao === 'PARTICIPANDO' && (
           <Button variant="outlined" color="error" size="small" onClick={() => setConfirmar(true)} disabled={retirando}>
             Retirar minha participação

@@ -13,7 +13,6 @@ public record ResumoPesquisaDTO(
         Instant encerradaEm,
         int intervaloMinimoMin,
         long participantes,
-        long recusas,
         long retiradas,
         long antesRespondidos,
         long depoisRespondidos,

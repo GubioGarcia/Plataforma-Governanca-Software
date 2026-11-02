@@ -6,10 +6,9 @@ export type EstadoPesquisa =
   | 'AGUARDANDO_DEPOIS'
   | 'PENDENTE_DEPOIS'
   | 'CONCLUIDA'
-  | 'RECUSOU'
   | 'RETIRADA';
 
-export type SituacaoParticipacao = 'PARTICIPANDO' | 'RECUSOU' | 'RETIRADA';
+export type SituacaoParticipacao = 'PARTICIPANDO' | 'RETIRADA';
 
 export type EtapaPesquisa = 'ANTES' | 'DEPOIS';
 

@@ -60,6 +60,7 @@ export default function App() {
             <Route path="dados-referencia" element={<AdminDadosReferencia />} />
             <Route path="auditoria" element={<AdminAuditoria />} />
             <Route path="pesquisas" element={<AdminPesquisas />} />
+            <Route path="perfil" element={<ProfilePage />} />
           </Route>
           <Route path="users" element={<Navigate to="/admin/usuarios" replace />} />
           {/* Organização/projeto: só para quem tem vínculo (o ProjectShell checa o projeto) */}

@@ -1,10 +1,6 @@
 package io.github.gubiogarcia.plataforma_governanca_software.modules.survey.service;
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.Interacao;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.repository.InteracaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.domain.*;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.EstadoPesquisa;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.RespostaAntesRequestDTO;
@@ -39,8 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Pesquisa do TCC (participante): elegibilidade, validação das etapas, ordem e
- * unicidade das respostas, recusa, retirada e o acesso pela API.
+ * Pesquisa do TCC (participante): elegibilidade (só Dono ou Gestor), validação
+ * das etapas, ordem e unicidade das respostas, retirada e o acesso pela API.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.MOCK)
 @AutoConfigureMockMvc
@@ -55,9 +51,11 @@ class PesquisaServiceTest {
     @Autowired private PesquisaConfiguracaoRepository configuracaoRepository;
     @Autowired private PesquisaParticipacaoRepository participacaoRepository;
     @Autowired private PesquisaRespostaRepository respostaRepository;
-    @Autowired private InteracaoRepository interacaoRepository;
     @Autowired private MockMvc mockMvc;
     @MockitoBean private JwtDecoder jwtDecoder;
+
+    /** Gestor de uma organização qualquer: o público da pesquisa. */
+    private static final String GESTOR = "/org-" + UUID.randomUUID() + "/_gestores";
 
     private Usuario usuario;
 
@@ -65,7 +63,7 @@ class PesquisaServiceTest {
     void setUp() {
         configurar(true, 15);
         usuario = cenario.usuario("participante." + UUID.randomUUID() + "@teste.com");
-        AutenticacaoTeste.comGrupos(usuario.getExternalIdentityId());
+        AutenticacaoTeste.comGrupos(usuario.getExternalIdentityId(), GESTOR);
     }
 
     @AfterEach
@@ -104,7 +102,6 @@ class PesquisaServiceTest {
         assertThat(service.situacao().estado()).isEqualTo(EstadoPesquisa.NAO_ELEGIVEL);
         assertThatThrownBy(() -> service.responderAntes(antesValido()))
                 .isInstanceOf(PesquisaService.PesquisaConflitoException.class).hasMessageContaining("encerrada");
-        assertThatThrownBy(() -> service.recusar()).isInstanceOf(PesquisaService.PesquisaConflitoException.class);
     }
 
     @Test
@@ -112,20 +109,40 @@ class PesquisaServiceTest {
         AutenticacaoTeste.comoAdminDaPlataforma(usuario.getExternalIdentityId());
         assertThat(service.situacao().estado()).isEqualTo(EstadoPesquisa.NAO_ELEGIVEL);
         assertThatThrownBy(() -> service.responderAntes(antesValido())).isInstanceOf(AcessoNegadoException.class);
-        assertThatThrownBy(() -> service.recusar()).isInstanceOf(AcessoNegadoException.class);
         assertThatThrownBy(() -> service.retirar()).isInstanceOf(AcessoNegadoException.class);
     }
 
     @Test
-    void quemJaUsouAPlataforma_naoElegivelAoAntes() {
-        var org = cenario.organizacao("Org Pesquisa " + UUID.randomUUID(), usuario);
-        var projeto = cenario.projeto("Projeto Pesquisa", org, usuario);
-        interacaoRepository.save(Interacao.builder().usuario(usuario).projeto(projeto)
-                .modulo(ModuloInteracao.values()[0]).tipo(TipoInteracao.values()[0]).dataInteracao(Instant.now()).build());
+    void donoOuGestorDeOrganizacaoOuProjeto_saoElegiveis() {
+        UUID org = UUID.randomUUID();
+        for (String grupo : List.of("/org-" + org + "/_dono", "/org-" + org + "/_gestores",
+                "/org-" + org + "/proj-" + UUID.randomUUID() + "/_gestores",
+                "/org-" + org + "/proj-" + UUID.randomUUID() + "/_dono")) {
+            AutenticacaoTeste.comGrupos(usuario.getExternalIdentityId(), grupo);
+            assertThat(service.situacao().estado()).as(grupo).isEqualTo(EstadoPesquisa.PENDENTE_ANTES);
+        }
+    }
 
-        assertThat(service.situacao().estado()).isEqualTo(EstadoPesquisa.NAO_ELEGIVEL);
-        assertThatThrownBy(() -> service.responderAntes(antesValido()))
-                .isInstanceOf(PesquisaService.PesquisaConflitoException.class);
+    @Test
+    void semPapelDeDonoOuGestor_naoElegivel_e403NoAntes() {
+        UUID org = UUID.randomUUID();
+        for (String[] grupos : List.of(new String[]{}, new String[]{"/org-" + org + "/_membros"},
+                new String[]{"/org-" + org + "/proj-" + UUID.randomUUID() + "/_stakeholders_clientes"},
+                new String[]{"/org-" + org + "/proj-" + UUID.randomUUID() + "/_stakeholders_tecnicos"})) {
+            AutenticacaoTeste.comGrupos(usuario.getExternalIdentityId(), grupos);
+            assertThat(service.situacao().estado()).isEqualTo(EstadoPesquisa.NAO_ELEGIVEL);
+            assertThatThrownBy(() -> service.responderAntes(antesValido())).isInstanceOf(AcessoNegadoException.class);
+        }
+    }
+
+    @Test
+    void depois_continuaLiberadoParaQuemPerdeuOPapel() {
+        configurar(true, 0);
+        service.responderAntes(antesValido());
+        AutenticacaoTeste.comGrupos(usuario.getExternalIdentityId());   // deixou de ser gestor
+        assertThat(service.situacao().estado()).isEqualTo(EstadoPesquisa.PENDENTE_DEPOIS);
+        assertThat(service.responderDepois(new RespostaDepoisRequestDTO(ITENS, null)).estado())
+                .isEqualTo(EstadoPesquisa.CONCLUIDA);
     }
 
     // ─── etapa "antes" ───────────────────────────────────────────────────────
@@ -187,7 +204,7 @@ class PesquisaServiceTest {
     void codigosSaoSequenciais() {
         String primeiro = service.responderAntes(antesValido()).codigo();
         Usuario outro = cenario.usuario("outro." + UUID.randomUUID() + "@teste.com");
-        AutenticacaoTeste.comGrupos(outro.getExternalIdentityId());
+        AutenticacaoTeste.comGrupos(outro.getExternalIdentityId(), GESTOR);
         String segundo = service.responderAntes(antesValido()).codigo();
 
         assertThat(Integer.parseInt(segundo.substring(2))).isEqualTo(Integer.parseInt(primeiro.substring(2)) + 1);
@@ -232,17 +249,7 @@ class PesquisaServiceTest {
                 .isInstanceOf(PesquisaService.PesquisaConflitoException.class);
     }
 
-    // ─── recusa e retirada ───────────────────────────────────────────────────
-
-    @Test
-    void recusa_naoPerguntaDeNovo() {
-        var s = service.recusar();
-        assertThat(s.estado()).isEqualTo(EstadoPesquisa.RECUSOU);
-        assertThat(s.codigo()).isNull();
-        assertThatThrownBy(() -> service.recusar()).isInstanceOf(PesquisaService.PesquisaConflitoException.class);
-        assertThatThrownBy(() -> service.responderAntes(antesValido()))
-                .isInstanceOf(PesquisaService.PesquisaConflitoException.class);
-    }
+    // ─── retirada ────────────────────────────────────────────────────────────
 
     @Test
     void retirada_apagaRespostasECaracterizacao_eImpedeNovoAntes_mesmoComColetaEncerrada() {
@@ -270,19 +277,26 @@ class PesquisaServiceTest {
     // ─── API ─────────────────────────────────────────────────────────────────
 
     @Test
-    void api_semToken401_admin403NosEnvios_usuario200() throws Exception {
+    void api_semToken401_admin403NosEnvios_semPapel403_gestor200() throws Exception {
         AutenticacaoTeste.limpar();
         mockMvc.perform(get("/api/pesquisa/situacao")).andExpect(status().isUnauthorized());
-        mockMvc.perform(post("/api/pesquisa/recusa")).andExpect(status().isUnauthorized());
+        mockMvc.perform(post("/api/pesquisa/antes")).andExpect(status().isUnauthorized());
 
         var admin = jwt().jwt(j -> j.subject(usuario.getExternalIdentityId().toString()).claim("groups", List.of("/_admin")));
         mockMvc.perform(get("/api/pesquisa/situacao").with(admin))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("NAO_ELEGIVEL"));
-        mockMvc.perform(post("/api/pesquisa/recusa").with(admin)).andExpect(status().isForbidden());
+        mockMvc.perform(delete("/api/pesquisa/minha-participacao").with(admin)).andExpect(status().isForbidden());
         mockMvc.perform(post("/api/pesquisa/antes").with(admin).contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isForbidden());
 
-        var comum = jwt().jwt(j -> j.subject(usuario.getExternalIdentityId().toString()).claim("groups", List.of()));
+        var semPapel = jwt().jwt(j -> j.subject(usuario.getExternalIdentityId().toString()).claim("groups", List.of()));
+        mockMvc.perform(get("/api/pesquisa/situacao").with(semPapel))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("NAO_ELEGIVEL"));
+        mockMvc.perform(post("/api/pesquisa/antes").with(semPapel).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consentimento\":true,\"itens\":[1,2,3,4,5],\"funcao\":\"OUTRA\",\"tempoExperiencia\":\"ATE_5\"}"))
+                .andExpect(status().isForbidden());
+
+        var comum = jwt().jwt(j -> j.subject(usuario.getExternalIdentityId().toString()).claim("groups", List.of(GESTOR)));
         mockMvc.perform(get("/api/pesquisa/situacao").with(comum))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("PENDENTE_ANTES"))
@@ -297,7 +311,9 @@ class PesquisaServiceTest {
                         .content("{\"consentimento\":true,\"itens\":[1,2,3,4,5],\"funcao\":\"OUTRA\",\"tempoExperiencia\":\"ATE_5\",\"ferramentas\":[\"JIRA\"]}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.estado").value("AGUARDANDO_DEPOIS"));
-        mockMvc.perform(post("/api/pesquisa/recusa").with(comum)).andExpect(status().isConflict());
+        mockMvc.perform(post("/api/pesquisa/antes").with(comum).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"consentimento\":true,\"itens\":[1,2,3,4,5],\"funcao\":\"OUTRA\",\"tempoExperiencia\":\"ATE_5\"}"))
+                .andExpect(status().isConflict());
         mockMvc.perform(delete("/api/pesquisa/minha-participacao").with(comum))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.estado").value("RETIRADA"));
     }

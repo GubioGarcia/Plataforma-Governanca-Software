@@ -8,7 +8,7 @@ import java.time.Instant;
 /**
  * Situação do usuário na pesquisa e o instrumento vigente.
  *
- * @param situacaoParticipacao nulo quando o usuário nunca respondeu nem recusou
+ * @param situacaoParticipacao nulo quando o usuário ainda não respondeu
  * @param codigo               código do participante (só enquanto PARTICIPANDO)
  * @param depoisDisponivelEm   quando o "depois" fica liberado (só com o "antes" respondido)
  */

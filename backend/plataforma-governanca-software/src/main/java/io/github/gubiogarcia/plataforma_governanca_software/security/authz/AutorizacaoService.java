@@ -52,6 +52,19 @@ public class AutorizacaoService {
         return permissoesNaOrganizacao(organizacao).contains(permissao);
     }
 
+    /** Dono ou Gestor em alguma organização ou projeto (público da pesquisa do TCC). */
+    public boolean isDonoOuGestor() {
+        return ResolucaoPapeis.isDonoOuGestor(grupos());
+    }
+
+    /** O Admin da Plataforma tem conta exclusiva: não participa de organizações nem de projetos. */
+    public void exigirNaoAdminPlataforma() {
+        if (isAdminPlataforma()) {
+            throw new AcessoNegadoException("A conta de administrador da plataforma é exclusiva da área administrativa "
+                    + "e não participa de organizações nem de projetos.");
+        }
+    }
+
     public boolean isAdminPlataforma() {
         return ResolucaoPapeis.isAdminPlataforma(grupos());
     }

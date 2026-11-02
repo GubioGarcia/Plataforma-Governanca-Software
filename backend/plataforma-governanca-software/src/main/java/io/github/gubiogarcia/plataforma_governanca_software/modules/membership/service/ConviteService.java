@@ -138,6 +138,7 @@ public class ConviteService {
     /** Aceite: inclui o usuário nos subgrupos do papel convidado e revoga seus tokens. */
     @Transactional
     public ConviteResponseDTO aceitar(UUID conviteId) {
+        autorizacao.exigirNaoAdminPlataforma();
         Usuario usuario = usuarioAtual();
         Convite convite = conviteDoUsuario(conviteId, usuario);
 

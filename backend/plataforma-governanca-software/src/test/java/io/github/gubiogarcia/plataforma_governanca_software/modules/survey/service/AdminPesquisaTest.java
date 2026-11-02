@@ -77,7 +77,7 @@ class AdminPesquisaTest {
     /** Participante que responde o "antes" e, se depois != null, o "depois". */
     private Usuario participante(List<Integer> antes, List<Integer> depois, String abertaAntes) {
         Usuario u = cenario.usuario("p." + UUID.randomUUID() + "@teste.com");
-        AutenticacaoTeste.comGrupos(u.getExternalIdentityId());
+        AutenticacaoTeste.comGrupos(u.getExternalIdentityId(), "/org-" + UUID.randomUUID() + "/_dono");
         pesquisaService.responderAntes(new RespostaAntesRequestDTO(true, antes, abertaAntes,
                 FuncaoParticipante.ANALISTA_REQUISITOS, TempoExperiencia.DE_11_A_15, List.of(Ferramenta.JIRA, Ferramenta.CONFLUENCE), null));
         if (depois != null) pesquisaService.responderDepois(new RespostaDepoisRequestDTO(depois, null));
@@ -118,14 +118,10 @@ class AdminPesquisaTest {
         participante(List.of(1, 2, 3, 4, 5), List.of(3, 2, 1, 4, 5), null);
         participante(List.of(2, 2, 3, 4, 5), List.of(4, 4, 3, 4, 5), null);
         participante(List.of(5, 2, 3, 4, 5), null, null);
-        Usuario recusou = cenario.usuario("r." + UUID.randomUUID() + "@teste.com");
-        AutenticacaoTeste.comGrupos(recusou.getExternalIdentityId());
-        pesquisaService.recusar();
 
         comoAdmin();
         var r = adminService.resumo();
         assertThat(r.participantes()).isEqualTo(3);
-        assertThat(r.recusas()).isEqualTo(1);
         assertThat(r.antesRespondidos()).isEqualTo(3);
         assertThat(r.depoisRespondidos()).isEqualTo(2);
         assertThat(r.paresCompletos()).isEqualTo(2);

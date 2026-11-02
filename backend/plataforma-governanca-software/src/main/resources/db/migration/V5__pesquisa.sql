@@ -25,12 +25,12 @@ VALUES (1, FALSE, 15, NOW());
 
 CREATE SEQUENCE pesquisa_codigo_seq START WITH 1 INCREMENT BY 1;
 
--- Uma por usuário. RECUSOU e RETIRADA ficam sem código e sem dados, só para o
--- "antes" não ser oferecido de novo.
+-- Uma por usuário. RETIRADA fica sem código e sem dados, só para o "antes" não
+-- ser oferecido de novo.
 CREATE TABLE pesquisa_participacao (
     id                 UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id         UUID         NOT NULL UNIQUE REFERENCES usuario(id),
-    situacao           VARCHAR(20)  NOT NULL CHECK (situacao IN ('PARTICIPANDO', 'RECUSOU', 'RETIRADA')),
+    situacao           VARCHAR(20)  NOT NULL CHECK (situacao IN ('PARTICIPANDO', 'RETIRADA')),
     codigo             VARCHAR(10)  UNIQUE,
     versao_instrumento VARCHAR(10)  NOT NULL,
     consentimento_em   TIMESTAMPTZ,

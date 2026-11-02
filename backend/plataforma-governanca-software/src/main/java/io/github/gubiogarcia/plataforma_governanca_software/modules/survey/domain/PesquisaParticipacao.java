@@ -11,8 +11,8 @@ import java.util.UUID;
 
 /**
  * Participação de um usuário na pesquisa (no máximo uma por usuário). O código
- * (P-001, ...) é a única identificação que sai do banco; recusa e retirada ficam
- * sem código e sem caracterização.
+ * (P-001, ...) é a única identificação que sai do banco; a retirada fica sem
+ * código e sem caracterização.
  */
 @Entity
 @Table(name = "pesquisa_participacao")

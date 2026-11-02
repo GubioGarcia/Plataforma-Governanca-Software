@@ -2,7 +2,6 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.survey.doma
 
 public enum SituacaoParticipacao {
     PARTICIPANDO("Participando"),
-    RECUSOU("Recusou"),
     RETIRADA("Retirada");
 
     private final String rotulo;

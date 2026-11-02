@@ -21,11 +21,10 @@ import TextField from '@mui/material/TextField';
 import Typography from '@mui/material/Typography';
 import useMediaQuery from '@mui/material/useMediaQuery';
 import { useTheme } from '@mui/material/styles';
-import ConfirmDialog from '../../components/common/ConfirmDialog';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { extractApiErrorMessage } from '../../utils/apiError';
 import EscalaConcordancia from './EscalaConcordancia';
-import { recusarPesquisa, responderAntes, responderDepois } from './pesquisaService';
+import { responderAntes, responderDepois } from './pesquisaService';
 import {
   TAMANHO_MAXIMO_ABERTA, TAMANHO_MAXIMO_FERRAMENTA_OUTRO,
   type EtapaPesquisa, type Instrumento, type SituacaoPesquisa,
@@ -36,10 +35,11 @@ interface Props {
   instrumento: Instrumento;
   nome: string;
   email: string;
-  /** Recebe a situação devolvida pelo backend depois de um envio ou da recusa. */
+  /** Recebe a situação devolvida pelo backend depois de um envio. */
   onAtualizar: (situacao: SituacaoPesquisa) => void;
   /** Envio recusado pelo backend por mudança de estado (409): recarregar a situação. */
   onConflito: () => void;
+  /** Fechar sem enviar: no "antes" adia para o próximo login ("Responder depois"). */
   onFechar: () => void;
 }
 
@@ -50,7 +50,8 @@ const PASSOS: Record<EtapaPesquisa, string[]> = {
 
 /**
  * Questionário do TCC. "Antes": não fecha clicando fora nem com Esc — as saídas são
- * concluir ou "Não quero participar". "Depois": pode ser fechado sem enviar.
+ * concluir ou "Responder depois" (volta no próximo login até ser respondido).
+ * "Depois": pode ser fechado sem enviar.
  * Os textos vêm do instrumento entregue pelo backend.
  */
 export default function ModalPesquisa({ etapa, instrumento, nome, email, onAtualizar, onConflito, onFechar }: Props) {
@@ -77,7 +78,6 @@ export default function ModalPesquisa({ etapa, instrumento, nome, email, onAtual
   const [ferramentaOutro, setFerramentaOutro] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [confirmarRecusa, setConfirmarRecusa] = useState(false);
 
   const concluido = passo === passos.length - 1;
   const passoPerguntas = 1;
@@ -120,22 +120,6 @@ export default function ModalPesquisa({ etapa, instrumento, nome, email, onAtual
       } else {
         setErro(mensagem);
       }
-    } finally {
-      setEnviando(false);
-    }
-  }
-
-  async function recusar() {
-    setConfirmarRecusa(false);
-    setEnviando(true);
-    try {
-      onAtualizar(await recusarPesquisa());
-      notify('Tudo bem! Você não será perguntado de novo.', 'info');
-      onFechar();
-    } catch (err) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      notify(extractApiErrorMessage(err, 'Não foi possível registrar a recusa. Tente novamente.'), 'error');
-      if (status === 409) onConflito();
     } finally {
       setEnviando(false);
     }
@@ -295,15 +279,9 @@ export default function ModalPesquisa({ etapa, instrumento, nome, email, onAtual
           <Button variant="contained" onClick={onFechar}>Fechar</Button>
         ) : (
           <>
-            {etapa === 'ANTES' ? (
-              <Button color="inherit" onClick={() => setConfirmarRecusa(true)} disabled={enviando} sx={{ mr: 'auto' }}>
-                Não quero participar
-              </Button>
-            ) : (
-              <Button color="inherit" onClick={onFechar} disabled={enviando} sx={{ mr: 'auto' }}>
-                Agora não
-              </Button>
-            )}
+            <Button color="inherit" onClick={onFechar} disabled={enviando} sx={{ mr: 'auto' }}>
+              {etapa === 'ANTES' ? 'Responder depois' : 'Agora não'}
+            </Button>
             {passo > 0 && (
               <Button onClick={() => irPara(passo - 1)} disabled={enviando}>Voltar</Button>
             )}
@@ -319,14 +297,6 @@ export default function ModalPesquisa({ etapa, instrumento, nome, email, onAtual
         )}
       </DialogActions>
 
-      <ConfirmDialog
-        open={confirmarRecusa}
-        title="Não participar da pesquisa?"
-        message="Tudo bem. A pesquisa não será mostrada de novo e você pode usar a plataforma normalmente."
-        confirmLabel="Não quero participar"
-        onConfirm={recusar}
-        onCancel={() => setConfirmarRecusa(false)}
-      />
     </Dialog>
   );
 }

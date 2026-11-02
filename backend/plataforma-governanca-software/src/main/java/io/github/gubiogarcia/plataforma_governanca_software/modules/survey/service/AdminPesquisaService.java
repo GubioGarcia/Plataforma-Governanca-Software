@@ -37,8 +37,8 @@ import static io.github.gubiogarcia.plataforma_governanca_software.shared.CsvUti
  * exporta o CSV anonimizado. Testes estatísticos (ex.: Wilcoxon) são feitos fora,
  * sobre o CSV.
  *
- * Fora do banco os participantes só aparecem pelo código; recusas e retiradas não
- * têm respostas e não entram no CSV. Abrir/encerrar, mudar o intervalo e exportar
+ * Fora do banco os participantes só aparecem pelo código; retiradas não têm
+ * respostas e não entram no CSV. Abrir/encerrar, mudar o intervalo e exportar
  * vão para a auditoria administrativa.
  */
 @Slf4j
@@ -88,7 +88,6 @@ public class AdminPesquisaService {
         return new ResumoPesquisaDTO(
                 config.getColetaAberta(), config.getAbertaEm(), config.getEncerradaEm(), config.getIntervaloMinimoMin(),
                 participando.size(),
-                todas.stream().filter(p -> p.getSituacao() == SituacaoParticipacao.RECUSOU).count(),
                 todas.stream().filter(p -> p.getSituacao() == SituacaoParticipacao.RETIRADA).count(),
                 antes.size(), depois.size(), pares.size(),
                 itens,

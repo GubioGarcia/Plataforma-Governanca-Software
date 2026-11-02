@@ -7,6 +7,5 @@ public enum EstadoPesquisa {
     AGUARDANDO_DEPOIS,
     PENDENTE_DEPOIS,
     CONCLUIDA,
-    RECUSOU,
     RETIRADA
 }

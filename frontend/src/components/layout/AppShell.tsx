@@ -1,5 +1,5 @@
 import { Suspense, useState, type ReactNode } from 'react';
-import { Outlet, useNavigate } from 'react-router-dom';
+import { Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import CarregandoPagina from '../common/CarregandoPagina';
 import AppBar from '@mui/material/AppBar';
 import Badge from '@mui/material/Badge';
@@ -19,7 +19,6 @@ import Typography from '@mui/material/Typography';
 import Divider from '@mui/material/Divider';
 import ListItemIcon from '@mui/material/ListItemIcon';
 import LogoutIcon from '@mui/icons-material/Logout';
-import AdminPanelSettingsOutlinedIcon from '@mui/icons-material/AdminPanelSettingsOutlined';
 import PersonIcon from '@mui/icons-material/Person';
 import HubIcon from '@mui/icons-material/Hub';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -48,6 +47,7 @@ export default function AppShell() {
 
 function Shell() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
   const { user, logout } = useAuth();
   const { isGestor, projetoAtual, organizacaoAtual, adminPlataforma } = usePermissions();
 
@@ -68,6 +68,12 @@ function Shell() {
     setNotifAnchor(null);
     navigate(caminho);
   }
+
+  // A conta de admin é exclusiva da área administrativa: as telas comuns (organizações,
+  // projetos, perfil comum) levam para ela. A logo e o perfil também ficam dentro dela.
+  const inicio = adminPlataforma ? '/admin' : '/organizations';
+  // (/users é o endereço antigo de /admin/usuarios e já redireciona para lá)
+  if (adminPlataforma && !pathname.startsWith('/admin') && pathname !== '/users') return <Navigate to="/admin" replace />;
 
   const initials = user?.nome
     .split(' ')
@@ -102,7 +108,7 @@ function Shell() {
           {/* Logo */}
           <Box
             sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', mr: { xs: 1, sm: 4 } }}
-            onClick={() => navigate('/organizations')}
+            onClick={() => navigate(inicio)}
           >
             <Box
               sx={{
@@ -145,14 +151,16 @@ function Shell() {
             </IconButton>
           </Tooltip>
 
-          {/* Pendências */}
-          <Tooltip title="Pendências">
-            <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); pendencias.recarregar(); }} sx={{ mr: 1 }}>
-              <Badge badgeContent={pendencias.total} color="warning" max={99}>
-                <NotificationsIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          {/* Pendências (convites e solicitações): não existem para a conta de admin */}
+          {!adminPlataforma && (
+            <Tooltip title="Pendências">
+              <IconButton size="small" onClick={(e) => { setNotifAnchor(e.currentTarget); pendencias.recarregar(); }} sx={{ mr: 1 }}>
+                <Badge badgeContent={pendencias.total} color="warning" max={99}>
+                  <NotificationsIcon sx={{ fontSize: 22, color: 'text.secondary' }} />
+                </Badge>
+              </IconButton>
+            </Tooltip>
+          )}
 
           {/* Papel real do usuário no contexto atual (projeto, senão organização) */}
           {papelLabel && (
@@ -206,17 +214,11 @@ function Shell() {
             </Box>
             <Divider />
 
-            <MenuItem onClick={() => { setAnchorEl(null); navigate('/profile'); }} sx={{ fontSize: '13px', mt: 1 }}>
+            <MenuItem onClick={() => { setAnchorEl(null); navigate(adminPlataforma ? '/admin/perfil' : '/profile'); }} sx={{ fontSize: '13px', mt: 1 }}>
               <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
               Meu Perfil
             </MenuItem>
             <ItemMenuPesquisa onFecharMenu={() => setAnchorEl(null)} />
-            {adminPlataforma && (
-              <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin'); }} sx={{ fontSize: '13px' }}>
-                <ListItemIcon><AdminPanelSettingsOutlinedIcon fontSize="small" /></ListItemIcon>
-                Área administrativa
-              </MenuItem>
-            )}
             <MenuItem
               onClick={() => { setAnchorEl(null); logout(); }}
               sx={{ fontSize: '13px', color: 'error.main' }}

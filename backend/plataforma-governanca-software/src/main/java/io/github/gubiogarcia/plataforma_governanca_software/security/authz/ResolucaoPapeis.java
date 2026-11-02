@@ -56,6 +56,12 @@ public final class ResolucaoPapeis {
         return grupos.contains(ADMIN_PLATAFORMA);
     }
 
+    /** Dono ou Gestor de alguma organização ou de algum projeto. */
+    public static boolean isDonoOuGestor(Set<String> grupos) {
+        return grupos.stream().anyMatch(g -> g.startsWith("/org-")
+                && (g.endsWith("/" + DONO) || g.endsWith("/" + GESTORES)));
+    }
+
     /**
      * Organizações com as quais o usuário tem qualquer vínculo: papel na organização
      * ou participação direta em algum projeto dela (ex.: stakeholder convidado só ao projeto).

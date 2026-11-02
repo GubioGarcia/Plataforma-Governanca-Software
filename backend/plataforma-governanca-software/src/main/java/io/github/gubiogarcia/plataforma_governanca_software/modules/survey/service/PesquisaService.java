@@ -2,7 +2,6 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.survey.serv
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
-import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.repository.InteracaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.domain.*;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.EstadoPesquisa;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.RespostaAntesRequestDTO;
@@ -30,16 +29,18 @@ import java.util.stream.Collectors;
 
 /**
  * Pesquisa do TCC do ponto de vista do participante: situação, etapa "antes"
- * (com consentimento e caracterização), etapa "depois", recusa e retirada.
+ * (com consentimento e caracterização), etapa "depois" e retirada.
  *
  * Regras:
- *  - o Admin da Plataforma não participa (situação NAO_ELEGIVEL; 403 nos envios);
- *  - o "antes" só vale antes do uso: quem já tem alguma interação registrada não
- *    é mais elegível, porque a resposta já estaria influenciada pela plataforma;
- *  - o "depois" exige o "antes", o intervalo mínimo cumprido e a coleta aberta;
+ *  - o público é quem é Dono ou Gestor de alguma organização ou projeto; o Admin
+ *    da Plataforma não participa (situação NAO_ELEGIVEL; 403 nos envios);
+ *  - o "antes" é oferecido a cada login até ser respondido (o "Responder depois"
+ *    do frontend só adia, não grava nada);
+ *  - o "depois" exige o "antes", o intervalo mínimo cumprido e a coleta aberta, e
+ *    continua liberado mesmo que a pessoa tenha perdido o papel (não perde o par);
  *  - cada etapa é respondida uma vez (UNIQUE no banco → 409, cobre duplo clique);
- *  - recusa e retirada deixam a linha sem código nem dados, para não perguntar de
- *    novo; a retirada apaga as respostas e vale mesmo com a coleta encerrada.
+ *  - a retirada apaga as respostas, deixa a linha sem código nem dados para não
+ *    perguntar de novo e vale mesmo com a coleta encerrada.
  *
  * As respostas não vão para interacao nem para auditoria, e os logs registram só
  * o id da participação e a etapa, nunca o conteúdo.
@@ -51,7 +52,6 @@ public class PesquisaService {
 
     private final AutorizacaoService autorizacao;
     private final UsuarioRepository usuarioRepository;
-    private final InteracaoRepository interacaoRepository;
     private final PesquisaConfiguracaoRepository configuracaoRepository;
     private final PesquisaParticipacaoRepository participacaoRepository;
     private final PesquisaRespostaRepository respostaRepository;
@@ -65,7 +65,7 @@ public class PesquisaService {
         Usuario usuario = usuarioAtual();
         Optional<PesquisaParticipacao> participacao = participacaoRepository.findByUsuarioId(usuario.getId());
         if (participacao.isEmpty()) {
-            boolean elegivel = config.getColetaAberta() && !interacaoRepository.existsByUsuarioId(usuario.getId());
+            boolean elegivel = config.getColetaAberta() && autorizacao.isDonoOuGestor();
             return montar(elegivel ? EstadoPesquisa.PENDENTE_ANTES : EstadoPesquisa.NAO_ELEGIVEL, null, Map.of(), config);
         }
         PesquisaParticipacao p = participacao.get();
@@ -76,6 +76,9 @@ public class PesquisaService {
     @Transactional
     public SituacaoPesquisaDTO responderAntes(RespostaAntesRequestDTO dto) {
         Usuario usuario = participanteAtual();
+        if (!autorizacao.isDonoOuGestor()) {
+            throw new AcessoNegadoException("A pesquisa é respondida por donos e gestores de organizações ou projetos.");
+        }
         exigirColetaAberta();
         if (!Boolean.TRUE.equals(dto.consentimento())) {
             throw new RespostaPesquisaInvalidaException("É preciso concordar com o termo para participar.");
@@ -96,9 +99,6 @@ public class PesquisaService {
 
         if (participacaoRepository.findByUsuarioId(usuario.getId()).isPresent()) {
             throw new PesquisaConflitoException("Você já respondeu a esta etapa da pesquisa.");
-        }
-        if (interacaoRepository.existsByUsuarioId(usuario.getId())) {
-            throw new PesquisaConflitoException("A primeira etapa só pode ser respondida antes de usar a plataforma.");
         }
 
         Instant agora = Instant.now();
@@ -157,30 +157,6 @@ public class PesquisaService {
         return situacao();
     }
 
-    @Transactional
-    public SituacaoPesquisaDTO recusar() {
-        Usuario usuario = participanteAtual();
-        exigirColetaAberta();
-        if (participacaoRepository.findByUsuarioId(usuario.getId()).isPresent()) {
-            throw new PesquisaConflitoException("Você já respondeu ao convite da pesquisa.");
-        }
-        Instant agora = Instant.now();
-        PesquisaParticipacao recusa = PesquisaParticipacao.builder()
-                .usuario(usuario)
-                .situacao(SituacaoParticipacao.RECUSOU)
-                .versaoInstrumento(InstrumentoPesquisa.vigente().versao())
-                .criadoEm(agora)
-                .atualizadoEm(agora)
-                .build();
-        try {
-            participacaoRepository.saveAndFlush(recusa);
-        } catch (DataIntegrityViolationException e) {
-            throw new PesquisaConflitoException("Você já respondeu ao convite da pesquisa.");
-        }
-        log.info("Pesquisa: participação {} recusada", recusa.getId());
-        return situacao();
-    }
-
     /** Apaga as respostas e a caracterização; vale mesmo com a coleta encerrada. */
     @Transactional
     public SituacaoPesquisaDTO retirar() {
@@ -207,7 +183,6 @@ public class PesquisaService {
     private EstadoPesquisa estado(PesquisaParticipacao p, Map<EtapaPesquisa, PesquisaResposta> respostas,
                                   PesquisaConfiguracao config) {
         return switch (p.getSituacao()) {
-            case RECUSOU -> EstadoPesquisa.RECUSOU;
             case RETIRADA -> EstadoPesquisa.RETIRADA;
             case PARTICIPANDO -> {
                 PesquisaResposta antes = respostas.get(EtapaPesquisa.ANTES);

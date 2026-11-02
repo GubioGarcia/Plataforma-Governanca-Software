@@ -1,11 +1,12 @@
 import { expect, test, type Page } from '@playwright/test';
-import { cadastrar, keycloak, psql, sufixo, tornarAdminDaPlataforma, type Pessoa } from './support/api';
+import { cadastrar, keycloak, psql, Sessao, sufixo, tornarAdminDaPlataforma, type Pessoa } from './support/api';
 import { entrar, esperarAviso } from './support/ui';
 
 /**
- * Pesquisa do TCC: o admin abre a coleta; o participante vê o modal "antes" no
- * primeiro login, depois o botão "Nos ajude a melhorar"; o admin vê o par completo
- * e exporta o CSV; a retirada no Meu Perfil apaga as respostas; a recusa não volta.
+ * Pesquisa do TCC: o admin abre a coleta; o Dono vê o modal "antes" a cada login
+ * até responder, depois o botão "Nos ajude a melhorar"; o admin vê o par completo e
+ * exporta o CSV; a retirada no Meu Perfil apaga as respostas; quem não é Dono nem
+ * Gestor não vê o questionário.
  *
  * Abre a coleta no banco compartilhado: roda no projeto "pesquisa" do Playwright,
  * depois dos demais arquivos, para o modal não aparecer para as contas deles.
@@ -15,17 +16,27 @@ test.describe('Pesquisa do TCC', () => {
 
   let tag: string;
   let participante: Pessoa;
-  let recusante: Pessoa;
+  let adiador: Pessoa;
   let celular: Pessoa;
+  let semPapel: Pessoa;
   let admin: Pessoa;
+  /** Organizações criadas para tornar as pessoas Donas (o público da pesquisa). */
+  const organizacoes: string[] = [];
+
+  async function tornarDono(p: Pessoa) {
+    const org = await new Sessao(p).ok<{ id: string }>('POST', '/organizacao',
+      { nome: `Org Pesquisa ${p.apelido} ${tag}`, descricao: 'Cenário da pesquisa', plano: 'FREE' });
+    organizacoes.push(org.id);
+  }
   /** Pares completos já existentes no banco antes deste arquivo. */
   let paresAntes: number;
 
   test.beforeAll(async () => {
     tag = sufixo();
-    [participante, recusante, celular, admin] = await Promise.all(
-      ['participante', 'recusante', 'celular', 'admin'].map((a) => cadastrar(a, tag)));
+    [participante, adiador, celular, semPapel, admin] = await Promise.all(
+      ['participante', 'adiador', 'celular', 'sempapel', 'admin'].map((a) => cadastrar(a, tag)));
     await tornarAdminDaPlataforma(admin);
+    for (const p of [participante, adiador, celular]) await tornarDono(p);
     psql('update pesquisa_configuracao set coleta_aberta = false, intervalo_minimo_min = 15');
     paresAntes = Number(psql(`select count(*) from pesquisa_participacao p where p.situacao = 'PARTICIPANDO'
       and (select count(*) from pesquisa_resposta r where r.participacao_id = p.id) = 2`));
@@ -33,7 +44,12 @@ test.describe('Pesquisa do TCC', () => {
 
   test.afterAll(async () => {
     psql('update pesquisa_configuracao set coleta_aberta = false, intervalo_minimo_min = 15');
-    for (const p of [participante, recusante, celular, admin].filter(Boolean)) await keycloak('DELETE', `/users/${p.kc}`);
+    for (const id of organizacoes) {
+      const g = await keycloak<{ id: string }>('GET', `/group-by-path/org-${id}`);
+      if (g.status === 200) await keycloak('DELETE', `/groups/${g.corpo.id}`);
+      psql(`delete from auditoria where organizacao_id = '${id}'; delete from organizacao where id = '${id}'`);
+    }
+    for (const p of [participante, adiador, celular, semPapel, admin].filter(Boolean)) await keycloak('DELETE', `/users/${p.kc}`);
     const contas = `(select id from usuario where email like '%.ui.${tag}@exemplo.com')`;
     psql(`delete from pesquisa_participacao where usuario_id in ${contas}`);
     psql(`update pesquisa_configuracao set atualizado_por = null where atualizado_por in ${contas}`);
@@ -149,17 +165,28 @@ test.describe('Pesquisa do TCC', () => {
     await expect(leitura(page, 'Pares completos')).toHaveText(String(paresAntes));
   });
 
-  test('recusa: "Não quero participar" fecha o modal e ele não volta', async ({ page }) => {
-    await entrar(page, recusante);
+  test('"Responder depois" fecha o modal só nesta sessão: o perfil oferece responder e o próximo login pergunta de novo', async ({ page }) => {
+    await entrar(page, adiador);
     const modal = page.getByRole('dialog', { name: 'Pesquisa do TCC — Discovery Platform' });
-    await modal.getByRole('button', { name: 'Não quero participar' }).click();
-    await page.getByRole('dialog', { name: 'Não participar da pesquisa?' })
-      .getByRole('button', { name: 'Não quero participar' }).click();
+    await modal.getByRole('button', { name: 'Responder depois' }).click();
     await expect(modal).toBeHidden();
 
+    await page.getByRole('button', { name: adiador.nome }).click();
+    await page.getByRole('menuitem', { name: 'Meu Perfil' }).click();
+    await expect(page.getByText('Pendente', { exact: true })).toBeVisible();
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await page.getByRole('button', { name: 'Responder agora' }).click();
+    await expect(modal).toBeVisible();
+    await modal.getByRole('button', { name: 'Responder depois' }).click();
+
+    await entrar(page, adiador);
+    await expect(modal).toBeVisible();
+  });
+
+  test('quem não é Dono nem Gestor não vê o questionário', async ({ page }) => {
     const situacao = page.waitForResponse((r) => r.url().endsWith('/api/pesquisa/situacao'));
-    await page.reload();
-    expect((await (await situacao).json()).estado).toBe('RECUSOU');
+    await entrar(page, semPapel);
+    expect((await (await situacao).json()).estado).toBe('NAO_ELEGIVEL');
     await expect(page.getByRole('dialog')).toHaveCount(0);
   });
 

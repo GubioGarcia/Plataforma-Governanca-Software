@@ -18,11 +18,6 @@ export async function responderDepois(dados: RespostaDepois): Promise<SituacaoPe
   return res.data;
 }
 
-export async function recusarPesquisa(): Promise<SituacaoPesquisa> {
-  const res = await api.post<SituacaoPesquisa>('/pesquisa/recusa');
-  return res.data;
-}
-
 export async function retirarParticipacao(): Promise<SituacaoPesquisa> {
   const res = await api.delete<SituacaoPesquisa>('/pesquisa/minha-participacao');
   return res.data;

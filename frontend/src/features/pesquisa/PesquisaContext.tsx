@@ -1,4 +1,4 @@
-import { createContext, useCallback, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '../../context/useAuth';
 import ModalPesquisa from './ModalPesquisa';
 import { obterSituacaoPesquisa } from './pesquisaService';
@@ -10,6 +10,7 @@ export interface PesquisaContextValue {
   /** Aplica a situação devolvida por um envio. */
   atualizar: (situacao: SituacaoPesquisa) => void;
   recarregar: () => void;
+  abrirAntes: () => void;
   abrirDepois: () => void;
 }
 
@@ -22,15 +23,21 @@ const ATRASO_MAXIMO = 2 ** 31 - 1;
 /**
  * Situação do usuário na pesquisa do TCC, compartilhada pelo cabeçalho (botão "Nos
  * ajude a melhorar") e pelo Meu Perfil. Abre o questionário "antes" sozinho quando o
- * usuário está PENDENTE_ANTES e recarrega quando o "depois" fica disponível.
+ * usuário está PENDENTE_ANTES (Dono ou Gestor que ainda não respondeu) — a cada
+ * login, até responder: o "Responder depois" só vale nesta sessão. Recarrega quando
+ * os papéis mudam (ex.: criou uma organização) e quando o "depois" fica disponível.
  */
 export default function PesquisaProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const userId = user?.id;
   const admin = !!user?.adminPlataforma;
+  // Muda quando a pessoa vira (ou deixa de ser) Dono/Gestor em algum lugar
+  const papeis = JSON.stringify(user?.organizacoes.map((o) => [o.id, o.papel, o.projetos.map((p) => [p.id, p.papeis])]) ?? []);
   const [situacao, setSituacao] = useState<SituacaoPesquisa | null>(null);
   const [etapaAberta, setEtapaAberta] = useState<EtapaPesquisa | null>(null);
   const [versao, setVersao] = useState(0);
+  // "Responder depois": não reabre o "antes" até o próximo login (o provider é montado de novo)
+  const adiado = useRef(false);
 
   const recarregar = useCallback(() => setVersao((v) => v + 1), []);
 
@@ -41,11 +48,11 @@ export default function PesquisaProvider({ children }: { children: ReactNode }) 
       .then((s) => {
         if (!ativo) return;
         setSituacao(s);
-        if (s.estado === 'PENDENTE_ANTES') setEtapaAberta('ANTES');
+        if (s.estado === 'PENDENTE_ANTES' && !adiado.current) setEtapaAberta('ANTES');
       })
       .catch(() => { /* a pesquisa é opcional: sem situação, nada aparece */ });
     return () => { ativo = false; };
-  }, [userId, admin, versao]);
+  }, [userId, admin, papeis, versao]);
 
   // "Depois" liberado pelo tempo: recarrega a situação no horário informado pelo backend
   useEffect(() => {
@@ -55,11 +62,17 @@ export default function PesquisaProvider({ children }: { children: ReactNode }) 
     return () => clearTimeout(t);
   }, [situacao, recarregar]);
 
+  const abrirAntes = useCallback(() => setEtapaAberta('ANTES'), []);
   const abrirDepois = useCallback(() => setEtapaAberta('DEPOIS'), []);
+
+  function fechar() {
+    if (etapaAberta === 'ANTES' && situacao?.estado === 'PENDENTE_ANTES') adiado.current = true;
+    setEtapaAberta(null);
+  }
   const visivel = admin ? null : situacao;
 
   return (
-    <PesquisaContext.Provider value={{ situacao: visivel, atualizar: setSituacao, recarregar, abrirDepois }}>
+    <PesquisaContext.Provider value={{ situacao: visivel, atualizar: setSituacao, recarregar, abrirAntes, abrirDepois }}>
       {children}
       {visivel && etapaAberta && user && (
         <ModalPesquisa
@@ -70,7 +83,7 @@ export default function PesquisaProvider({ children }: { children: ReactNode }) 
           email={user.email}
           onAtualizar={setSituacao}
           onConflito={() => { setEtapaAberta(null); recarregar(); }}
-          onFechar={() => setEtapaAberta(null)}
+          onFechar={fechar}
         />
       )}
     </PesquisaContext.Provider>

@@ -10,6 +10,8 @@ criar_admin.sh, ou no ambiente local:
   3. a conta entra no grupo /_admin do Keycloak.
 
 Idempotente: se a conta já existe, não pede senha e só garante o grupo /_admin.
+A conta de admin é exclusiva: uma conta que já participa de organização ou projeto
+é recusada (o backend também impede o admin de criar organização ou aceitar convite).
 É o ÚNICO caminho para alguém virar Admin da Plataforma: nenhuma tela faz isso.
 """
 import argparse, re, sys
@@ -30,6 +32,12 @@ def main():
     kc_id = usuario_keycloak(t, email)
     if kc_id:
         passo(f"Conta {email} já existe: só confere o grupo /_admin")
+        # A conta de admin é exclusiva da área administrativa: não pode ser também usuário comum
+        _, grupos, _ = chamar("GET", f"{A}/users/{kc_id}/groups?briefRepresentation=true", token=t)
+        comuns = [g["path"] for g in grupos if g["path"].startswith("/org-")]
+        if comuns:
+            sys.exit(f"A conta {email} participa de {len(comuns)} grupo(s) de organização/projeto. "
+                     "O Admin da Plataforma precisa de uma conta exclusiva: use outro e-mail.")
     else:
         passo(f"Criando a conta {email}")
         senha = ler_senha("Senha do Admin da Plataforma")

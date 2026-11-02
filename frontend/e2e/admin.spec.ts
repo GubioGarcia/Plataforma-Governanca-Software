@@ -46,8 +46,6 @@ test.describe('Área administrativa', () => {
 
   test('admin navega pelas telas da área administrativa', async ({ page }) => {
     await entrar(page, admin);
-    await page.getByRole('button', { name: admin.nome }).click();
-    await page.getByRole('menuitem', { name: 'Área administrativa' }).click();
     await expect(page).toHaveURL(/\/admin$/);
     await expect(page.getByText('Usuários ativos')).toBeVisible();
 
@@ -65,6 +63,25 @@ test.describe('Área administrativa', () => {
 
     await menu.getByRole('link', { name: 'Pesquisas' }).click();
     await expect(page.getByRole('heading', { name: 'Pesquisa do TCC' })).toBeVisible();
+  });
+
+  test('a conta de admin fica na área administrativa: telas comuns, logo e perfil levam para ela', async ({ page }) => {
+    await entrar(page, admin);
+    await expect(page).toHaveURL(/\/admin$/);
+    await page.goto('/organizations');
+    await expect(page).toHaveURL(/\/admin$/);
+    await page.goto('/profile');
+    await expect(page).toHaveURL(/\/admin$/);
+    await expect(page.getByRole('button', { name: 'Pendências' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: admin.nome }).click();
+    await page.getByRole('menuitem', { name: 'Meu Perfil' }).click();
+    await expect(page).toHaveURL(/\/admin\/perfil$/);
+    await expect(page.getByRole('heading', { name: 'Meu Perfil' })).toBeVisible();
+    await expect(page.getByText('Onde você atua')).toHaveCount(0);
+
+    await page.getByText('Discovery', { exact: true }).click();
+    await expect(page).toHaveURL(/\/admin$/);
   });
 
   test('status de sistema: APROVADO não pode ser renomeado nem excluído', async ({ page }) => {

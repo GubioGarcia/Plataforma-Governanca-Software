@@ -10,13 +10,12 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * Pesquisa do TCC (participante). Todos os endpoints exigem usuário autenticado e
- * ativo; o Admin da Plataforma recebe 403 nos envios. Cada envio devolve a
- * situação atualizada.
+ * ativo; o Admin da Plataforma recebe 403 nos envios e só Dono ou Gestor responde
+ * o "antes". Cada envio devolve a situação atualizada.
  *
  * GET    /api/pesquisa/situacao             — estado do usuário + instrumento vigente
  * POST   /api/pesquisa/antes                — consentimento, 5 itens, aberta e caracterização
  * POST   /api/pesquisa/depois               — 5 itens e aberta
- * POST   /api/pesquisa/recusa               — "Não quero participar"
  * DELETE /api/pesquisa/minha-participacao   — retirar a participação (apaga as respostas)
  */
 @RestController
@@ -39,11 +38,6 @@ public class PesquisaController {
     @PostMapping("/depois")
     public ResponseEntity<SituacaoPesquisaDTO> depois(@RequestBody RespostaDepoisRequestDTO dto) {
         return ResponseEntity.ok(pesquisaService.responderDepois(dto));
-    }
-
-    @PostMapping("/recusa")
-    public ResponseEntity<SituacaoPesquisaDTO> recusa() {
-        return ResponseEntity.ok(pesquisaService.recusar());
     }
 
     @DeleteMapping("/minha-participacao")
