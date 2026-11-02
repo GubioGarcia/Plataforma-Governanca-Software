@@ -69,6 +69,10 @@ test.describe('Sessão', () => {
     await expect(page).toHaveURL(/^http:\/\/[^/]+\/$/);
     await expect(page.getByRole('heading', { level: 1, name: /Gestão das fases iniciais/ })).toBeVisible();
 
+    // Depois de sair, os links da landing para a área logada pedem login (sem recarregar a página)
+    await page.getByRole('link', { name: 'Área administrativa' }).click();
+    await expect(page).toHaveURL(/\/login\?next=%2Fadmin$/);
+
     // Depois do logout o F5 não restaura nada
     await page.goto('/organizations');
     await expect(page).toHaveURL(/\/login\?next=/);

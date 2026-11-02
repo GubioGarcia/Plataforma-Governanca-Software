@@ -16,8 +16,13 @@ export interface AuthContextValue {
   carregando: boolean;
   login: (email: string, senha: string) => Promise<void>;
   logout: () => Promise<void>;
-  /** true depois de um logout pedido pelo usuário (as rotas protegidas levam à landing, sem ?next=). */
+  /**
+   * true logo depois de um logout pedido pelo usuário: a rota protegida em que ele
+   * estava leva à landing, sem ?next=. Vale uma vez só (ver confirmarSaida).
+   */
   saiu: boolean;
+  /** Consome a marca de saída quando a landing aparece: o próximo acesso a uma rota protegida pede login. */
+  confirmarSaida: () => void;
   /** Recarrega papéis/permissões (ex.: depois de criar uma organização ou projeto). */
   recarregarPermissoes: () => Promise<void>;
 }
@@ -88,6 +93,8 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
     setSaiu(false);
   }, []);
 
+  const confirmarSaida = useCallback(() => setSaiu(false), []);
+
   const logout = useCallback(async () => {
     try {
       await logoutSession();
@@ -99,7 +106,7 @@ export default function AuthProvider({ children }: { children: React.ReactNode }
 
   return (
     <AuthContext.Provider
-      value={{ user, isAuthenticated: !!user, carregando, login, logout, saiu, recarregarPermissoes }}
+      value={{ user, isAuthenticated: !!user, carregando, login, logout, saiu, confirmarSaida, recarregarPermissoes }}
     >
       {children}
     </AuthContext.Provider>
