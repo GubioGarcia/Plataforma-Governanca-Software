@@ -15,7 +15,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactNode
     );
   }
 
-  // Saiu pelo menu: volta para a landing
+  // Saiu pelo menu: volta para a landing (que consome a marca — ver RotaPublica)
   if (!isAuthenticated && saiu) {
     return <Navigate to="/" replace />;
   }
