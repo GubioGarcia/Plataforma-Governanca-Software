@@ -141,10 +141,22 @@ test.describe('Pesquisa do TCC', () => {
     await page.getByRole('button', { name: 'Exportar CSV' }).click();
     const caminho = await (await download).path();
     const csv = (await import('node:fs')).readFileSync(caminho, 'utf-8');
-    expect(csv).toContain('codigo;versao;funcao');
+    expect(csv).toContain('codigo;versao;funcao;tempo_experiencia;usou_plataforma_antes;');
     expect(csv).toContain("'=HYPERLINK");
     expect(csv).not.toContain(participante.email);
     expect(csv).not.toContain(participante.nome);
+  });
+
+  test('admin: vê o cartão "\'Antes\' após uso" e o switch filtra as estatísticas', async ({ page }) => {
+    await abrirPainel(page);
+    await expect(page.getByText("'Antes' após uso", { exact: true })).toBeVisible();
+    const aviso = page.getByText(/Estatísticas sem os participantes com uso prévio \(\d+ excluídos\)/);
+    await expect(aviso).toHaveCount(0);
+
+    const filtrado = page.waitForResponse((r) => r.url().includes('/api/admin/pesquisa/resumo?excluirUsoPrevio=true'));
+    await page.getByLabel("Desconsiderar quem respondeu o 'antes' após usar a plataforma").check();
+    expect((await (await filtrado).json()).filtroUsoPrevioAplicado).toBe(true);
+    await expect(aviso).toBeVisible();
   });
 
   test('perfil: mostra o código e a retirada apaga as respostas', async ({ page }) => {

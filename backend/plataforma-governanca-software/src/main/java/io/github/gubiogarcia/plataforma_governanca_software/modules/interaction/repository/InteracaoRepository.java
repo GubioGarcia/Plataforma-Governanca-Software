@@ -19,6 +19,9 @@ public interface InteracaoRepository extends JpaRepository<Interacao, UUID> {
 
     long countByProjetoId(UUID projetoId);
 
+    /** Se o usuário já tem alguma interação, em qualquer projeto (marcação de uso prévio da pesquisa). */
+    boolean existsByUsuarioId(UUID usuarioId);
+
     long countByProjetoIdAndUsuarioId(UUID projetoId, UUID usuarioId);
 
     long countByProjetoIdAndUsuarioIdAndModulo(UUID projetoId, UUID usuarioId, ModuloInteracao modulo);

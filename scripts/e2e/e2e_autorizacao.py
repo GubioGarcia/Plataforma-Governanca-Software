@@ -458,6 +458,37 @@ try:
     s, csv = admin.req("GET", "/admin/pesquisa/exportacao")
     check("CSV sem e-mail e com fórmula neutralizada", s == 200 and isinstance(csv, str) and dono.email not in csv
           and "'=1+1 texto e2e" in csv)
+    # Marcação de uso prévio: calculada no servidor ao gravar o "antes"
+    gestor_uso, gestor_direto = Pessoa("gestoruso"), Pessoa("gestordireto")
+    pessoas += [gestor_uso, gestor_direto]
+    for p in (gestor_uso, gestor_direto):
+        s, c = dono.req("POST", f"/projeto/{pa}/convites", {"email": p.email, "papel": "GESTOR"})
+        check(f"{p.email.split('.')[0]} aceita convite de Gestor do projeto",
+              s == 201 and p.req("POST", f"/convites/{c['id']}/aceitar")[0] == 200)
+    s, _ = gestor_uso.req("POST", "/comentario", {"conteudo": "antes da pesquisa", "entidadeTipo": "REQUISITO",
+                                                  "entidadeId": req1["id"], "projetoId": pa})
+    check("Gestor comenta um requisito antes de responder", s == 201, f"HTTP {s}")
+    codigos = {}
+    for p in (gestor_uso, gestor_direto):
+        s, sit = p.req("POST", "/pesquisa/antes", {**resposta_antes, "usouPlataformaAntes": False})
+        codigos[p] = sit.get("codigo") if s == 200 else None
+        check(f"{p.email.split('.')[0]} responde o \"antes\"", s == 200 and codigos[p], f"HTTP {s} {detalhe(sit)}")
+    s, csv = admin.req("GET", "/admin/pesquisa/exportacao")
+    linhas_csv = [l.split(";") for l in (csv if isinstance(csv, str) else "").lstrip("﻿").splitlines()]
+    check("CSV tem a coluna usou_plataforma_antes depois de tempo_experiencia",
+          linhas_csv and linhas_csv[0][3:5] == ["tempo_experiencia", "usou_plataforma_antes"], str(linhas_csv[:1])[:200])
+    uso_csv = {l[0]: l[4] for l in linhas_csv[1:] if len(l) > 4}
+    check("Gestor que comentou antes → sim no CSV (o valor enviado pelo cliente é ignorado)",
+          uso_csv.get(codigos[gestor_uso]) == "sim", str(uso_csv)[:200])
+    check("Gestor que respondeu direto → nao no CSV", uso_csv.get(codigos[gestor_direto]) == "nao", str(uso_csv)[:200])
+    _, sem_filtro = admin.req("GET", "/admin/pesquisa/resumo")
+    s, com_filtro = admin.req("GET", "/admin/pesquisa/resumo?excluirUsoPrevio=true")
+    check("resumo com excluirUsoPrevio=true: filtro aplicado e n reduzido",
+          s == 200 and com_filtro["filtroUsoPrevioAplicado"] is True and sem_filtro["filtroUsoPrevioAplicado"] is False
+          and com_filtro["antesComUsoPrevio"] == sem_filtro["antesComUsoPrevio"] >= 1
+          and com_filtro["itens"][0]["antes"]["n"] < sem_filtro["itens"][0]["antes"]["n"],
+          f"{detalhe(com_filtro)}")
+
     s, sit = dono.req("DELETE", "/pesquisa/minha-participacao")
     check("Dono retira a participação → RETIRADA", s == 200 and sit["estado"] == "RETIRADA" and sit["codigo"] is None)
     check("painel desconta o par", admin.req("GET", "/admin/pesquisa/resumo")[1]["paresCompletos"] == pares_antes)

@@ -14,6 +14,7 @@ const SECOES: { titulo: string; paragrafos: string[] }[] = [
       'O conteúdo que você registra nos projetos: visão do produto, requisitos, comentários, solicitações, eventos, arquivos e modelagem de dados.',
       'O histórico das suas ações nos projetos (auditoria e interações), usado nos indicadores de participação.',
       'Se você aceitar participar, as respostas ao questionário da pesquisa e a caracterização que você informar nele (função, tempo de experiência e ferramentas que você usa).',
+      'Para a análise, registramos também se você já tinha usado a plataforma antes de responder a primeira etapa; esse dado segue as mesmas regras das respostas (associado só ao código e apagado se você retirar a participação).',
     ],
   },
   {

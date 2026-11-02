@@ -2,6 +2,7 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.survey.serv
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.repository.UsuarioRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.repository.InteracaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.domain.*;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.EstadoPesquisa;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.RespostaAntesRequestDTO;
@@ -39,6 +40,9 @@ import java.util.stream.Collectors;
  *  - o "depois" exige o "antes", o intervalo mínimo cumprido e a coleta aberta, e
  *    continua liberado mesmo que a pessoa tenha perdido o papel (não perde o par);
  *  - cada etapa é respondida uma vez (UNIQUE no banco → 409, cobre duplo clique);
+ *  - ao gravar o "antes", registra se o usuário já tinha interações na plataforma
+ *    (usou_plataforma_antes), para a análise separar respostas possivelmente
+ *    influenciadas pelo uso. O valor é calculado aqui; nenhum DTO de entrada o aceita;
  *  - a retirada apaga as respostas, deixa a linha sem código nem dados para não
  *    perguntar de novo e vale mesmo com a coleta encerrada.
  *
@@ -55,6 +59,7 @@ public class PesquisaService {
     private final PesquisaConfiguracaoRepository configuracaoRepository;
     private final PesquisaParticipacaoRepository participacaoRepository;
     private final PesquisaRespostaRepository respostaRepository;
+    private final InteracaoRepository interacaoRepository;
 
     @Transactional(readOnly = true)
     public SituacaoPesquisaDTO situacao() {
@@ -112,6 +117,7 @@ public class PesquisaService {
                 .tempoExperiencia(dto.tempoExperiencia())
                 .ferramentas(ferramentas)
                 .ferramentaOutro(ferramentas.contains(Ferramenta.OUTRA) ? ferramentaOutro : null)
+                .usouPlataformaAntes(interacaoRepository.existsByUsuarioId(usuario.getId()))
                 .criadoEm(agora)
                 .atualizadoEm(agora)
                 .build();
@@ -157,7 +163,7 @@ public class PesquisaService {
         return situacao();
     }
 
-    /** Apaga as respostas e a caracterização; vale mesmo com a coleta encerrada. */
+    /** Apaga as respostas, a caracterização e a marcação de uso prévio; vale mesmo com a coleta encerrada. */
     @Transactional
     public SituacaoPesquisaDTO retirar() {
         Usuario usuario = participanteAtual();
@@ -172,6 +178,7 @@ public class PesquisaService {
         participacao.setTempoExperiencia(null);
         participacao.getFerramentas().clear();
         participacao.setFerramentaOutro(null);
+        participacao.setUsouPlataformaAntes(null);
         participacao.setAtualizadoEm(Instant.now());
         participacaoRepository.saveAndFlush(participacao);
         log.info("Pesquisa: participação {} retirada", participacao.getId());

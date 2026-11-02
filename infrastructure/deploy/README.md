@@ -28,7 +28,7 @@ internet ──443/80──► nginx ──┬── /            → frontend (
 | `publicar.sh` | **Roda na sua máquina:** compila, monta o pacote, confere os e-mails, envia e sobe |
 | `subir.sh` | **Roda na VM:** segredos, realm, certificado e `docker compose up` |
 | `criar_admin.sh` | **Roda na VM:** cria a conta de Admin da Plataforma (senha digitada no terminal) |
-| `carregar_demo.sh` | **Roda na VM:** carrega o projeto de demonstração do TCC (aditivo, não apaga nada) |
+| `carregar_demo.sh` | **Roda na VM:** carrega o projeto de demonstração (aditivo, não apaga nada) |
 | `remover_demo.sh` | **Roda na VM:** remove só o projeto e as contas da demonstração |
 
 ---
@@ -50,7 +50,7 @@ As senhas do PostgreSQL e do admin do Keycloak, e os client secrets do Keycloak,
 Nenhuma senha de conta fica no repositório nem nos scripts:
 
 - **Admin da Plataforma:** conta própria, criada pelo `criar_admin.sh` com a senha digitada no terminal. É o único caminho para o grupo `/_admin`; nenhuma tela dá esse papel.
-- **Contas da demonstração:** só têm papéis na organização e no projeto da demo, nunca de Admin. A senha é digitada na carga (`carregar_demo.sh`) e repassada à banca **fora do repositório**.
+- **Contas da demonstração:** só têm papéis na organização e no projeto da demo, nunca de Admin. A senha é digitada na carga (`carregar_demo.sh`) e repassada **fora do repositório**.
 - As senhas usadas antes de nov/2026 estão no histórico do git. Por isso a demo foi recarregada com uma senha nova, e não só apagada do texto.
 
 As contas da demo usam **e-mails fictícios** (`@email.com`), os mesmos do ambiente local. O `publicar.sh` **aborta o envio** se encontrar, nos scripts da demo ou nos fontes do backend, algum e-mail que não seja `@email.com`. Por isso o e-mail do admin é só argumento do `criar_admin.sh`, nunca escrito em arquivo.
@@ -61,7 +61,7 @@ As contas da demo usam **e-mails fictícios** (`@email.com`), os mesmos do ambie
 - **Política de senha:** mínimo de 8 caracteres e diferente do e-mail.
 - **Limite de requisições (nginx, por IP):** login e cadastro a 20/min com rajada de 10; demais chamadas à API a 30/s com rajada de 60. O excesso recebe HTTP 429.
 - **Cabeçalhos:** HSTS, CSP (`script-src 'self'`, sem scripts de terceiros), `X-Frame-Options: DENY`, `Permissions-Policy`, `nosniff` e `Referrer-Policy`. As exceções da CSP estão comentadas no template.
-- **Swagger:** público até a banca (`SPRINGDOC_*_ENABLED=true` no `docker-compose.prod.yml`); trocar para `false` depois.
+- **Swagger:** habilitado em produção (`SPRINGDOC_*_ENABLED=true` no `docker-compose.prod.yml`); troque para `false` para deixá-lo fora do ar.
 - **Dados de referência de sistema:** os status usados pelas regras não podem ser renomeados nem excluídos (HTTP 409).
 
 ---
@@ -116,7 +116,7 @@ ssh -t -i ~/.ssh/oracle_tcc ubuntu@129.148.55.171 'bash ~/plataforma/criar_admin
 
 A senha é pedida duas vezes, sem eco (o `-t` dá o terminal para isso). Se a conta já existe, o script só confere o grupo `/_admin`.
 
-### Demonstração do TCC
+### Dados de demonstração
 
 ```bash
 # carrega (não apaga nada; pede a senha das contas — "{nome}" vira o primeiro nome)
@@ -127,6 +127,12 @@ ssh -i ~/.ssh/oracle_tcc ubuntu@129.148.55.171 'bash ~/plataforma/remover_demo.s
 ```
 
 Se a organização da demo ainda não tem grupo no Keycloak, a carga reinicia o backend uma vez (cerca de 2 minutos fora do ar).
+
+### Pesquisa de avaliação
+
+A coleta é aberta e encerrada pelo Admin da Plataforma em `/admin/pesquisas`, que também exporta o CSV anonimizado (participantes só pelo código). A coluna `usou_plataforma_antes` (logo depois de `tempo_experiencia`) diz se o participante já tinha interações na plataforma quando respondeu o "antes": `sim`, `nao` ou vazio. A marcação é calculada pelo servidor e apagada na retirada. No painel, o cartão "'Antes' após uso" mostra quantos estão nesse caso e o switch "Desconsiderar quem respondeu o 'antes' após usar a plataforma" tira essas participações das distribuições, medianas, comparação pareada e caracterização; o CSV traz sempre todos.
+
+A migration `V6__pesquisa_uso_previo.sql` só acrescenta a coluna (e a preenche para quem já respondeu o "antes"): a publicação normal aplica, sem `docker compose down -v`.
 
 ---
 

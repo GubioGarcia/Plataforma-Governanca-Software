@@ -2,11 +2,16 @@ package io.github.gubiogarcia.plataforma_governanca_software.modules.survey.serv
 
 import io.github.gubiogarcia.plataforma_governanca_software.modules.audit.service.AuditoriaService;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.identity.domain.Usuario;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.ModuloInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.domain.TipoInteracao;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.interaction.service.InteracaoService;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.project.domain.Projeto;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.domain.*;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.ConfiguracaoPesquisaRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.RespostaAntesRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.dto.RespostaDepoisRequestDTO;
 import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.repository.PesquisaConfiguracaoRepository;
+import io.github.gubiogarcia.plataforma_governanca_software.modules.survey.repository.PesquisaParticipacaoRepository;
 import io.github.gubiogarcia.plataforma_governanca_software.security.authz.AcessoNegadoException;
 import io.github.gubiogarcia.plataforma_governanca_software.support.AutenticacaoTeste;
 import io.github.gubiogarcia.plataforma_governanca_software.support.CenarioProjetoTeste;
@@ -25,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.*;
@@ -33,6 +40,7 @@ import static org.springframework.security.test.web.servlet.request.SecurityMock
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -53,6 +61,8 @@ class AdminPesquisaTest {
     @Autowired private AuditoriaService auditoriaService;
     @Autowired private CenarioProjetoTeste cenario;
     @Autowired private PesquisaConfiguracaoRepository configuracaoRepository;
+    @Autowired private PesquisaParticipacaoRepository participacaoRepository;
+    @Autowired private InteracaoService interacaoService;
     @Autowired private MockMvc mockMvc;
     @MockitoBean private JwtDecoder jwtDecoder;
 
@@ -76,7 +86,17 @@ class AdminPesquisaTest {
 
     /** Participante que responde o "antes" e, se depois != null, o "depois". */
     private Usuario participante(List<Integer> antes, List<Integer> depois, String abertaAntes) {
+        return participante(antes, depois, abertaAntes, false);
+    }
+
+    /** Com usouAntes, o participante comenta um requisito antes de responder o "antes". */
+    private Usuario participante(List<Integer> antes, List<Integer> depois, String abertaAntes, boolean usouAntes) {
         Usuario u = cenario.usuario("p." + UUID.randomUUID() + "@teste.com");
+        if (usouAntes) {
+            Projeto projeto = cenario.projeto("Projeto", cenario.organizacao("Org", u), u);
+            interacaoService.registrar(u, projeto, ModuloInteracao.COMENTARIO, TipoInteracao.COMENTARIO,
+                    UUID.randomUUID(), "Comentário");
+        }
         AutenticacaoTeste.comGrupos(u.getExternalIdentityId(), "/org-" + UUID.randomUUID() + "/_dono");
         pesquisaService.responderAntes(new RespostaAntesRequestDTO(true, antes, abertaAntes,
                 FuncaoParticipante.ANALISTA_REQUISITOS, TempoExperiencia.DE_11_A_15, List.of(Ferramenta.JIRA, Ferramenta.CONFLUENCE), null));
@@ -148,6 +168,45 @@ class AdminPesquisaTest {
     }
 
     @Test
+    void resumo_contaUsoPrevio_eFiltroExcluiMarcadosSoDasEstatisticas() {
+        participante(List.of(1, 1, 1, 1, 1), List.of(3, 3, 3, 3, 3), null, false);
+        participante(List.of(5, 5, 5, 5, 5), List.of(5, 5, 5, 5, 5), null, true);
+        participante(List.of(4, 4, 4, 4, 4), null, null, true);
+
+        comoAdmin();
+        var todos = adminService.resumo(false);
+        assertThat(todos.antesComUsoPrevio()).isEqualTo(2);
+        assertThat(todos.filtroUsoPrevioAplicado()).isFalse();
+        assertThat(todos.itens().get(0).antes().n()).isEqualTo(3);
+        assertThat(todos.itens().get(0).pareado().n()).isEqualTo(2);
+        assertThat(adminService.resumo().antesComUsoPrevio()).isEqualTo(2);
+
+        var filtrado = adminService.resumo(true);
+        assertThat(filtrado.filtroUsoPrevioAplicado()).isTrue();
+        assertThat(filtrado.antesComUsoPrevio()).isEqualTo(2);           // sempre sobre o total
+        assertThat(filtrado.antesRespondidos()).isEqualTo(3);
+        assertThat(filtrado.paresCompletos()).isEqualTo(2);
+        var item1 = filtrado.itens().get(0);
+        assertThat(item1.antes().n()).isEqualTo(1);
+        assertThat(item1.antes().distribuicao()).containsExactly(1, 0, 0, 0, 0);
+        assertThat(item1.depois().n()).isEqualTo(1);
+        assertThat(item1.pareado().n()).isEqualTo(1);
+        assertThat(item1.pareado().medianaDiferenca()).isEqualTo(2.0);
+        assertThat(filtrado.funcoes()).filteredOn(c -> c.valor().equals("ANALISTA_REQUISITOS")).singleElement()
+                .extracting(c -> c.quantidade()).isEqualTo(1L);
+    }
+
+    @Test
+    void api_resumoAceitaExcluirUsoPrevio() throws Exception {
+        var adminJwt = jwt().jwt(j -> j.subject(admin.getExternalIdentityId().toString()).claim("groups", List.of("/_admin")));
+        mockMvc.perform(get("/api/admin/pesquisa/resumo").with(adminJwt))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.filtroUsoPrevioAplicado").value(false));
+        mockMvc.perform(get("/api/admin/pesquisa/resumo").param("excluirUsoPrevio", "true").with(adminJwt))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.filtroUsoPrevioAplicado").value(true))
+                .andExpect(jsonPath("$.antesComUsoPrevio").isNumber());
+    }
+
+    @Test
     void mediana_comQuantidadeParEImpar_eSemValores() {
         assertThat(AdminPesquisaService.mediana(List.of(3, 1, 2))).isEqualTo(2.0);
         assertThat(AdminPesquisaService.mediana(List.of(4, 1, 2, 3))).isEqualTo(2.5);
@@ -208,9 +267,10 @@ class AdminPesquisaTest {
 
         assertThat(arquivo.linhas()).isEqualTo(1);
         assertThat(linhas).hasSize(2);
-        assertThat(linhas[0]).startsWith("codigo;versao;funcao;tempo_experiencia;ferramentas;ferramenta_outro;antes_em;antes_i1;")
+        assertThat(linhas[0]).startsWith("codigo;versao;funcao;tempo_experiencia;usou_plataforma_antes;ferramentas;"
+                        + "ferramenta_outro;antes_em;antes_i1;")
                 .endsWith(";depois_i5;depois_aberta");
-        assertThat(linhas[1]).startsWith("P-").contains(";v1;ANALISTA_REQUISITOS;DE_11_A_15;CONFLUENCE|JIRA;;")
+        assertThat(linhas[1]).startsWith("P-").contains(";v1;ANALISTA_REQUISITOS;DE_11_A_15;nao;CONFLUENCE|JIRA;;")
                 .contains(";1;2;3;4;5;\"'=HYPERLINK(\"\"http://x\"\")\";").endsWith(";5;4;3;2;1;");
         assertThat(csv).doesNotContain(u.getEmail()).doesNotContain(u.getNome()).doesNotContain("@");
 
@@ -220,5 +280,35 @@ class AdminPesquisaTest {
                     assertThat(a.campoAlterado()).isEqualTo("exportacaoCsv");
                     assertThat(a.valorNovo()).isEqualTo("1 linha(s)");
                 });
+    }
+
+    @Test
+    void exportar_trazUsoPrevioComoSimNaoOuVazio_eIgnoraOFiltroDoPainel() {
+        Usuario semUso = participante(List.of(1, 1, 1, 1, 1), null, null, false);
+        Usuario comUso = participante(List.of(2, 2, 2, 2, 2), null, null, true);
+        Usuario antigo = participante(List.of(3, 3, 3, 3, 3), null, null, false);
+        // participação sem a marcação calculada
+        var p = participacaoRepository.findByUsuarioId(antigo.getId()).orElseThrow();
+        p.setUsouPlataformaAntes(null);
+        participacaoRepository.saveAndFlush(p);
+
+        comoAdmin();
+        adminService.resumo(true);
+        String csv = new String(adminService.exportar().conteudo(), StandardCharsets.UTF_8);
+        String[] linhas = csv.substring(1).split("\r\n");
+        assertThat(linhas).hasSize(4);
+
+        Map<String, String> usoPorCodigo = new HashMap<>();
+        for (int i = 1; i < linhas.length; i++) {
+            String[] celulas = linhas[i].split(";", -1);
+            usoPorCodigo.put(celulas[0], celulas[4]);
+        }
+        assertThat(usoPorCodigo.get(codigo(semUso))).isEqualTo("nao");
+        assertThat(usoPorCodigo.get(codigo(comUso))).isEqualTo("sim");
+        assertThat(usoPorCodigo.get(codigo(antigo))).isEmpty();
+    }
+
+    private String codigo(Usuario u) {
+        return participacaoRepository.findByUsuarioId(u.getId()).orElseThrow().getCodigo();
     }
 }

@@ -68,8 +68,8 @@ export async function excluirPrioridade(id: string): Promise<void> {
 
 // ── Pesquisa do TCC ──────────────────────────────────────────────────────────
 
-export async function obterResumoPesquisa(): Promise<ResumoPesquisa> {
-  const res = await api.get<ResumoPesquisa>('/admin/pesquisa/resumo');
+export async function obterResumoPesquisa(excluirUsoPrevio = false): Promise<ResumoPesquisa> {
+  const res = await api.get<ResumoPesquisa>('/admin/pesquisa/resumo', { params: { excluirUsoPrevio } });
   return res.data;
 }
 

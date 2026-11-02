@@ -1,5 +1,6 @@
 import Box from '@mui/material/Box';
 import Card from '@mui/material/Card';
+import Tooltip from '@mui/material/Tooltip';
 import Typography from '@mui/material/Typography';
 import { ETIQUETA, FONTE_DADOS } from '../../theme/tokens';
 
@@ -10,6 +11,8 @@ export interface Leitura {
   detalhe?: string;
   /** Cor da marca que antecede o rótulo. */
   cor?: string;
+  /** Explicação mostrada ao passar o mouse sobre a leitura. */
+  dica?: string;
 }
 
 interface MetricBandProps {
@@ -32,54 +35,59 @@ export default function MetricBand({ leituras }: MetricBandProps) {
         mb: 3,
       }}
     >
-      {leituras.map((leitura, indice) => (
-        <Box
-          key={leitura.rotulo}
-          // Cor junto com a borda: um "1px solid" responsivo (media query) reescreveria a cor para a do texto.
-          sx={(t) => {
-            const filete = `1px solid ${t.palette.divider}`;
-            return {
-              px: 2.5,
-              py: 2,
-              borderLeft: indice === 0 ? 'none' : filete,
-              borderTop: { xs: indice > 1 ? filete : 'none', md: 'none' },
-              // No layout de duas colunas o filete da esquerda só vale na 2ª coluna.
-              '&:nth-of-type(odd)': { borderLeft: { xs: 'none', md: indice === 0 ? 'none' : filete } },
-            };
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
-            <Box
-              sx={{
-                width: 6,
-                height: 6,
-                borderRadius: '2px',
-                bgcolor: leitura.cor ?? 'text.disabled',
-              }}
-            />
-            <Typography component="span" sx={{ ...ETIQUETA, color: 'text.secondary' }}>
-              {leitura.rotulo}
-            </Typography>
-          </Box>
-          <Typography
-            sx={{
-              fontFamily: FONTE_DADOS,
-              fontSize: 30,
-              fontWeight: 600,
-              lineHeight: 1,
-              letterSpacing: '-0.03em',
-              color: 'text.primary',
+      {leituras.map((leitura, indice) => {
+        const celula = (
+          <Box
+            key={leitura.rotulo}
+            // Cor junto com a borda: um "1px solid" responsivo (media query) reescreveria a cor para a do texto.
+            sx={(t) => {
+              const filete = `1px solid ${t.palette.divider}`;
+              return {
+                px: 2.5,
+                py: 2,
+                borderLeft: indice === 0 ? 'none' : filete,
+                borderTop: { xs: indice > 1 ? filete : 'none', md: 'none' },
+                // No layout de duas colunas o filete da esquerda só vale na 2ª coluna.
+                '&:nth-of-type(odd)': { borderLeft: { xs: 'none', md: indice === 0 ? 'none' : filete } },
+              };
             }}
           >
-            {leitura.valor}
-          </Typography>
-          {leitura.detalhe && (
-            <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0.75 }}>
-              {leitura.detalhe}
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 0.75 }}>
+              <Box
+                sx={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '2px',
+                  bgcolor: leitura.cor ?? 'text.disabled',
+                }}
+              />
+              <Typography component="span" sx={{ ...ETIQUETA, color: 'text.secondary' }}>
+                {leitura.rotulo}
+              </Typography>
+            </Box>
+            <Typography
+              sx={{
+                fontFamily: FONTE_DADOS,
+                fontSize: 30,
+                fontWeight: 600,
+                lineHeight: 1,
+                letterSpacing: '-0.03em',
+                color: 'text.primary',
+              }}
+            >
+              {leitura.valor}
             </Typography>
-          )}
-        </Box>
-      ))}
+            {leitura.detalhe && (
+              <Typography variant="caption" sx={{ color: 'text.disabled', display: 'block', mt: 0.75 }}>
+                {leitura.detalhe}
+              </Typography>
+            )}
+          </Box>
+        );
+        return leitura.dica
+          ? <Tooltip key={leitura.rotulo} title={leitura.dica} placement="top">{celula}</Tooltip>
+          : celula;
+      })}
     </Card>
   );
 }
