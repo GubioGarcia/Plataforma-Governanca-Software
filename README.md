@@ -1,19 +1,12 @@
 # Plataforma de Governança de Projetos de Software
 
-## ⚠️ Versão MVP
-
-> **Esta é a versão MVP (Minimum Viable Product) da plataforma.**
-> O projeto está em desenvolvimento ativo e novas funcionalidades estão sendo implementadas continuamente. Alterações, melhorias e expansão de recursos ainda estão em andamento.
-
----
-
 ## Demonstração
 
-Para uma visão geral do uso básico da plataforma, assista ao vídeo de demonstração disponível no repositório:
+Para uma visão geral do uso da plataforma, assista ao vídeo de demonstração:
 
-📽️ **[`Demonstracao_MVP.mp4`](https://drive.google.com/file/d/1BQ_yIf2ELcNVmNYs-FyHYtrlvP3erlQy/view?usp=drive_link)**
+📽️ **[Vídeo de demonstração](https://drive.google.com/file/d/1BQ_yIf2ELcNVmNYs-FyHYtrlvP3erlQy/view?usp=drive_link)**
 
-O vídeo apresenta um uso básico das principais funcionalidades disponíveis nesta versão MVP.
+O vídeo apresenta as principais funcionalidades da plataforma.
 
 ---
 
@@ -35,7 +28,7 @@ Principais funcionalidades:
 - **Modelagem de dados** do projeto (entidades, atributos, PK/FK e diagrama ER) ligada aos requisitos
 - **Eventos**, **arquivos**, **auditoria** de alterações e **analytics** de engajamento
 - **Exportação em CSV** da modelagem de dados e da matriz de rastreabilidade
-- **Pesquisa do TCC**: questionário antes e depois do uso, respondido por Donos e Gestores, com painel e CSV anonimizado na área administrativa. Ao gravar o "antes", o servidor marca se o participante já tinha interações na plataforma (coluna `usou_plataforma_antes` do CSV: `sim`, `nao` ou vazio); o painel mostra quantos responderam o "antes" após uso e pode desconsiderá-los nas estatísticas (o CSV traz sempre todos)
+- **Pesquisa de avaliação**: questionário antes e depois do uso, respondido por Donos e Gestores, com painel e CSV anonimizado na área administrativa. Ao gravar o "antes", o servidor marca se o participante já tinha interações na plataforma (coluna `usou_plataforma_antes` do CSV: `sim`, `nao` ou vazio); o painel mostra quantos responderam o "antes" após uso e pode desconsiderá-los nas estatísticas (o CSV traz sempre todos)
 
 ---
 
@@ -181,7 +174,7 @@ http://localhost
 
 Ao subir, a plataforma tem **só os dados necessários para funcionar**: o Flyway (`backend/.../db/migration`) cria o schema e os dados de referência (status de projeto, status de requisito e prioridades). Não há usuários, organizações nem projetos.
 
-O projeto de demonstração (o próprio TCC: organização Fatesg, projeto com 27 requisitos, rastreabilidade, modelagem de dados, eventos e solicitações — `scripts/seed_tcc_projeto_demo.sql`) é carregado à parte, quando se quer:
+O projeto de demonstração (uma organização de exemplo com um projeto de 27 requisitos, rastreabilidade, modelagem de dados, eventos e solicitações — `scripts/seed_tcc_projeto_demo.sql`) é carregado à parte, quando se quer:
 
 | Script | O que faz |
 |---|---|
@@ -199,7 +192,7 @@ Contas da demo (e-mails fictícios, os mesmos do ambiente hospedado):
 | thiago@email.com | Gestor da organização |
 | plinio@email.com | Stakeholder Técnico + Cliente do projeto |
 
-**Senhas não ficam no repositório.** A das contas da demo é definida na carga (variável `DEV_SENHA_DEMO` ou digitada no terminal; `{nome}` vira o primeiro nome da pessoa, sem acento) e a do Admin da Plataforma é digitada no terminal pelo `criar_admin.py`. As do ambiente hospedado são repassadas à banca fora do repositório. Nenhuma conta da demo é Admin da Plataforma.
+**Senhas não ficam no repositório.** A das contas da demo é definida na carga (variável `DEV_SENHA_DEMO` ou digitada no terminal; `{nome}` vira o primeiro nome da pessoa, sem acento) e a do Admin da Plataforma é digitada no terminal pelo `criar_admin.py`. As do ambiente hospedado são repassadas fora do repositório. Nenhuma conta da demo é Admin da Plataforma.
 
 ---
 
@@ -216,7 +209,7 @@ Como publicar, a configuração de produção e a operação estão em [`infrast
 | O quê | Como executar | Cobertura |
 |---|---|---|
 | Backend (unitários e integração) | `./mvnw clean test` em `backend/plataforma-governanca-software` | 284 testes: regras de negócio e de acesso (H2, Keycloak simulado) |
-| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 232 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa, status de sistema e pesquisa do TCC |
+| API ponta a ponta | `py scripts/e2e/e2e_autorizacao.py` | 232 verificações contra o ambiente Docker: sessão, grupos, papéis em cada módulo, convites, solicitações, exportação, área administrativa, status de sistema e pesquisa de avaliação |
 | Interface ponta a ponta | `npm run test:e2e` em `frontend` | 70 testes em navegador real (Playwright): o que cada papel vê e faz nas telas, incluindo a pesquisa (roda depois dos demais, porque abre a coleta) |
 
 Os testes ponta a ponta criam usuários e organizações descartáveis e apagam tudo no fim — não interferem nos dados de demonstração.
