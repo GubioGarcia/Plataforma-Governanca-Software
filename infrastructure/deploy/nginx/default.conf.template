@@ -65,6 +65,12 @@ server {
     proxy_pass http://backend:8081;
   }
 
+  # Envios da pesquisa: mesmo limite do login (a regex vence o prefixo /api/).
+  location ~ ^/api/pesquisa/(antes|depois)$ {
+    limit_req zone=auth burst=10 nodelay;
+    proxy_pass http://backend:8081;
+  }
+
   location /api/ {
     limit_req zone=api burst=60 nodelay;
     proxy_pass http://backend:8081;

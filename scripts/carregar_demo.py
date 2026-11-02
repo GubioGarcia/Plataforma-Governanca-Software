@@ -7,6 +7,9 @@ do projeto. Nenhuma conta da demo é Admin da Plataforma.
 Se a organização ou o projeto da demo ainda não têm grupo no Keycloak, o backend
 é reiniciado uma vez (a migração de grupos roda na inicialização).
 
+Não toca nas tabelas da pesquisa (pesquisa_*): respostas e configuração da coleta
+ficam como estão.
+
 Uso:
     local:  py scripts/carregar_demo.py
     na VM:  bash ~/plataforma/carregar_demo.sh

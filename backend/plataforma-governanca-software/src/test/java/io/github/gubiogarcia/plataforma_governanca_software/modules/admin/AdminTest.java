@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
@@ -37,6 +38,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -123,6 +125,15 @@ class AdminTest {
         for (String rota : ROTAS) {
             mockMvc.perform(comoAdmin(get(rota))).andExpect(status().isOk());
         }
+    }
+
+    @Test
+    void contaDeAdmin_eExclusiva_naoCriaOrganizacaoNemAceitaConvite() throws Exception {
+        mockMvc.perform(comoAdmin(post("/api/organizacao")).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"nome\":\"Org do Admin\",\"descricao\":\"x\",\"plano\":\"FREE\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(comoAdmin(post("/api/convites/" + UUID.randomUUID() + "/aceitar")))
+                .andExpect(status().isForbidden());
     }
 
     @Test

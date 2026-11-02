@@ -13,13 +13,14 @@ const SECOES: { titulo: string; paragrafos: string[] }[] = [
       'Nome e e-mail, informados no cadastro, e a senha, guardada apenas pelo servidor de autenticação, protegida por hash (nem a plataforma consegue lê-la).',
       'O conteúdo que você registra nos projetos: visão do produto, requisitos, comentários, solicitações, eventos, arquivos e modelagem de dados.',
       'O histórico das suas ações nos projetos (auditoria e interações), usado nos indicadores de participação.',
+      'Se você aceitar participar, as respostas ao questionário da pesquisa e a caracterização que você informar nele (função, tempo de experiência e ferramentas que você usa).',
     ],
   },
   {
     titulo: 'Para que usamos',
     paragrafos: [
       'Para o funcionamento da plataforma: identificar você, controlar o acesso por organização e projeto e manter o histórico das decisões.',
-      'Para a pesquisa acadêmica do Trabalho de Conclusão de Curso que originou a plataforma, sempre de forma agregada. Se houver questionário de pesquisa, ele será opcional e pedirá o seu consentimento.',
+      'Para a pesquisa acadêmica do Trabalho de Conclusão de Curso que originou a plataforma, sempre de forma agregada. O questionário da pesquisa é opcional e só é aplicado com o seu consentimento.',
       'Não vendemos nem compartilhamos dados com terceiros, e a plataforma não usa rastreadores nem ferramentas de analytics externas.',
     ],
   },
@@ -27,7 +28,8 @@ const SECOES: { titulo: string; paragrafos: string[] }[] = [
     titulo: 'Quem tem acesso',
     paragrafos: [
       'O conteúdo de um projeto só é visto pelas pessoas convidadas para a organização ou para o projeto, conforme o papel de cada uma.',
-      'O administrador da plataforma vê apenas a lista de contas (nome e e-mail) e contagens gerais. Ele não tem acesso ao conteúdo dos projetos.',
+      'O administrador da plataforma vê a lista de contas (nome e e-mail) e contagens gerais. Ele não tem acesso ao conteúdo dos projetos.',
+      'Ele também vê as respostas do questionário da pesquisa, associadas apenas a um código (como P-001), sem nome nem e-mail. Você pode retirar as suas respostas a qualquer momento em Meu Perfil.',
     ],
   },
   {

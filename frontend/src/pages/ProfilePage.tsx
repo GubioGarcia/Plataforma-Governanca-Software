@@ -27,6 +27,7 @@ import { useSnackbar } from '../context/SnackbarContext';
 import { atualizarMeuPerfil, isApiError } from '../services/userService';
 import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../types/acesso';
 import { PADDING_PAGINA } from '../theme/responsivo';
+import SecaoPesquisaPerfil from '../features/pesquisa/SecaoPesquisaPerfil';
 
 
 export default function ProfilePage() {
@@ -59,7 +60,7 @@ export default function ProfilePage() {
   // Aberto direto pela URL (sem histórico no app), vai para as organizações.
   const handleVoltar = () => {
     if ((window.history.state?.idx ?? 0) > 0) navigate(-1);
-    else navigate('/organizations');
+    else navigate(user?.adminPlataforma ? '/admin' : '/organizations');
   };
 
   const handleCancel = () => {
@@ -192,75 +193,79 @@ export default function ProfilePage() {
           </CardContent>
         </Card>
 
-        {/* Stats + Activity */}
-        <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
-          {/* Activity stats */}
-          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-            {[
-              { icon: <BusinessIcon />, label: 'Organizações', value: organizacoes.length, color: '#3F51B5', bg: '#EEF2FF' },
-              { icon: <FolderOpenIcon />, label: 'Projetos', value: totalProjetos, color: '#16A34A', bg: '#DCFCE7' },
-              { icon: <HistoryIcon />, label: 'Acesso global', value: user?.adminPlataforma ? 'Admin' : '—', color: roleCfg.color, bg: roleCfg.bg },
-            ].map((stat) => (
-              <Card key={stat.label} sx={{ flex: '1 1 140px' }}>
-                <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color, '& svg': { fontSize: 18 } }}>
-                      {stat.icon}
+        {/* Stats + Activity: a conta de admin não participa de organizações nem da pesquisa */}
+        {!user?.adminPlataforma && (
+          <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            {/* Activity stats */}
+            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+              {[
+                { icon: <BusinessIcon />, label: 'Organizações', value: organizacoes.length, color: '#3F51B5', bg: '#EEF2FF' },
+                { icon: <FolderOpenIcon />, label: 'Projetos', value: totalProjetos, color: '#16A34A', bg: '#DCFCE7' },
+                { icon: <HistoryIcon />, label: 'Acesso global', value: user?.adminPlataforma ? 'Admin' : '—', color: roleCfg.color, bg: roleCfg.bg },
+              ].map((stat) => (
+                <Card key={stat.label} sx={{ flex: '1 1 140px' }}>
+                  <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                      <Box sx={{ width: 32, height: 32, borderRadius: '8px', bgcolor: stat.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', color: stat.color, '& svg': { fontSize: 18 } }}>
+                        {stat.icon}
+                      </Box>
+                      <Typography variant="caption" sx={{ color: 'text.secondary' }}>{stat.label}</Typography>
                     </Box>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>{stat.label}</Typography>
-                  </Box>
-                  <Typography sx={{ fontSize: '22px', fontWeight: 700, color: stat.color, lineHeight: 1 }}>{stat.value}</Typography>
-                </CardContent>
-              </Card>
-            ))}
-          </Box>
-
-          {/* Onde você atua */}
-          <Card>
-            <CardContent sx={{ p: 3 }}>
-              <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Onde você atua</Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                Seus papéis em cada organização e projeto
-              </Typography>
-              {organizacoes.length === 0 && (
-                <Typography variant="body2" color="text.secondary">
-                  Você ainda não participa de nenhuma organização. Crie uma ou aceite um convite.
-                </Typography>
-              )}
-              {organizacoes.map((o, idx) => (
-                <Box key={o.id}>
-                  <Box sx={{ py: 1.5 }}>
-                    <Box
-                      sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75, cursor: 'pointer' }}
-                      onClick={() => navigate(`/organizations/${o.id}/projects`)}
-                    >
-                      <BusinessIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-                      <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.nome}</Typography>
-                      <Chip size="small" label={o.papel ? PAPEL_ORGANIZACAO_LABEL[o.papel] : 'Convidado em projetos'}
-                        sx={{ height: 20, fontSize: 11 }} />
-                    </Box>
-                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 3.5 }}>
-                      {o.projetos.map((p) => (
-                        <Box
-                          key={p.id}
-                          sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', '&:hover .nome': { color: 'primary.main' } }}
-                          onClick={() => navigate(`/organizations/${o.id}/projects/${p.id}`)}
-                        >
-                          <FolderOpenIcon sx={{ fontSize: 15, color: 'text.disabled' }} />
-                          <Typography className="nome" variant="caption" sx={{ flex: 1, minWidth: 0 }} noWrap>{p.nome}</Typography>
-                          <Typography variant="caption" color="text.secondary" noWrap>
-                            {p.papeis.map((x) => PAPEL_PROJETO_LABEL[x]).join(' + ')}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
-                  </Box>
-                  {idx < organizacoes.length - 1 && <Divider />}
-                </Box>
+                    <Typography sx={{ fontSize: '22px', fontWeight: 700, color: stat.color, lineHeight: 1 }}>{stat.value}</Typography>
+                  </CardContent>
+                </Card>
               ))}
-            </CardContent>
-          </Card>
-        </Box>
+            </Box>
+
+            {/* Onde você atua */}
+            <Card>
+              <CardContent sx={{ p: 3 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 0.5 }}>Onde você atua</Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                  Seus papéis em cada organização e projeto
+                </Typography>
+                {organizacoes.length === 0 && (
+                  <Typography variant="body2" color="text.secondary">
+                    Você ainda não participa de nenhuma organização. Crie uma ou aceite um convite.
+                  </Typography>
+                )}
+                {organizacoes.map((o, idx) => (
+                  <Box key={o.id}>
+                    <Box sx={{ py: 1.5 }}>
+                      <Box
+                        sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.75, cursor: 'pointer' }}
+                        onClick={() => navigate(`/organizations/${o.id}/projects`)}
+                      >
+                        <BusinessIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{o.nome}</Typography>
+                        <Chip size="small" label={o.papel ? PAPEL_ORGANIZACAO_LABEL[o.papel] : 'Convidado em projetos'}
+                          sx={{ height: 20, fontSize: 11 }} />
+                      </Box>
+                      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, pl: 3.5 }}>
+                        {o.projetos.map((p) => (
+                          <Box
+                            key={p.id}
+                            sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer', '&:hover .nome': { color: 'primary.main' } }}
+                            onClick={() => navigate(`/organizations/${o.id}/projects/${p.id}`)}
+                          >
+                            <FolderOpenIcon sx={{ fontSize: 15, color: 'text.disabled' }} />
+                            <Typography className="nome" variant="caption" sx={{ flex: 1, minWidth: 0 }} noWrap>{p.nome}</Typography>
+                            <Typography variant="caption" color="text.secondary" noWrap>
+                              {p.papeis.map((x) => PAPEL_PROJETO_LABEL[x]).join(' + ')}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Box>
+                    </Box>
+                    {idx < organizacoes.length - 1 && <Divider />}
+                  </Box>
+                ))}
+              </CardContent>
+            </Card>
+
+            <SecaoPesquisaPerfil />
+          </Box>
+        )}
       </Box>
     </Box>
   );

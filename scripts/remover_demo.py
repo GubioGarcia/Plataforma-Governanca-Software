@@ -8,6 +8,10 @@ Remove o projeto de demonstração do TCC sem tocar no resto da plataforma:
      da demo (por exemplo, criou outra organização), fica inativa em vez de apagada;
   4. os arquivos enviados aos projetos da demo.
 
+Não toca nas tabelas da pesquisa (pesquisa_*). Uma conta da demo que tenha
+participação na pesquisa é referenciada fora da demo e, pela regra do passo 3,
+fica inativa: as respostas dela continuam valendo.
+
 Uso (exige --confirmar):
     local:  py scripts/remover_demo.py --confirmar
     na VM:  bash ~/plataforma/remover_demo.sh --confirmar
