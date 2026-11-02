@@ -27,6 +27,7 @@ import { useSnackbar } from '../context/SnackbarContext';
 import { atualizarMeuPerfil, isApiError } from '../services/userService';
 import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../types/acesso';
 import { PADDING_PAGINA } from '../theme/responsivo';
+import SecaoPesquisaPerfil from '../features/pesquisa/SecaoPesquisaPerfil';
 
 
 export default function ProfilePage() {
@@ -260,6 +261,8 @@ export default function ProfilePage() {
               ))}
             </CardContent>
           </Card>
+
+          <SecaoPesquisaPerfil />
         </Box>
       </Box>
     </Box>

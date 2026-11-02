@@ -30,6 +30,18 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } } },
+    {
+      name: 'chromium',
+      testIgnore: /pesquisa\.spec\.ts/,
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } },
+    },
+    // A pesquisa abre a coleta no banco compartilhado: roda depois dos demais, para o
+    // modal do questionário não aparecer para as contas criadas por eles.
+    {
+      name: 'pesquisa',
+      testMatch: /pesquisa\.spec\.ts/,
+      dependencies: ['chromium'],
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } },
+    },
   ],
 });

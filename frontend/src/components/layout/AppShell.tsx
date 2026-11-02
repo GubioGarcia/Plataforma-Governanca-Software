@@ -34,8 +34,19 @@ import { useThemeMode } from '../../context/ThemeContext';
 import { usePendencias } from '../../hooks/usePendencias';
 import { TIPO_SOLICITACAO_LABEL } from '../../services/acessoService';
 import { PAPEL_ORGANIZACAO_LABEL, PAPEL_PROJETO_LABEL } from '../../types/acesso';
+import PesquisaProvider from '../../features/pesquisa/PesquisaContext';
+import BotaoPesquisa, { ItemMenuPesquisa } from '../../features/pesquisa/BotaoPesquisa';
 
+/** A pesquisa do TCC (modal, botão e perfil) vale para todas as telas do shell. */
 export default function AppShell() {
+  return (
+    <PesquisaProvider>
+      <Shell />
+    </PesquisaProvider>
+  );
+}
+
+function Shell() {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { isGestor, projetoAtual, organizacaoAtual, adminPlataforma } = usePermissions();
@@ -122,6 +133,9 @@ export default function AppShell() {
 
           <Box sx={{ flexGrow: 1 }} />
 
+          {/* Pesquisa do TCC: segunda etapa (some fora dela) */}
+          <BotaoPesquisa />
+
           {/* Dark / Light toggle */}
           <Tooltip title={mode === 'dark' ? 'Modo claro' : 'Modo escuro'}>
             <IconButton size="small" onClick={toggleMode} sx={{ mr: 0.5 }}>
@@ -196,6 +210,7 @@ export default function AppShell() {
               <ListItemIcon><PersonIcon fontSize="small" /></ListItemIcon>
               Meu Perfil
             </MenuItem>
+            <ItemMenuPesquisa onFecharMenu={() => setAnchorEl(null)} />
             {adminPlataforma && (
               <MenuItem onClick={() => { setAnchorEl(null); navigate('/admin'); }} sx={{ fontSize: '13px' }}>
                 <ListItemIcon><AdminPanelSettingsOutlinedIcon fontSize="small" /></ListItemIcon>
