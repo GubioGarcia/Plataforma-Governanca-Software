@@ -1,0 +1,663 @@
+MER V4 — Plataforma de Governança de Software
+=========================================================================
+Gerado a partir do schema real em 2026-11-19. Desde 2026-11-01 o schema é
+criado pelo Flyway (migrations V1–V6 em backend/.../resources/db/migration)
+e o Hibernate só valida (ddl-auto=validate): as migrations são a fonte de
+verdade. Diagrama correspondente: DER_V5.drawio (imagem em DER_V5.png).
+
+Mudanças em relação ao V3:
+- STATUS_PROJETO e STATUS_REQUISITO: + sistema (migration V4) — os status
+  usados pelo nome nas regras de negócio não podem ser renomeados nem excluídos.
+- NOVO: PESQUISA_CONFIGURACAO, PESQUISA_PARTICIPACAO,
+  PESQUISA_PARTICIPACAO_FERRAMENTA e PESQUISA_RESPOSTA (migration V5) —
+  questionário antes/depois do uso da plataforma, para o TCC.
+- PESQUISA_PARTICIPACAO: + usou_plataforma_antes (migration V6).
+- AUDITORIA: registros administrativos (organizacao_id e projeto_id nulos)
+  para inativação de contas e alterações de status/prioridade pelo Admin.
+- Constraints que antes só existiam nos scripts de referência agora estão no
+  banco (Flyway): ON DELETE CASCADE em atributo_entidade e criterio_aceite,
+  FK em organizacao.criado_por, UNIQUE em nome/ordem dos status, CHECK nos
+  enums de evento/convite/solicitacao e CHECK de não reflexivo em
+  vinculo_requisito e relacionamento_entidade.
+- Admin da Plataforma passa a ser conta exclusiva (área /admin), sem acesso a
+  organizações e projetos.
+
+Histórico do V3 (2026-09-27): CONVITE e SOLICITACAO novos;
+tokens_revogados_antes_de; keycloak_group_id em organização/projeto;
+evento.status; UNIQUE (projeto_id, codigo) em requisito; FK estruturada em
+atributo_entidade/relacionamento_entidade; tabelas de papel/permissão
+removidas (papéis ficam em grupos do Keycloak).
+=========================================================================
+
+
+USUARIO
+---------
+id (UUID)
+external_identity_id (UUID, UNIQUE)       -- id do usuário no Keycloak
+nome
+email (UNIQUE)
+ativo
+tokens_revogados_antes_de (TIMESTAMP)     -- tokens emitidos até este instante são recusados
+data_criacao
+data_atualizacao
+url_midia_perfil
+------------
+tokens_revogados_antes_de é gravado sempre que os grupos do usuário mudam
+(entrou/saiu/foi promovido em organização ou projeto) ou a conta é inativada:
+o access token antigo deixa de valer e o front renova a sessão pelo refresh
+token, recebendo os papéis novos.
+
+
+ORGANIZACAO
+--------------
+id (UUID)
+nome
+descricao
+plano
+ativo
+criado_por (FK usuario)                   -- V4: FK física (antes só UUID)
+keycloak_group_id (UUID)                  -- grupo /org-{id} no Keycloak
+data_criacao
+data_atualizacao
+
+
+PROJETO
+-----------
+id (UUID)
+organizacao_id (FK)
+nome
+descricao
+status_id (FK status_projeto)
+ativo
+criado_por (FK usuario)
+keycloak_group_id (UUID)                  -- grupo /org-{id}/proj-{id} no Keycloak
+data_criacao
+data_atualizacao
+
+
+STATUS_PROJETO
+-----------
+id (UUID)
+nome (UNIQUE)
+descricao
+ordem (UNIQUE, > 0)
+sistema                                   -- NOVO V4: TRUE = não pode ser renomeado nem excluído
+------------
+Valores semeados (todos com sistema = TRUE):
+- RASCUNHO
+- EM_REVISAO
+- APROVADO
+- EM_ANDAMENTO
+- EM_TESTE
+- CONCLUIDO
+- REPROVADO
+- ARQUIVADO
+- CANCELADO
+
+
+VISAO_PRODUTO
+----------------
+id (UUID)
+projeto_id (FK, UNIQUE)                   -- uma visão por projeto
+descricao_problema
+publico_alvo
+objetivo_geral
+objetivos_especificos
+kpis
+restricoes_prazo
+restricoes_orcamento
+tecnologias_obrigatorias
+regulamentacoes
+data_criacao
+data_atualizacao
+
+
+REQUISITO
+------------
+id (UUID)
+projeto_id (FK)
+codigo                                    -- REQ-001, REQ-002... sequencial por projeto, imutável
+titulo
+descricao
+tipo_requisito (ENUM)
+status_id (FK)
+versao
+prioridade_id (FK)
+criado_por (FK usuario)
+aprovado_por (FK usuario)                 -- quem aprovou/reprovou (endpoint de aprovação)
+solicitado_por (FK usuario)
+ativo
+data_criacao
+data_solicitacao
+data_aprovacao
+data_atualizacao
+------------
+UNIQUE (projeto_id, codigo)
+------------
+APROVADO/REPROVADO só são atribuídos pela aprovação (Dono/Gestor do projeto);
+a edição comum do requisito recusa esses dois status.
+
+
+TIPO_REQUISITO
+----------------
+Valores:
+- FUNCIONAL
+- NAO_FUNCIONAL
+- REGRA_NEGOCIO
+- TECNICO
+
+
+STATUS_REQUISITO
+------------
+id (UUID)
+nome (UNIQUE)
+descricao
+ordem (UNIQUE, > 0)
+sistema                                   -- NOVO V4
+------------
+Valores semeados (todos com sistema = TRUE):
+- RASCUNHO
+- EM_REVISAO
+- APROVADO
+- REPROVADO
+- ARQUIVADO
+
+
+PRIORIDADE
+------------
+id (UUID)
+codigo (UNIQUE)
+nome
+descricao
+ordem (UNIQUE)
+ativo
+------------
+Valores:
+- BAIXA
+- MEDIA
+- ALTA
+- CRITICA
+------------
+STATUS_PROJETO, STATUS_REQUISITO e PRIORIDADE são dados de referência globais:
+só o Admin da Plataforma (grupo /_admin) cria, altera ou exclui, pela área
+/admin; cada alteração gera um registro administrativo em AUDITORIA.
+
+
+CRITERIO_ACEITE
+------------------
+id (UUID)
+nome
+descricao
+criado_por (FK usuario)
+data_criacao
+data_atualizacao
+requisito_id (FK, ON DELETE CASCADE)
+
+
+COMENTARIO
+------------
+id (UUID)
+usuario_id (FK)
+organizacao_id (FK)
+projeto_id (FK)
+entidade_tipo                             -- REQUISITO | WIKI_*
+entidade_id (UUID)
+conteudo
+editado
+ativo
+data_criacao
+data_atualizacao
+------------
+projeto_id/organizacao_id são derivados da entidade comentada no backend
+(nunca do que o cliente envia), para a permissão ser checada no projeto certo.
+
+
+AUDITORIA
+------------
+id (UUID)
+organizacao_id (FK)
+projeto_id (FK)
+entidade_tipo                             -- PROJETO, REQUISITO, EVENTO, ENTIDADE_DADOS, USUARIO...
+entidade_id (UUID)
+acao (ENUM)
+campo_alterado
+valor_anterior (TEXT)
+valor_novo (TEXT)
+usuario_id (FK)
+data_alteracao
+------------
+Somente leitura pela API (sem criação/edição/exclusão manual).
+V4: registros administrativos têm organizacao_id e projeto_id nulos
+(inativação de conta — entidade_tipo USUARIO — e alterações de status de
+projeto/requisito e prioridade) e só aparecem na área do Admin
+(/api/admin/auditoria).
+Alterações feitas via IMPACTO_DADOS podem gerar registro aqui
+(entidade_tipo = "ENTIDADE_DADOS"/"ATRIBUTO_ENTIDADE"), sem FK física nova.
+
+
+ACAO_AUDITORIA
+----------------
+Valores:
+- CRIACAO
+- EDICAO
+- EXCLUSAO
+
+
+EVENTO
+------------
+id (UUID)
+nome
+descricao
+projeto_id (FK)
+organizacao_id (FK)                       -- deve ser a organização do projeto
+criado_por (FK usuario)
+status (ENUM, CHECK)
+data_hora_inicio
+data_hora_fim
+data_criacao
+
+
+STATUS_EVENTO
+----------------
+Valores:
+- SOLICITADO   (pedido por stakeholder, aguardando o Dono/Gestor)
+- APROVADO     (criado pelo Dono/Gestor ou pedido atendido; nulo em dados antigos = APROVADO)
+- REJEITADO    (pedido recusado)
+
+
+INTERACAO
+------------
+id (UUID)
+usuario_id (FK)
+projeto_id (FK)
+modulo (ENUM)
+tipo (ENUM)
+entidade_id (UUID)
+descricao
+data_interacao
+------------
+Base dos indicadores (Stakeholders, Analytics, Visão geral). Toda criação de
+VINCULO_REQUISITO gera um registro (modulo = RASTREABILIDADE). Também é
+consultada pela pesquisa (PESQUISA_PARTICIPACAO.usou_plataforma_antes).
+
+
+MODULO_INTERACAO
+-------------------
+Valores:
+- WIKI
+- REQUISITO
+- COMENTARIO
+- EVENTO
+- ARQUIVO
+- MODELAGEM_DADOS
+- RASTREABILIDADE
+
+
+TIPO_INTERACAO
+----------------
+Valores:
+- CRIACAO
+- EDICAO
+- EXCLUSAO
+- APROVACAO
+- REPROVACAO
+- COMENTARIO
+- MUDANCA_STATUS
+
+
+ARQUIVO_PROJETO
+------------------
+id (UUID)
+projeto_id (FK)
+organization_id (FK organizacao)
+nome_original
+nome_arquivo
+caminho_arquivo
+extensao
+mime_type
+tamanho_bytes
+criado_por_usuario_id (FK usuario)
+data_upload
+ativo
+
+
+=========================================================================
+Rastreabilidade de requisitos e modelagem de dados (migration V3)
+Pontos 1B (matriz de rastreabilidade direta + indireta) e 2B (cadastro de
+entidades/atributos com diff antes/depois e diagrama ER), conforme
+Estudo_Evolucao_Rastreabilidade_ModelagemDados.md.
+=========================================================================
+
+
+VINCULO_REQUISITO
+--------------------
+id (UUID)
+requisito_origem_id (FK requisito)
+requisito_destino_id (FK requisito)
+tipo (ENUM)
+--------------------
+UNIQUE (requisito_origem_id, requisito_destino_id, tipo)
+CHECK (requisito_origem_id <> requisito_destino_id)
+------------
+Auto-relacionamento N:N em REQUISITO — camada de vínculo DIRETO da matriz de
+rastreabilidade, criado manualmente pelo usuário na tela do requisito.
+
+
+TIPO_VINCULO_REQUISITO
+--------------------------
+Valores:
+- DEPENDE_DE
+- IMPACTA
+- DUPLICA
+- CONFLITA
+
+
+ENTIDADE_DADOS
+------------------
+id (UUID)
+projeto_id (FK projeto)
+nome
+descricao
+criado_por (FK usuario)
+ativo
+data_criacao
+data_atualizacao
+------------
+UNIQUE (projeto_id, nome)
+------------
+Entidade/tabela de negócio do projeto sendo especificado (ex: "Cliente",
+"Pedido") — não confundir com as tabelas físicas desta plataforma.
+
+
+ATRIBUTO_ENTIDADE
+---------------------
+id (UUID)
+entidade_id (FK entidade_dados, ON DELETE CASCADE)
+nome
+tipo
+obrigatorio
+chaveprimaria                             -- no máximo um por entidade (regra do backend)
+chave_estrangeira
+entidade_referenciada_id (FK entidade_dados)  -- obrigatório quando chave_estrangeira
+ordem
+------------
+UNIQUE (entidade_id, nome)
+------------
+Marcar um atributo como chave_estrangeira cria/atualiza automaticamente o
+RELACIONAMENTO_ENTIDADE correspondente (atributo_fk_id).
+"chaveprimaria" sem underscore é o nome gerado pela naming strategy do Hibernate.
+
+
+RELACIONAMENTO_ENTIDADE
+----------------------------
+id (UUID)
+entidade_origem_id (FK entidade_dados)    -- lado "muitos" (detém a FK)
+entidade_destino_id (FK entidade_dados)   -- lado "um"
+tipo (ENUM)
+atributo_fk_id (FK atributo_entidade, UNIQUE)  -- atributo que materializa a FK
+------------
+CHECK (entidade_origem_id <> entidade_destino_id)
+Um relacionamento por atributo FK; removido junto quando o atributo deixa de ser FK.
+
+
+TIPO_RELACIONAMENTO_ENTIDADE
+-------------------------------
+Valores:
+- UM_PARA_UM
+- UM_PARA_MUITOS
+- MUITOS_PARA_MUITOS
+
+
+IMPACTO_DADOS
+-----------------
+id (UUID)
+requisito_id (FK requisito)
+entidade_id (FK entidade_dados)
+atributo_id (FK atributo_entidade)
+tipo_operacao (ENUM)
+valor_anterior
+valor_novo
+criado_por (FK usuario)
+data_criacao
+------------
+Liga um REQUISITO a uma ENTIDADE_DADOS/ATRIBUTO_ENTIDADE e guarda o diff
+antes/depois. Base do vínculo INDIRETO da matriz: dois requisitos com impacto
+na mesma entidade ficam relacionados pela consulta (não há tabela à parte).
+
+
+TIPO_OPERACAO_IMPACTO
+------------------------
+Valores:
+- CRIA_ENTIDADE
+- ALTERA_ENTIDADE
+- REMOVE_ENTIDADE
+- CRIA_ATRIBUTO
+- ALTERA_ATRIBUTO
+- REMOVE_ATRIBUTO
+
+
+=========================================================================
+Controle de autorização — convites e solicitações
+Ver autorizacao-organizacao-projeto.md (decisões D1–D16).
+=========================================================================
+
+
+CONVITE
+-----------
+id (UUID)
+email                                     -- de quem é convidado (pode ainda não ter conta)
+organizacao_id (FK organizacao)           -- sempre preenchido
+projeto_id (FK projeto)                   -- nulo = convite para a organização
+papel (ENUM, CHECK)
+status (ENUM, CHECK)
+convidado_por (FK usuario)
+data_criacao
+expira_em                                 -- validade de 7 dias
+data_resposta
+------------
+Convite para a organização: papel GESTOR ou MEMBRO.
+Convite para um projeto: papel GESTOR ou STAKEHOLDER (entra como técnico + cliente).
+Ao aceitar, o backend põe o usuário nos grupos do Keycloak e revoga os tokens dele.
+Não pode haver dois convites PENDENTES para o mesmo e-mail no mesmo lugar.
+A conta do Admin da Plataforma não pode aceitar convites.
+
+
+PAPEL_CONVITE
+----------------
+Valores:
+- GESTOR
+- MEMBRO
+- STAKEHOLDER
+
+
+STATUS_CONVITE
+-----------------
+Valores:
+- PENDENTE
+- ACEITO
+- RECUSADO
+- CANCELADO
+- EXPIRADO
+
+
+SOLICITACAO
+---------------
+id (UUID)
+projeto_id (FK projeto)
+tipo (ENUM, CHECK)
+alvo_id (UUID)                            -- requisito (tipos *_REQUISITO) ou evento (EVENTO); nulo nas exportações
+status (ENUM, CHECK)
+solicitante_id (FK usuario)
+justificativa
+respondido_por (FK usuario)
+resposta
+data_criacao
+data_resposta
+------------
+Pedido de um stakeholder ao Dono/Gestor do projeto (que têm SOLICITACAO_RESPONDER).
+Regras: alteração/reprovação só de requisito APROVADO; aprovação só de requisito não
+aprovado e só pelo Stakeholder Cliente; não pode haver pedido PENDENTE repetido.
+EVENTO cria um EVENTO com status SOLICITADO (alvo_id), que vira APROVADO/REJEITADO
+na resposta ou é apagado se o pedido for cancelado.
+EXPORT_* ATENDIDA libera o download do CSV para o solicitante.
+alvo_id não tem FK física porque aponta para tabelas diferentes conforme o tipo.
+
+
+TIPO_SOLICITACAO
+-------------------
+Valores:
+- APROVACAO_REQUISITO
+- ALTERACAO_REQUISITO
+- REPROVACAO_REQUISITO
+- EVENTO
+- EXPORT_MER
+- EXPORT_RASTREABILIDADE
+
+
+STATUS_SOLICITACAO
+---------------------
+Valores:
+- PENDENTE
+- ATENDIDA
+- RECUSADA
+- CANCELADA
+
+
+=========================================================================
+NOVO EM V4 — Pesquisa do TCC (migrations V5 e V6)
+Questionário antes e depois do uso da plataforma. Fica fora de INTERACAO e
+AUDITORIA: não infla os indicadores nem aparece na trilha de auditoria. Fora
+do banco o participante só aparece pelo código (P-001...). A coleta é aberta,
+encerrada e exportada pelo Admin da Plataforma na área /admin.
+=========================================================================
+
+
+PESQUISA_CONFIGURACAO
+-------------------------
+id (SMALLINT, sempre 1)                   -- linha única: estado da coleta
+coleta_aberta                             -- nasce FALSE
+intervalo_minimo_min                      -- 0..1440: tempo mínimo entre o "antes" e o "depois"
+aberta_em
+encerrada_em
+atualizado_por (FK usuario)
+atualizado_em
+
+
+PESQUISA_PARTICIPACAO
+-------------------------
+id (UUID)
+usuario_id (FK usuario, UNIQUE)           -- uma participação por usuário
+situacao (ENUM, CHECK)
+codigo (UNIQUE)                           -- P-001...; gerado pela sequência pesquisa_codigo_seq
+versao_instrumento                        -- versão do questionário (v1)
+consentimento_em
+funcao (ENUM, CHECK)
+tempo_experiencia (ENUM, CHECK)
+ferramenta_outro                          -- texto livre quando a ferramenta é OUTRA
+usou_plataforma_antes                     -- NOVO V6: já tinha interações ao responder o "antes"
+criado_em
+atualizado_em
+------------
+RETIRADA fica sem código e sem dados, só para o "antes" não ser oferecido de novo.
+usou_plataforma_antes é dado derivado (não é pergunta): o servidor consulta
+INTERACAO ao gravar o "antes"; nulo enquanto o "antes" não foi respondido e
+nas participações retiradas.
+
+
+SITUACAO_PARTICIPACAO
+-------------------------
+Valores:
+- PARTICIPANDO
+- RETIRADA
+
+
+FUNCAO_PARTICIPANTE
+-----------------------
+Valores:
+- GERENTE_PROJETOS
+- PRODUCT_OWNER
+- ANALISTA_REQUISITOS
+- DESENVOLVEDOR
+- CLIENTE_STAKEHOLDER
+- OUTRA
+
+
+TEMPO_EXPERIENCIA
+---------------------
+Valores (anos):
+- ATE_5
+- DE_6_A_10
+- DE_11_A_15
+- MAIS_DE_15
+
+
+PESQUISA_PARTICIPACAO_FERRAMENTA
+------------------------------------
+participacao_id (FK pesquisa_participacao, ON DELETE CASCADE)
+ferramenta (ENUM, CHECK)
+------------
+PK (participacao_id, ferramenta) — ferramentas usadas hoje (múltipla escolha).
+
+
+FERRAMENTA
+--------------
+Valores:
+- JIRA
+- CONFLUENCE
+- AZURE_DEVOPS
+- JAMA_CONNECT
+- IBM_DOORS
+- PRODUCTBOARD
+- PLANILHAS_DOCUMENTOS
+- EMAIL_MENSAGENS
+- OUTRA
+
+
+PESQUISA_RESPOSTA
+---------------------
+id (UUID)
+participacao_id (FK pesquisa_participacao, ON DELETE CASCADE)
+etapa (ENUM, CHECK)
+item1                                     -- itens 1 a 5: escala Likert 1..5
+item2
+item3
+item4
+item5
+resposta_aberta                           -- até 2000 caracteres
+respondida_em
+------------
+UNIQUE (participacao_id, etapa) — uma resposta por etapa, mesmo com envios simultâneos.
+
+
+ETAPA_PESQUISA
+------------------
+Valores:
+- ANTES
+- DEPOIS
+
+
+=========================================================================
+AUTORIZAÇÃO — FORA DO BANCO (Keycloak + backend)
+Não há tabelas de papel/permissão. O pertencimento fica em grupos do Keycloak
+(nomeados pelo UUID do registro) e chega ao backend no claim "groups" do
+token; a matriz papel → permissão é estática no backend
+(MatrizPermissoes.java), espelhada nas composites do realm-export.json.
+=========================================================================
+
+/_admin                                   -- Admin da Plataforma: conta exclusiva (área /admin:
+                                          -- contas, dados de referência, auditoria administrativa,
+                                          -- pesquisa); não cria organização nem aceita convite
+/org-{organizacao.id}                     -- keycloak_group_id da ORGANIZACAO
+    /_dono                                -- Dono (único)
+    /_gestores                            -- Gestor: gestor de todos os projetos da organização
+    /_membros                             -- Membro: Stakeholder Técnico em todos os projetos
+    /proj-{projeto.id}                    -- keycloak_group_id do PROJETO
+        /_dono                            -- Dono do projeto (criador)
+        /_gestores                        -- Gestor do projeto
+        /_stakeholders_tecnicos           -- Stakeholder Técnico
+        /_stakeholders_clientes           -- Stakeholder Cliente (convidado entra nos dois)
+
+Relação com o banco: ORGANIZACAO.keycloak_group_id e PROJETO.keycloak_group_id
+guardam o id do grupo; USUARIO.external_identity_id é o id do usuário no Keycloak.
+Não há FK física entre banco e Keycloak — a consistência é mantida pelo backend
+(GruposAcessoService).
