@@ -11,8 +11,8 @@ Documentação de referência do TCC e do artigo, reunida para validar o projeto
 | | [Matriz_Risco.xlsx](03_matrizes/Matriz_Risco.xlsx) | Registro de 16 riscos com avaliação inicial (abr/2026), reavaliação (nov/2026), evidências e respostas; matrizes de probabilidade × impacto | 2.0, 22/11/2026 |
 | `04_estado-da-arte` | [Protocolo_de_Busca.md](04_estado-da-arte/Protocolo_de_Busca.md) | Protocolo, strings, aplicação por base, critérios e fluxo de seleção | 22/11/2026 |
 | | [Estado_da_Arte_Busca_e_Artigos.xlsx](04_estado-da-arte/Estado_da_Arte_Busca_e_Artigos.xlsx) | Consultas, fluxo de seleção, trabalhos da versão atual e da inicial com acesso (DOI/link), classificação C1–C6 com X, Y e D, ferramentas de mercado, fontes de fundamentação e registros retornados (IEEE, ScienceDirect, ACM) | 22/11/2026 |
-| raiz | [DiagramaCasosDeUso.jpeg](DiagramaCasosDeUso.jpeg) / [DiagramaSequencia.jpeg](DiagramaSequencia.jpeg) | Diagramas UML de casos de uso e de sequência | — |
 | `05_avaliacao` | [Instrumento_de_Avaliacao.md](05_avaliacao/Instrumento_de_Avaliacao.md) | Termo de consentimento, itens das duas etapas, perguntas abertas e caracterização | v1 |
+| `06_diagramas-uml` | [Diagrama_de_Casos_de_Uso.jpeg](06_diagramas-uml/Diagrama_de_Casos_de_Uso.jpeg) / [Diagrama_de_Classes.jpeg](06_diagramas-uml/Diagrama_de_Classes.jpeg) | Diagramas UML de casos de uso e de classes | — |
 
 ## Versões anteriores
 
